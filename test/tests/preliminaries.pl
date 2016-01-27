@@ -36,14 +36,14 @@
         'subcategory' => 'server',
         'detail'   => 'usage info',
         'function' => \&generic_exec,
-        'cmdline'  => "$fwknopdCmd -h",
+        'cmdline'  => "$fwknopdCmd $srv_sdp_options -h",
     },
     {
         'category' => 'preliminaries',
         'subcategory' => 'server',
         'detail'   => 'getopt() no such argument',
         'function' => \&generic_exec,
-        'cmdline'  => "$fwknopdCmd --no-such-arg",
+        'cmdline'  => "$fwknopdCmd $srv_sdp_options --no-such-arg",
         'exec_err' => $YES,
     },
 
@@ -52,7 +52,7 @@
         'subcategory' => 'server',
         'detail'   => 'expected code version',
         'function' => \&expected_code_version,
-        'cmdline'  => "$fwknopdCmd -c $cf{'def'} -a " .
+        'cmdline'  => "$fwknopdCmd $srv_sdp_options -c $cf{'def'} -a " .
             "$cf{'def_access'} --version",
     },
     {

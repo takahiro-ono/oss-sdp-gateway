@@ -9,9 +9,9 @@
         'detail'   => 'command execution',
         'function' => \&spa_cmd_exec_cycle,
         'cmdline'  => qq|$fwknopCmd --server-cmd "touch $cmd_exec_test_file" | .
-            "-a $fake_ip -D $loopback_ip --rc-file $cf{'rc_hmac_b64_key'} ".
+            "$client_sdp_options -a $fake_ip -D $loopback_ip --rc-file $cf{'rc_hmac_b64_key'} ".
             "$verbose_str",
-        'fwknopd_cmdline'  => "$fwknopdCmd -c $cf{'def'} -a $cf{'hmac_cmd_access'} " .
+        'fwknopd_cmdline'  => "$fwknopdCmd $srv_sdp_options -c $cf{'def'} -a $cf{'hmac_cmd_access'} " .
             "-d $default_digest_file -p $default_pid_file $intf_str",
         'fw_rule_created' => $REQUIRE_NO_NEW_RULE,
     },
@@ -21,9 +21,9 @@
         'detail'   => 'command execution not allowed',
         'function' => \&spa_cycle,
         'cmdline'  => qq|$fwknopCmd --server-cmd "touch $cmd_exec_test_file" | .
-            "-a $fake_ip -D $loopback_ip --rc-file $cf{'rc_hmac_b64_key'} ".
+            "$client_sdp_options -a $fake_ip -D $loopback_ip --rc-file $cf{'rc_hmac_b64_key'} ".
             "$verbose_str",
-        'fwknopd_cmdline'  => "$fwknopdCmd -c $cf{'def'} -a $cf{'hmac_access'} " .
+        'fwknopd_cmdline'  => "$fwknopdCmd $srv_sdp_options -c $cf{'def'} -a $cf{'hmac_access'} " .
             "-d $default_digest_file -p $default_pid_file $intf_str",
         'fw_rule_created' => $REQUIRE_NO_NEW_RULE,
         'server_positive_output_matches' => [qr/Command messages are not allowed/]
@@ -34,9 +34,9 @@
         'detail'   => 'command execution invalid path',
         'function' => \&spa_cmd_exec_cycle,
         'cmdline'  => qq|$fwknopCmd --server-cmd "badpath $cmd_exec_test_file" | .
-            "-a $fake_ip -D $loopback_ip --rc-file $cf{'rc_hmac_b64_key'} ".
+            "$client_sdp_options -a $fake_ip -D $loopback_ip --rc-file $cf{'rc_hmac_b64_key'} ".
             "$verbose_str",
-        'fwknopd_cmdline'  => "$fwknopdCmd -c $cf{'def'} -a $cf{'hmac_cmd_access'} " .
+        'fwknopd_cmdline'  => "$fwknopdCmd $srv_sdp_options -c $cf{'def'} -a $cf{'hmac_cmd_access'} " .
             "-d $default_digest_file -p $default_pid_file $intf_str",
         'fw_rule_created' => $REQUIRE_NO_NEW_RULE,
         'cmd_exec_file_not_created' => $YES,
@@ -48,9 +48,9 @@
         'detail'   => 'command execution (args too long)',
         'function' => \&spa_cycle,
         'cmdline'  => qq|$fwknopCmd --server-cmd "ls -a -a -a -a -a -a -a -a -a -a -a -a -a -a -a -a -a -a -a -a -a -a -a -a -a -a -a -a -a -a -a" | .
-            "-a $fake_ip -D $loopback_ip --rc-file $cf{'rc_hmac_b64_key'} ".
+            "$client_sdp_options -a $fake_ip -D $loopback_ip --rc-file $cf{'rc_hmac_b64_key'} ".
             "$verbose_str",
-        'fwknopd_cmdline'  => "$fwknopdCmd -c $cf{'def'} -a $cf{'hmac_cmd_access'} " .
+        'fwknopd_cmdline'  => "$fwknopdCmd $srv_sdp_options -c $cf{'def'} -a $cf{'hmac_cmd_access'} " .
             "-d $default_digest_file -p $default_pid_file $intf_str",
         'fw_rule_created' => $REQUIRE_NO_NEW_RULE,
         'server_positive_output_matches' => [qr/max command line args exceeded/]
@@ -62,9 +62,9 @@
         'detail'   => 'command execution (UDP server)',
         'function' => \&spa_cmd_exec_cycle,
         'cmdline'  => qq|$fwknopCmd --server-cmd "touch $cmd_exec_test_file" | .
-            "-a $fake_ip -D $loopback_ip --rc-file $cf{'rc_hmac_b64_key'} ".
+            "$client_sdp_options -a $fake_ip -D $loopback_ip --rc-file $cf{'rc_hmac_b64_key'} ".
             "$verbose_str",
-        'fwknopd_cmdline'  => "$fwknopdCmd -c $cf{'def'} -a $cf{'hmac_cmd_access'} " .
+        'fwknopd_cmdline'  => "$fwknopdCmd $srv_sdp_options -c $cf{'def'} -a $cf{'hmac_cmd_access'} " .
             "-d $default_digest_file -p $default_pid_file $intf_str --udp-server",
         'fw_rule_created' => $REQUIRE_NO_NEW_RULE,
     },
@@ -74,9 +74,9 @@
         'detail'   => 'command exec UDP (args too long)',
         'function' => \&spa_cycle,
         'cmdline'  => qq|$fwknopCmd --server-cmd "ls -a -a -a -a -a -a -a -a -a -a -a -a -a -a -a -a -a -a -a -a -a -a -a -a -a -a -a -a -a -a -a" | .
-            "-a $fake_ip -D $loopback_ip --rc-file $cf{'rc_hmac_b64_key'} ".
+            "$client_sdp_options -a $fake_ip -D $loopback_ip --rc-file $cf{'rc_hmac_b64_key'} ".
             "$verbose_str",
-        'fwknopd_cmdline'  => "$fwknopdCmd -c $cf{'def'} -a $cf{'hmac_cmd_access'} " .
+        'fwknopd_cmdline'  => "$fwknopdCmd $srv_sdp_options -c $cf{'def'} -a $cf{'hmac_cmd_access'} " .
             "-d $default_digest_file -p $default_pid_file $intf_str --udp-server",
         'fw_rule_created' => $REQUIRE_NO_NEW_RULE,
         'server_positive_output_matches' => [qr/max command line args exceeded/]
@@ -88,10 +88,10 @@
         'detail'   => "command execution setuid 'nobody'",
         'function' => \&spa_cmd_exec_cycle,
         'cmdline'  => qq|$fwknopCmd --server-cmd "touch $cmd_exec_test_file" | .
-            "-a $fake_ip -D $loopback_ip --rc-file $cf{'rc_hmac_b64_key'} ".
+            "$client_sdp_options -a $fake_ip -D $loopback_ip --rc-file $cf{'rc_hmac_b64_key'} ".
             "$verbose_str",
         'cmd_exec_file_owner' => 'nobody',
-        'fwknopd_cmdline'  => "$fwknopdCmd -c $cf{'def'} -a $cf{'hmac_cmd_setuid_access'} " .
+        'fwknopd_cmdline'  => "$fwknopdCmd $srv_sdp_options -c $cf{'def'} -a $cf{'hmac_cmd_setuid_access'} " .
             "-d $default_digest_file -p $default_pid_file $intf_str",
         'fw_rule_created' => $REQUIRE_NO_NEW_RULE,
     },
@@ -101,10 +101,10 @@
         'detail'   => "command execution uid/gid 'nobody'",
         'function' => \&spa_cmd_exec_cycle,
         'cmdline'  => qq|$fwknopCmd --server-cmd "touch $cmd_exec_test_file" | .
-            "-a $fake_ip -D $loopback_ip --rc-file $cf{'rc_hmac_b64_key'} " .
+            "$client_sdp_options -a $fake_ip -D $loopback_ip --rc-file $cf{'rc_hmac_b64_key'} " .
             $verbose_str,
         'cmd_exec_file_owner' => 'nobody',
-        'fwknopd_cmdline'  => "$fwknopdCmd -c $cf{'def'} -a $cf{'hmac_cmd_giduid_access'} " .
+        'fwknopd_cmdline'  => "$fwknopdCmd $srv_sdp_options -c $cf{'def'} -a $cf{'hmac_cmd_giduid_access'} " .
             "-d $default_digest_file -p $default_pid_file $intf_str",
         'fw_rule_created' => $REQUIRE_NO_NEW_RULE,
     },
@@ -112,11 +112,12 @@
         'category' => 'Rijndael+HMAC',
         'subcategory' => 'client+server',
         'detail'   => "command exec sudo current user (1)",
+        'broken_flag' => 1,
         'function' => \&spa_cmd_exec_cycle,
         'cmdline'  => qq|$fwknopCmd --server-cmd "touch $cmd_exec_test_file" | .
-            "-a $fake_ip -D $loopback_ip --rc-file $cf{'rc_hmac_b64_key'} " .
+            "$client_sdp_options -a $fake_ip -D $loopback_ip --rc-file $cf{'rc_hmac_b64_key'} " .
             $verbose_str,
-        'fwknopd_cmdline'  => "$fwknopdCmd -c $cf{'def'} -a $sudo_access_conf " .
+        'fwknopd_cmdline'  => "$fwknopdCmd $srv_sdp_options -c $cf{'def'} -a $sudo_access_conf " .
             "-d $default_digest_file -p $default_pid_file $intf_str",
         'sudo_test' => $YES,
         'sudo_conf' => 'USER    localhost = NOPASSWD: /usr/bin/cat, TOUCH',
@@ -127,11 +128,12 @@
         'category' => 'Rijndael+HMAC',
         'subcategory' => 'client+server',
         'detail'   => "command exec sudo current user (2)",
+        'broken_flag' => 1,
         'function' => \&spa_cmd_exec_cycle,
         'cmdline'  => qq|$fwknopCmd --server-cmd "touch $cmd_exec_test_file" | .
-            "-a $fake_ip -D $loopback_ip --rc-file $cf{'rc_hmac_b64_key'} " .
+            "$client_sdp_options -a $fake_ip -D $loopback_ip --rc-file $cf{'rc_hmac_b64_key'} " .
             $verbose_str,
-        'fwknopd_cmdline'  => "$fwknopdCmd -c $cf{'def'} -a $sudo_access_conf " .
+        'fwknopd_cmdline'  => "$fwknopdCmd $srv_sdp_options -c $cf{'def'} -a $sudo_access_conf " .
             "-d $default_digest_file -p $default_pid_file $intf_str",
         'sudo_test' => $YES,
         'sudo_conf' => 'USER    localhost = NOPASSWD: /usr/bin/cat, (root) TOUCH',
@@ -143,12 +145,13 @@
         'category' => 'Rijndael+HMAC',
         'subcategory' => 'client+server',
         'detail'   => "command exec sudo current user (3)",
+        'broken_flag' => 1,
         'function' => \&spa_cmd_exec_cycle,
         'cmdline'  => qq|$fwknopCmd --server-cmd "touch $cmd_exec_test_file" | .
-            "-a $fake_ip -D $loopback_ip --rc-file $cf{'rc_hmac_b64_key'} " .
+            "$client_sdp_options -a $fake_ip -D $loopback_ip --rc-file $cf{'rc_hmac_b64_key'} " .
             $verbose_str,
         'cmd_exec_file_owner' => 'nobody',
-        'fwknopd_cmdline'  => "$fwknopdCmd -c $cf{'def'} -a $sudo_access_conf " .
+        'fwknopd_cmdline'  => "$fwknopdCmd $srv_sdp_options -c $cf{'def'} -a $sudo_access_conf " .
             "-d $default_digest_file -p $default_pid_file $intf_str",
         'sudo_test' => $YES,
         'exec_user' => $YES,
@@ -162,11 +165,12 @@
         'category' => 'Rijndael+HMAC',
         'subcategory' => 'client+server',
         'detail'   => "command exec sudo current user (4)",
+        'broken_flag' => 1,
         'function' => \&spa_cmd_exec_cycle,
         'cmdline'  => qq|$fwknopCmd --server-cmd "touch $cmd_exec_test_file" | .
-            "-a $fake_ip -D $loopback_ip --rc-file $cf{'rc_hmac_b64_key'} " .
+            "$client_sdp_options -a $fake_ip -D $loopback_ip --rc-file $cf{'rc_hmac_b64_key'} " .
             $verbose_str,
-        'fwknopd_cmdline'  => "$fwknopdCmd -c $cf{'def'} -a $sudo_access_conf " .
+        'fwknopd_cmdline'  => "$fwknopdCmd $srv_sdp_options -c $cf{'def'} -a $sudo_access_conf " .
             "-d $default_digest_file -p $default_pid_file $intf_str",
         'sudo_test' => $YES,
         'exec_user' => $YES,
@@ -179,11 +183,12 @@
         'category' => 'Rijndael+HMAC',
         'subcategory' => 'client+server',
         'detail'   => "command exec sudo current user (5)",
+        'broken_flag' => 1,
         'function' => \&spa_cmd_exec_cycle,
         'cmdline'  => qq|$fwknopCmd --server-cmd "touch $cmd_exec_test_file" | .
-            "-a $fake_ip -D $loopback_ip --rc-file $cf{'rc_hmac_b64_key'} " .
+            "$client_sdp_options -a $fake_ip -D $loopback_ip --rc-file $cf{'rc_hmac_b64_key'} " .
             $verbose_str,
-        'fwknopd_cmdline'  => "$fwknopdCmd -c $cf{'def'} -a $sudo_access_conf " .
+        'fwknopd_cmdline'  => "$fwknopdCmd $srv_sdp_options -c $cf{'def'} -a $sudo_access_conf " .
             "-d $default_digest_file -p $default_pid_file $intf_str",
         'sudo_test' => $YES,
         'exec_user' => $YES,
@@ -197,11 +202,12 @@
         'category' => 'Rijndael+HMAC',
         'subcategory' => 'client+server',
         'detail'   => "command exec sudo current user (6)",
+        'broken_flag' => 1,
         'function' => \&spa_cmd_exec_cycle,
         'cmdline'  => qq|$fwknopCmd --server-cmd "touch $cmd_exec_test_file" | .
-            "-a $fake_ip -D $loopback_ip --rc-file $cf{'rc_hmac_b64_key'} " .
+            "$client_sdp_options -a $fake_ip -D $loopback_ip --rc-file $cf{'rc_hmac_b64_key'} " .
             $verbose_str,
-        'fwknopd_cmdline'  => "$fwknopdCmd -c $cf{'def'} -a $sudo_access_conf " .
+        'fwknopd_cmdline'  => "$fwknopdCmd $srv_sdp_options -c $cf{'def'} -a $sudo_access_conf " .
             "-d $default_digest_file -p $default_pid_file $intf_str",
         'sudo_test' => $YES,
         'exec_user' => $YES,
@@ -215,11 +221,12 @@
         'category' => 'Rijndael+HMAC',
         'subcategory' => 'client+server',
         'detail'   => "command exec sudo current user (7)",
+        'broken_flag' => 1,
         'function' => \&spa_cmd_exec_cycle,
         'cmdline'  => qq|$fwknopCmd --server-cmd "touch $cmd_exec_test_file" | .
-            "-a $fake_ip -D $loopback_ip --rc-file $cf{'rc_hmac_b64_key'} " .
+            "$client_sdp_options -a $fake_ip -D $loopback_ip --rc-file $cf{'rc_hmac_b64_key'} " .
             $verbose_str,
-        'fwknopd_cmdline'  => "$fwknopdCmd -c $cf{'def'} -a $sudo_access_conf " .
+        'fwknopd_cmdline'  => "$fwknopdCmd $srv_sdp_options -c $cf{'def'} -a $sudo_access_conf " .
             "-d $default_digest_file -p $default_pid_file $intf_str",
         'sudo_test' => $YES,
         'exec_user' => $YES,
@@ -232,11 +239,12 @@
         'category' => 'Rijndael+HMAC',
         'subcategory' => 'client+server',
         'detail'   => "command exec sudo current user (8)",
+        'broken_flag' => 1,
         'function' => \&spa_cmd_exec_cycle,
         'cmdline'  => qq|$fwknopCmd --server-cmd "touch $cmd_exec_test_file" | .
-            "-a $fake_ip -D $loopback_ip --rc-file $cf{'rc_hmac_b64_key'} " .
+            "$client_sdp_options -a $fake_ip -D $loopback_ip --rc-file $cf{'rc_hmac_b64_key'} " .
             $verbose_str,
-        'fwknopd_cmdline'  => "$fwknopdCmd -c $cf{'def'} -a $sudo_access_conf " .
+        'fwknopd_cmdline'  => "$fwknopdCmd $srv_sdp_options -c $cf{'def'} -a $sudo_access_conf " .
             "-d $default_digest_file -p $default_pid_file $intf_str",
         'sudo_test' => $YES,
         'exec_user' => $YES,

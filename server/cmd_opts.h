@@ -134,7 +134,8 @@ static char *config_map[NUMBER_OF_CONFIG_ENTRIES] = {
 #if AFL_FUZZING
     "AFL_PKT_FILE",
 #endif
-    "FAULT_INJECTION_TAG"
+    "FAULT_INJECTION_TAG",
+	"DISABLE_SDP_MODE"
 };
 
 
@@ -161,6 +162,7 @@ enum {
     DUMP_SERVER_ERR_CODES,
     EXIT_AFTER_PARSE_CONFIG,
     FAULT_INJECTION_TAG,
+    DISABLE_SDP_MODE,
     NOOP /* Just to be a marker for the end */
 };
 
@@ -178,6 +180,7 @@ static struct option cmd_opts[] =
     {"config-file",          1, NULL, 'c'},
     {"packet-limit",         1, NULL, 'C'},
     {"digest-file",          1, NULL, 'd'},
+    {"disable-sdp",          0, NULL, DISABLE_SDP_MODE},
     {"dump-config",          0, NULL, 'D'},
     {"dump-serv-err-codes",  0, NULL, DUMP_SERVER_ERR_CODES },
     {"exit-parse-config",    0, NULL, EXIT_AFTER_PARSE_CONFIG },

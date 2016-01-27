@@ -174,6 +174,9 @@ fko_errstr(const int err_code)
         case FKO_ERROR_INVALID_DATA_ENCODE_MESSAGE_TOOBIG:
             return("Args contain invalid data: FKO_ERROR_INVALID_DATA_ENCODE_MESSAGE_TOOBIG");
 
+        case FKO_ERROR_INVALID_DATA_ENCODE_SDPCLIENTLEN_VALIDFAIL:
+        	return("Args contain invalid data: FKO_ERROR_INVALID_DATA_ENCODE_SDPCLIENTLEN_VALIDFAIL");
+
         case FKO_ERROR_INVALID_DATA_ENCODE_MSGLEN_VALIDFAIL:
             return("Args contain invalid data: FKO_ERROR_INVALID_DATA_ENCODE_MSGLEN_VALIDFAIL");
 

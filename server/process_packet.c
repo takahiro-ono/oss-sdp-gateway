@@ -84,6 +84,10 @@ process_packet(unsigned char *args, const struct pcap_pkthdr *packet_header,
     */
     unsigned char       assume_cooked = (offset == 16 ? 1 : 0);
 
+    char *preamble = "process_packet() :";
+    log_msg(LOG_DEBUG, "%s libpcap received possible SPA and called this function",
+    		preamble);
+
     /* Determine packet end.
     */
     fr_end = (unsigned char *) packet + packet_header->caplen;
@@ -96,6 +100,8 @@ process_packet(unsigned char *args, const struct pcap_pkthdr *packet_header,
     */
     if (packet_header->caplen < ETHER_HDR_LEN)
         return;
+
+    log_msg(LOG_DEBUG, "%s passed ethernet header length check", preamble);
 
     eth_type = ntohs(*((unsigned short*)&eth_p->ether_type));
 
@@ -123,6 +129,8 @@ process_packet(unsigned char *args, const struct pcap_pkthdr *packet_header,
     if (! ETHER_IS_VALID_LEN(pkt_len) )
         return;
 
+    log_msg(LOG_DEBUG, "%s passed 2nd ethernet length check", preamble);
+
     /* Pull the IP header.
     */
     iph_p = (struct iphdr*)(packet + offset);
@@ -131,6 +139,8 @@ process_packet(unsigned char *args, const struct pcap_pkthdr *packet_header,
     */
     if ((unsigned char*)(iph_p + 1) > fr_end)
         return;
+
+    log_msg(LOG_DEBUG, "%s passed 1st ip header check", preamble);
 
     /* ip_hdr_words is the number of 32 bit words in the IP header. After
      * masking of the IPV4 version bits, the number *must* be at least
@@ -141,6 +151,8 @@ process_packet(unsigned char *args, const struct pcap_pkthdr *packet_header,
     if (ip_hdr_words < MIN_IPV4_WORDS)
         return;
 
+    log_msg(LOG_DEBUG, "%s passed 2nd ip header check", preamble);
+
     /* Make sure to calculate the packet end based on the length in the
      * IP header. This allows additional bytes that may be added to the
      * frame (such as a 4-byte Ethernet Frame Check Sequence) to not
@@ -149,6 +161,8 @@ process_packet(unsigned char *args, const struct pcap_pkthdr *packet_header,
     pkt_end = ((unsigned char*)iph_p)+ntohs(iph_p->tot_len);
     if(pkt_end > fr_end)
         return;
+
+    log_msg(LOG_DEBUG, "%s passed 3rd ip pkt length check", preamble);
 
     /* Now, find the packet data payload (depending on IPPROTO).
     */
@@ -193,7 +207,10 @@ process_packet(unsigned char *args, const struct pcap_pkthdr *packet_header,
     }
 
     else
+    {
+        log_msg(LOG_DEBUG, "%s unknown IP protocol, bailing out", preamble);
         return;
+    }
 
     /*
      * Now we have data. For now, we are not checking IP or port values. We
@@ -209,10 +226,14 @@ process_packet(unsigned char *args, const struct pcap_pkthdr *packet_header,
     if(pkt_data_len < MIN_SPA_DATA_SIZE)
         return;
 
+    log_msg(LOG_DEBUG, "%s passed SPA min length check", preamble);
+
     /* Expect the data to not be too large
     */
     if(pkt_data_len > MAX_SPA_PACKET_LEN)
         return;
+
+    log_msg(LOG_DEBUG, "%s passed SPA max length check", preamble);
 
     /* Copy the packet for SPA processing
     */
@@ -223,7 +244,9 @@ process_packet(unsigned char *args, const struct pcap_pkthdr *packet_header,
     opts->spa_pkt.packet_dst_ip   = dst_ip;
     opts->spa_pkt.packet_src_port = src_port;
     opts->spa_pkt.packet_dst_port = dst_port;
+    opts->spa_pkt.sdp_client_id = 0;
 
+    log_msg(LOG_DEBUG, "%s calling incoming_spa()", preamble);
     incoming_spa(opts);
 
     return;

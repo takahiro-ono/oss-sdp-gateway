@@ -77,6 +77,7 @@ sub new {
     my $enc_mode  = shift;
     my $hmac_pw   = shift || '';
     my $hmac_type = shift;
+    my $sdp_client_id = shift;
     my $res;
 
     my $ctx;
@@ -87,7 +88,7 @@ sub new {
     if(defined($data) and $data) {
         if(defined($dc_pw) and $dc_pw) {
             $ctx = _init_ctx_with_data($data, $dc_pw, length($dc_pw),
-                        $enc_mode, $hmac_pw, length($hmac_pw), $hmac_type);
+                        $enc_mode, $hmac_pw, length($hmac_pw), $hmac_type, $sdp_client_id);
         } else {
             $ctx = _init_ctx_with_data_only($data);
         }

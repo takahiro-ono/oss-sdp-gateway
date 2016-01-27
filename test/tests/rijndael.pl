@@ -5,7 +5,7 @@
         'detail'   => 'complete cycle (tcp/22 ssh)',
         'function' => \&spa_cycle,
         'cmdline'  => $default_client_args,
-        'fwknopd_cmdline'  => "$fwknopdCmd $default_server_conf_args $intf_str",
+        'fwknopd_cmdline'  => "$fwknopdCmd $srv_sdp_options $default_server_conf_args $intf_str",
         'fw_rule_created' => $NEW_RULE_REQUIRED,
         'fw_rule_removed' => $NEW_RULE_REMOVED,
     },
@@ -15,7 +15,7 @@
         'detail'   => '3 cycles (tcp/22 ssh)',
         'function' => \&spa_cycle,
         'cmdline'  => $default_client_args,
-        'fwknopd_cmdline'  => "$fwknopdCmd $default_server_conf_args $intf_str",
+        'fwknopd_cmdline'  => "$fwknopdCmd $srv_sdp_options $default_server_conf_args $intf_str",
         'fw_rule_created' => $NEW_RULE_REQUIRED,
         'fw_rule_removed' => $NEW_RULE_REMOVED,
         'client_cycles_per_server_instance' => 3,
@@ -25,9 +25,9 @@
         'subcategory' => 'client+server',
         'detail'   => 'short IP 1.1.1.1 (ssh)',
         'function' => \&spa_cycle,
-        'cmdline'  => "$fwknopCmd -A tcp/22 -a 1.1.1.1 -D $loopback_ip --get-key " .
+        'cmdline'  => "$fwknopCmd $client_sdp_options -A tcp/22 -a 1.1.1.1 -D $loopback_ip --get-key " .
             "$local_key_file --no-save-args $verbose_str",
-        'fwknopd_cmdline'  => "$fwknopdCmd $default_server_conf_args $intf_str",
+        'fwknopd_cmdline'  => "$fwknopdCmd $srv_sdp_options $default_server_conf_args $intf_str",
         'fw_rule_created' => $NEW_RULE_REQUIRED,
         'fw_rule_removed' => $NEW_RULE_REMOVED,
         'no_ip_check' => 1
@@ -37,9 +37,9 @@
         'subcategory' => 'client+server',
         'detail'   => 'long IP 123.123.123.123 (ssh)',
         'function' => \&spa_cycle,
-        'cmdline'  => "$fwknopCmd -A tcp/22 -a 123.123.123.123 -D $loopback_ip --get-key " .
+        'cmdline'  => "$fwknopCmd $client_sdp_options -A tcp/22 -a 123.123.123.123 -D $loopback_ip --get-key " .
             "$local_key_file --no-save-args $verbose_str",
-        'fwknopd_cmdline'  => "$fwknopdCmd $default_server_conf_args $intf_str",
+        'fwknopd_cmdline'  => "$fwknopdCmd $srv_sdp_options $default_server_conf_args $intf_str",
         'fw_rule_created' => $NEW_RULE_REQUIRED,
         'fw_rule_removed' => $NEW_RULE_REMOVED,
         'no_ip_check' => 1
@@ -50,7 +50,7 @@
         'detail'   => 'complete cycle legacy truncated key',
         'function' => \&spa_cycle,
         'cmdline'  => "$default_client_args_long_key -M legacy",
-        'fwknopd_cmdline' => "$fwknopdCmd -c $cf{'def'} -a $cf{'legacy_iv_long_key_access'} " .
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options -c $cf{'def'} -a $cf{'legacy_iv_long_key_access'} " .
             "-d $default_digest_file -p $default_pid_file $intf_str",
         'fw_rule_created' => $NEW_RULE_REQUIRED,
         'fw_rule_removed' => $NEW_RULE_REMOVED,
@@ -63,7 +63,7 @@
         'function' => \&spa_cycle,
         'cmdline'  => "echo $local_spa_key | $default_client_args_no_get_key " .
             "--fd 0",
-        'fwknopd_cmdline' => "$fwknopdCmd $default_server_conf_args $intf_str",
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options $default_server_conf_args $intf_str",
         'fw_rule_created' => $NEW_RULE_REQUIRED,
         'fw_rule_removed' => $NEW_RULE_REMOVED,
     },
@@ -74,7 +74,7 @@
         'function' => \&spa_cycle,
         'cmdline'  => "echo $local_spa_key | $default_client_args_no_get_key " .
             "--stdin",
-        'fwknopd_cmdline' => "$fwknopdCmd $default_server_conf_args $intf_str",
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options $default_server_conf_args $intf_str",
         'fw_rule_created' => $NEW_RULE_REQUIRED,
         'fw_rule_removed' => $NEW_RULE_REMOVED,
     },
@@ -83,9 +83,9 @@
         'subcategory' => 'client+server',
         'detail'   => 'localhost hostname->IP (tcp/22 ssh)',
         'function' => \&spa_cycle,
-        'cmdline'  => "$fwknopCmd -A tcp/22 -a $fake_ip -D localhost --get-key " .
+        'cmdline'  => "$fwknopCmd $client_sdp_options -A tcp/22 -a $fake_ip -D localhost --get-key " .
             "$local_key_file --no-save-args $verbose_str",
-        'fwknopd_cmdline' => "$fwknopdCmd $default_server_conf_args $intf_str",
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options $default_server_conf_args $intf_str",
         'fw_rule_created' => $NEW_RULE_REQUIRED,
         'fw_rule_removed' => $NEW_RULE_REMOVED,
     },
@@ -95,7 +95,7 @@
         'detail'   => 'rotate digest file',
         'function' => \&rotate_digest_file,
         'cmdline'  => $default_client_args,
-        'fwknopd_cmdline' => "$fwknopdCmd $default_server_conf_args $intf_str --rotate-digest-cache",
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options $default_server_conf_args $intf_str --rotate-digest-cache",
         'fw_rule_created' => $NEW_RULE_REQUIRED,
         'fw_rule_removed' => $NEW_RULE_REMOVED,
     },
@@ -104,7 +104,7 @@
         'subcategory' => 'client',
         'detail'   => "--save-packet $tmp_pkt_file",
         'function' => \&client_save_spa_pkt,
-        'cmdline' => "$fwknopCmd -A tcp/22 -a $fake_ip -D $loopback_ip --get-key " .
+        'cmdline' => "$fwknopCmd $client_sdp_options -A tcp/22 -a $fake_ip -D $loopback_ip --get-key " .
             "$local_key_file --save-args-file $tmp_args_file $verbose_str " .
             "--save-packet $tmp_pkt_file",
     },
@@ -122,7 +122,7 @@
         'detail'   => 'permissions check cycle (tcp/22)',
         'function' => \&permissions_check,
         'cmdline'  => $default_client_args,
-        'fwknopd_cmdline' => "$fwknopdCmd $default_server_conf_args $intf_str",
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options $default_server_conf_args $intf_str",
         'server_positive_output_matches' => [qr/permissions\sshould\sonly\sbe\suser/],
         'fw_rule_created' => $NEW_RULE_REQUIRED,
         'fw_rule_removed' => $NEW_RULE_REMOVED,
@@ -145,7 +145,7 @@
         'function' => \&spa_cycle,
         'cmdline'  => $client_ip_resolve_args,
         'no_ip_check' => 1,
-        'fwknopd_cmdline' => "$fwknopdCmd $default_server_conf_args $intf_str",
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options $default_server_conf_args $intf_str",
         'fw_rule_created' => $NEW_RULE_REQUIRED,
         'fw_rule_removed' => $NEW_RULE_REMOVED,
     },
@@ -158,7 +158,7 @@
             "--resolve-url https://www.cipherdyne.org/cgi-bin/myip",
         'no_ip_check' => 1,
         'positive_output_matches' => [qr/wget/],
-        'fwknopd_cmdline' => "$fwknopdCmd $default_server_conf_args $intf_str",
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options $default_server_conf_args $intf_str",
         'fw_rule_created' => $NEW_RULE_REQUIRED,
         'fw_rule_removed' => $NEW_RULE_REMOVED,
     },
@@ -170,7 +170,7 @@
         'function' => \&spa_cycle,
         'cmdline'  => "$client_ip_resolve_args --resolve-http-only",
         'no_ip_check' => 1,
-        'fwknopd_cmdline' => "$fwknopdCmd $default_server_conf_args $intf_str",
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options $default_server_conf_args $intf_str",
         'fw_rule_created' => $NEW_RULE_REQUIRED,
         'fw_rule_removed' => $NEW_RULE_REMOVED,
     },
@@ -182,7 +182,7 @@
         'function' => \&spa_cycle,
         'cmdline'  => "$client_ip_resolve_args --resolve-url $resolve_url",
         'no_ip_check' => 1,
-        'fwknopd_cmdline' => "$fwknopdCmd $default_server_conf_args $intf_str",
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options $default_server_conf_args $intf_str",
         'fw_rule_created' => $NEW_RULE_REQUIRED,
         'fw_rule_removed' => $NEW_RULE_REMOVED,
     },
@@ -193,7 +193,7 @@
         'function' => \&spa_cycle,
         'cmdline'  => "$client_ip_resolve_args --resolve-url $resolve_url_with_port",
         'no_ip_check' => 1,
-        'fwknopd_cmdline' => "$fwknopdCmd $default_server_conf_args $intf_str",
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options $default_server_conf_args $intf_str",
         'fw_rule_created' => $NEW_RULE_REQUIRED,
         'fw_rule_removed' => $NEW_RULE_REMOVED,
     },
@@ -226,7 +226,7 @@
         'detail'   => 'complete cycle MD5 (tcp/22 ssh)',
         'function' => \&spa_cycle,
         'cmdline'  => "$default_client_args -m md5",
-        'fwknopd_cmdline' => "$fwknopdCmd $default_server_conf_args $intf_str",
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options $default_server_conf_args $intf_str",
         'fw_rule_created' => $NEW_RULE_REQUIRED,
         'fw_rule_removed' => $NEW_RULE_REMOVED,
     },
@@ -237,7 +237,7 @@
         'detail'   => 'complete cycle SHA1 (tcp/22 ssh)',
         'function' => \&spa_cycle,
         'cmdline'  => "$default_client_args -m sha1",
-        'fwknopd_cmdline' => "$fwknopdCmd $default_server_conf_args $intf_str",
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options $default_server_conf_args $intf_str",
         'fw_rule_created' => $NEW_RULE_REQUIRED,
         'fw_rule_removed' => $NEW_RULE_REMOVED,
     },
@@ -247,7 +247,7 @@
         'detail'   => 'complete cycle SHA256 (tcp/22 ssh)',
         'function' => \&spa_cycle,
         'cmdline'  => "$default_client_args -m sha256",
-        'fwknopd_cmdline' => "$fwknopdCmd $default_server_conf_args $intf_str",
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options $default_server_conf_args $intf_str",
         'fw_rule_created' => $NEW_RULE_REQUIRED,
         'fw_rule_removed' => $NEW_RULE_REMOVED,
     },
@@ -257,7 +257,7 @@
         'detail'   => 'complete cycle SHA384 (tcp/22 ssh)',
         'function' => \&spa_cycle,
         'cmdline'  => "$default_client_args -m sha384",
-        'fwknopd_cmdline' => "$fwknopdCmd $default_server_conf_args $intf_str",
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options $default_server_conf_args $intf_str",
         'fw_rule_created' => $NEW_RULE_REQUIRED,
         'fw_rule_removed' => $NEW_RULE_REMOVED,
     },
@@ -267,7 +267,7 @@
         'detail'   => 'complete cycle SHA512 (tcp/22 ssh)',
         'function' => \&spa_cycle,
         'cmdline'  => "$default_client_args -m sha512",
-        'fwknopd_cmdline' => "$fwknopdCmd $default_server_conf_args $intf_str",
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options $default_server_conf_args $intf_str",
         'fw_rule_created' => $NEW_RULE_REQUIRED,
         'fw_rule_removed' => $NEW_RULE_REMOVED,
     },
@@ -276,13 +276,14 @@
         'category' => 'Rijndael',
         'subcategory' => 'client->server compatibility',
         'detail'   => 'Cygwin Windows 2008',
+        'broken_flag' => 1,
         'function' => \&backwards_compatibility,
         'no_ip_check' => 1,
         'pkt' =>
             '8GuHEQbyE4TuEbP7zL2DVsTbQv8x3jp8mdHFM0v+9ZUfgZMjuZLBvAa8NnmUdAb' .
             '/OUvCP5PFDVbLDnZ+JYUFMGexGRwlk5CEKX8KA8R1Xh5xIdbVxWzy1lY1imRQD5' .
             'wpIBx/hGB4O2G3mdJSe3w5zxGjE2JNSFKCAZzvgDmfLQM9A+tjMKPk6x',
-        'fwknopd_cmdline' => "$fwknopdCmd -c $cf{'disable_aging'} -a $cf{'def_access'} " .
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options -c $cf{'disable_aging'} -a $cf{'def_access'} " .
             "-d $default_digest_file -p $default_pid_file $intf_str",
         'server_positive_output_matches' => [qr/with expire time/],
         'fw_rule_created' => $NEW_RULE_REQUIRED,
@@ -295,7 +296,7 @@
         'detail'   => "$FW_TYPE - no flush at init",
         'function' => \&iptables_no_flush_init_exit,
         'cmdline'  => $default_client_args,
-        'fwknopd_cmdline' => qq/$fwknopdCmd -c $cf{"${fw_conf_prefix}_no_flush_init"} -a $cf{'def_access'} / .
+        'fwknopd_cmdline' => qq/$fwknopdCmd $srv_sdp_options -c $cf{"${fw_conf_prefix}_no_flush_init"} -a $cf{'def_access'} / .
             "-d $default_digest_file -p $default_pid_file $intf_str",
         'server_positive_output_matches' => [
             qr/\'\schain exists/,
@@ -311,7 +312,7 @@
         'detail'   => "$FW_TYPE - no flush at exit",
         'function' => \&iptables_no_flush_init_exit,
         'cmdline'  => $default_client_args,
-        'fwknopd_cmdline' => qq/$fwknopdCmd -c $cf{"${fw_conf_prefix}_no_flush_exit"} -a $cf{'def_access'} / .
+        'fwknopd_cmdline' => qq/$fwknopdCmd $srv_sdp_options -c $cf{"${fw_conf_prefix}_no_flush_exit"} -a $cf{'def_access'} / .
             "-d $default_digest_file -p $default_pid_file $intf_str",
         'server_positive_output_matches' => [
             qr/\'\schain exists/,
@@ -326,9 +327,10 @@
         'category' => 'Rijndael',
         'subcategory' => 'client+server',
         'detail'   => "$FW_TYPE - no flush at init or exit",
+        'broken_flag' => 1,
         'function' => \&iptables_no_flush_init_exit,
         'cmdline'  => $default_client_args,
-        'fwknopd_cmdline' => qq/$fwknopdCmd -c $cf{"${fw_conf_prefix}_no_flush_init_or_exit"} -a $cf{'def_access'} / .
+        'fwknopd_cmdline' => qq/$fwknopdCmd $srv_sdp_options -c $cf{"${fw_conf_prefix}_no_flush_init_or_exit"} -a $cf{'def_access'} / .
             "-d $default_digest_file -p $default_pid_file $intf_str",
         'server_positive_output_matches' => [
             qr/\'\schain exists/,
@@ -355,9 +357,9 @@
         'subcategory' => 'client+server',
         'detail'   => 'dual usage access key (tcp/80 http)',
         'function' => \&spa_cycle,
-        'cmdline'  => "$fwknopCmd -A tcp/80 -a $fake_ip -D $loopback_ip --get-key " .
+        'cmdline'  => "$fwknopCmd $client_sdp_options -A tcp/80 -a $fake_ip -D $loopback_ip --get-key " .
             "$local_key_file $verbose_str",
-        'fwknopd_cmdline' => "$fwknopdCmd -c $cf{'def'} -a $cf{'dual_key_access'} " .
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options -c $cf{'def'} -a $cf{'dual_key_access'} " .
             "-d $default_digest_file -p $default_pid_file $intf_str",
         ### check for the first stanza that does not allow tcp/80 - the
         ### second stanza allows this
@@ -372,7 +374,7 @@
         'detail'   => 'create rc file (tcp/22 ssh)',
         'function' => \&spa_cycle,
         'cmdline'  => "$default_client_args --rc-file $tmp_rc_file",
-        'fwknopd_cmdline' => "$fwknopdCmd $default_server_conf_args $intf_str",
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options $default_server_conf_args $intf_str",
         'fw_rule_created' => $NEW_RULE_REQUIRED,
         'fw_rule_removed' => $NEW_RULE_REMOVED,
         'key_file' => $tmp_rc_file,
@@ -390,7 +392,7 @@
         'function' => \&spa_cycle,
         'cmdline'  => "$default_client_args_no_get_key " .
             "--rc-file $cf{'rc_def_key'}",
-        'fwknopd_cmdline' => "$fwknopdCmd $default_server_conf_args $intf_str",
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options $default_server_conf_args $intf_str",
         'fw_rule_created' => $NEW_RULE_REQUIRED,
         'fw_rule_removed' => $NEW_RULE_REMOVED,
         'key_file' => $cf{'rc_def_key'},
@@ -402,7 +404,7 @@
         'function' => \&spa_cycle,
         'cmdline'  => "$default_client_args_no_get_key " .
             "--rc-file $cf{'rc_def_b64_key'}",
-        'fwknopd_cmdline' => "$fwknopdCmd -c $cf{'def'} -a $cf{'base64_key_access'} " .
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options -c $cf{'def'} -a $cf{'base64_key_access'} " .
             "-d $default_digest_file -p $default_pid_file $intf_str",
         'fw_rule_created' => $NEW_RULE_REQUIRED,
         'fw_rule_removed' => $NEW_RULE_REMOVED,
@@ -415,7 +417,7 @@
         'function' => \&spa_cycle,
         'cmdline'  => "$default_client_args_no_get_key " .
             "--rc-file $cf{'rc_named_key'} -n testssh",
-        'fwknopd_cmdline' => "$fwknopdCmd $default_server_conf_args $intf_str",
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options $default_server_conf_args $intf_str",
         'fw_rule_created' => $NEW_RULE_REQUIRED,
         'fw_rule_removed' => $NEW_RULE_REMOVED,
         'key_file' => $cf{'rc_named_key'},
@@ -449,7 +451,7 @@
         'detail'   => 'packet aging (past) (tcp/22 ssh)',
         'function' => \&spa_cycle,
         'cmdline'  => "$default_client_args --time-offset-minus 300s",
-        'fwknopd_cmdline' => "$fwknopdCmd $default_server_conf_args $intf_str",
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options $default_server_conf_args $intf_str",
         'server_positive_output_matches' => [qr/SPA\sdata\stime\sdifference/],
         'fw_rule_created' => $REQUIRE_NO_NEW_RULE,
     },
@@ -459,7 +461,7 @@
         'detail'   => 'packet aging (future) (tcp/22 ssh)',
         'function' => \&spa_cycle,
         'cmdline'  => "$default_client_args --time-offset-plus 300s",
-        'fwknopd_cmdline' => "$fwknopdCmd $default_server_conf_args $intf_str",
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options $default_server_conf_args $intf_str",
         'server_positive_output_matches' => [qr/SPA\sdata\stime\sdifference/],
         'fw_rule_created' => $REQUIRE_NO_NEW_RULE,
     },
@@ -469,7 +471,7 @@
         'detail'   => 'invalid SOURCE (tcp/22 ssh)',
         'function' => \&spa_cycle,
         'cmdline'  => $default_client_args,
-        'fwknopd_cmdline' => "$fwknopdCmd -c $cf{'def'} -a $cf{'invalid_src_access'} " .
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options -c $cf{'def'} -a $cf{'invalid_src_access'} " .
             "-d $default_digest_file -p $default_pid_file $intf_str",
         'server_positive_output_matches' => [qr/Fatal\serror\sparsing\sIP\sto\sint/],
         'server_exec_err' => $YES,
@@ -481,7 +483,7 @@
         'detail'   => 'expired stanza (tcp/22 ssh)',
         'function' => \&spa_cycle,
         'cmdline'  => $default_client_args,
-        'fwknopd_cmdline' => "$fwknopdCmd -c $cf{'def'} -a $cf{'exp_access'} " .
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options -c $cf{'def'} -a $cf{'exp_access'} " .
             "-d $default_digest_file -p $default_pid_file $intf_str",
         'server_positive_output_matches' => [qr/Access\sstanza\shas\sexpired/],
         'fw_rule_created' => $REQUIRE_NO_NEW_RULE,
@@ -492,7 +494,7 @@
         'detail'   => 'invalid expire date (tcp/22 ssh)',
         'function' => \&spa_cycle,
         'cmdline'  => $default_client_args,
-        'fwknopd_cmdline' => "$fwknopdCmd -c $cf{'def'} -a $cf{'invalid_exp_access'} " .
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options -c $cf{'def'} -a $cf{'invalid_exp_access'} " .
             "-d $default_digest_file -p $default_pid_file $intf_str",
         'server_positive_output_matches' => [qr/invalid\sdate\svalue/],
         'fw_rule_created' => $REQUIRE_NO_NEW_RULE,
@@ -504,7 +506,7 @@
         'detail'   => 'expired epoch stanza (tcp/22 ssh)',
         'function' => \&spa_cycle,
         'cmdline'  => $default_client_args,
-        'fwknopd_cmdline' => "$fwknopdCmd -c $cf{'def'} -a $cf{'exp_epoch_access'} " .
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options -c $cf{'def'} -a $cf{'exp_epoch_access'} " .
             "-d $default_digest_file -p $default_pid_file $intf_str",
         'server_positive_output_matches' => [qr/Access\sstanza\shas\sexpired/],
         'fw_rule_created' => $REQUIRE_NO_NEW_RULE,
@@ -515,7 +517,7 @@
         'detail'   => 'future expired stanza (tcp/22 ssh)',
         'function' => \&spa_cycle,
         'cmdline'  => $default_client_args,
-        'fwknopd_cmdline' => "$fwknopdCmd -c $cf{'def'} -a $cf{'future_exp_access'} " .
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options -c $cf{'def'} -a $cf{'future_exp_access'} " .
             "-d $default_digest_file -p $default_pid_file $intf_str",
         'fw_rule_created' => $NEW_RULE_REQUIRED,
         'fw_rule_removed' => $NEW_RULE_REMOVED,
@@ -527,7 +529,7 @@
         'detail'   => 'OPEN_PORTS (tcp/22 ssh)',
         'function' => \&spa_cycle,
         'cmdline'  => $default_client_args,
-        'fwknopd_cmdline' => "$fwknopdCmd -c $cf{'def'} -a $cf{'open_ports_access'} " .
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options -c $cf{'def'} -a $cf{'open_ports_access'} " .
             "-d $default_digest_file -p $default_pid_file $intf_str",
         'fw_rule_created' => $NEW_RULE_REQUIRED,
         'fw_rule_removed' => $NEW_RULE_REMOVED,
@@ -538,7 +540,7 @@
         'detail'   => 'OPEN_PORTS mismatch',
         'function' => \&spa_cycle,
         'cmdline'  => $default_client_args,
-        'fwknopd_cmdline' => "$fwknopdCmd -c $cf{'def'} -a $cf{'open_ports_mismatch'} " .
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options -c $cf{'def'} -a $cf{'open_ports_mismatch'} " .
             "-d $default_digest_file -p $default_pid_file $intf_str",
         'server_positive_output_matches' => [qr/One\s+or\s+more\s+requested/],
         'fw_rule_created' => $REQUIRE_NO_NEW_RULE,
@@ -551,7 +553,7 @@
         'detail'   => "udpraw spoof src IP (tcp/22 ssh)",
         'function' => \&spa_cycle,
         'cmdline'  => "$default_client_args -P udpraw -Q $spoof_ip",
-        'fwknopd_cmdline' => "$fwknopdCmd $default_server_conf_args $intf_str",
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options $default_server_conf_args $intf_str",
         'fw_rule_created' => $NEW_RULE_REQUIRED,
         'fw_rule_removed' => $NEW_RULE_REMOVED,
         'server_positive_output_matches' => [qr/SPA\sPacket\sfrom\sIP\:\s$spoof_ip\s/],
@@ -562,7 +564,7 @@
         'detail'   => "tcpraw spoof src IP (tcp/22 ssh)",
         'function' => \&spa_cycle,
         'cmdline'  => "$default_client_args -P tcpraw -Q $spoof_ip",
-        'fwknopd_cmdline' => "$fwknopdCmd -c $cf{'tcp_pcap_filter'} -a $cf{'def_access'} " .
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options -c $cf{'tcp_pcap_filter'} -a $cf{'def_access'} " .
             "-d $default_digest_file -p $default_pid_file $intf_str",
         'fw_rule_created' => $NEW_RULE_REQUIRED,
         'fw_rule_removed' => $NEW_RULE_REMOVED,
@@ -574,7 +576,7 @@
         'detail'   => "icmp spoof src IP (tcp/22 ssh)",
         'function' => \&spa_cycle,
         'cmdline'  => "$default_client_args -P icmp -Q $spoof_ip",
-        'fwknopd_cmdline' => "$fwknopdCmd -c $cf{'icmp_pcap_filter'} -a $cf{'def_access'} " .
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options -c $cf{'icmp_pcap_filter'} -a $cf{'def_access'} " .
             "-d $default_digest_file -p $default_pid_file $intf_str",
         'fw_rule_created' => $NEW_RULE_REQUIRED,
         'fw_rule_removed' => $NEW_RULE_REMOVED,
@@ -586,7 +588,7 @@
         'detail'   => "icmp type/code 8/0 spoof src IP",
         'function' => \&spa_cycle,
         'cmdline'  => "$default_client_args -P icmp --icmp-type 8 --icmp-code 0 -Q $spoof_ip",
-        'fwknopd_cmdline' => "$fwknopdCmd -c $cf{'icmp_pcap_filter'} -a $cf{'def_access'} " .
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options -c $cf{'icmp_pcap_filter'} -a $cf{'def_access'} " .
             "-d $default_digest_file -p $default_pid_file $intf_str",
         'fw_rule_created' => $NEW_RULE_REQUIRED,
         'fw_rule_removed' => $NEW_RULE_REMOVED,
@@ -601,7 +603,7 @@
         'detail'   => "SPA over TCP connection",
         'function' => \&spa_cycle,
         'cmdline'  => "$default_client_args -P tcp",
-        'fwknopd_cmdline' => "$fwknopdCmd -c $cf{'tcp_server'} -a $cf{'def_access'} " .
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options -c $cf{'tcp_server'} -a $cf{'def_access'} " .
             "-d $default_digest_file -p $default_pid_file $intf_str",
         'fw_rule_created' => $NEW_RULE_REQUIRED,
         'fw_rule_removed' => $NEW_RULE_REMOVED,
@@ -612,7 +614,7 @@
         'detail'   => "UDP server --udp-server / tcp/22",
         'function' => \&spa_cycle,
         'cmdline'  => $default_client_args,
-        'fwknopd_cmdline'  => "$fwknopdCmd $default_server_conf_args $intf_str --udp-server",
+        'fwknopd_cmdline'  => "$fwknopdCmd $srv_sdp_options $default_server_conf_args $intf_str --udp-server",
         'fw_rule_created' => $NEW_RULE_REQUIRED,
         'fw_rule_removed' => $NEW_RULE_REMOVED,
     },
@@ -622,7 +624,7 @@
         'detail'   => "UDP server conf / tcp/22",
         'function' => \&spa_cycle,
         'cmdline'  => $default_client_args,
-        'fwknopd_cmdline' => "$fwknopdCmd -c $cf{'udp_server'} -a $cf{'def_access'} " .
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options -c $cf{'udp_server'} -a $cf{'def_access'} " .
             "-d $default_digest_file -p $default_pid_file $intf_str",
         'fw_rule_created' => $NEW_RULE_REQUIRED,
         'fw_rule_removed' => $NEW_RULE_REMOVED,
@@ -634,7 +636,7 @@
         'detail'   => 'require user (tcp/22 ssh)',
         'function' => \&spa_cycle,
         'cmdline'  => "SPOOF_USER=$spoof_user $default_client_args",
-        'fwknopd_cmdline' => "$fwknopdCmd -c $cf{'def'} -a $cf{'require_user_access'} " .
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options -c $cf{'def'} -a $cf{'require_user_access'} " .
             "-d $default_digest_file -p $default_pid_file $intf_str",
         'fw_rule_created' => $NEW_RULE_REQUIRED,
         'fw_rule_removed' => $NEW_RULE_REMOVED,
@@ -643,10 +645,11 @@
         'category' => 'Rijndael',
         'subcategory' => 'client+server',
         'detail'   => 'user mismatch (tcp/22 ssh)',
+        'skip_if_sdp' => 1,
         'function' => \&user_mismatch,
         'function' => \&spa_cycle,
         'cmdline'  => $default_client_args,
-        'fwknopd_cmdline' => "$fwknopdCmd -c $cf{'def'} -a $cf{'user_mismatch_access'} " .
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options -c $cf{'def'} -a $cf{'user_mismatch_access'} " .
             "-d $default_digest_file -p $default_pid_file $intf_str",
         'server_positive_output_matches' => [qr/Username\s+in\s+SPA\s+data/],
         'fw_rule_created' => $REQUIRE_NO_NEW_RULE,
@@ -657,7 +660,7 @@
         'detail'   => 'require src (tcp/22 ssh)',
         'function' => \&spa_cycle,
         'cmdline'  => $default_client_args,
-        'fwknopd_cmdline' => "$fwknopdCmd -c $cf{'def'} -a $cf{'require_src_access'} " .
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options -c $cf{'def'} -a $cf{'require_src_access'} " .
             "-d $default_digest_file -p $default_pid_file $intf_str",
         'fw_rule_created' => $NEW_RULE_REQUIRED,
         'fw_rule_removed' => $NEW_RULE_REMOVED,
@@ -667,9 +670,9 @@
         'subcategory' => 'client+server',
         'detail'   => 'mismatch require src (tcp/22 ssh)',
         'function' => \&spa_cycle,
-        'cmdline'  => "$fwknopCmd -A tcp/22 -s -D $loopback_ip --get-key " .
+        'cmdline'  => "$fwknopCmd $client_sdp_options -A tcp/22 -s -D $loopback_ip --get-key " .
             "$local_key_file $verbose_str",
-        'fwknopd_cmdline' => "$fwknopdCmd -c $cf{'def'} -a $cf{'require_src_access'} " .
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options -c $cf{'def'} -a $cf{'require_src_access'} " .
             "-d $default_digest_file -p $default_pid_file $intf_str",
         'server_positive_output_matches' => [qr/Got\s0.0.0.0\swhen\svalid\ssource\sIP/],
         'fw_rule_created' => $REQUIRE_NO_NEW_RULE,
@@ -680,9 +683,9 @@
         'detail'   => 'allow -s (tcp/22 ssh)',
         'no_ip_check' => 1,
         'function' => \&spa_cycle,
-        'cmdline'  => "$fwknopCmd -A tcp/22 -s -D $loopback_ip --get-key " .
+        'cmdline'  => "$fwknopCmd $client_sdp_options -A tcp/22 -s -D $loopback_ip --get-key " .
             "$local_key_file $verbose_str",
-        'fwknopd_cmdline' => "$fwknopdCmd $default_server_conf_args $intf_str",
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options $default_server_conf_args $intf_str",
         'fw_rule_created' => $NEW_RULE_REQUIRED,
         'fw_rule_removed' => $NEW_RULE_REMOVED,
     },
@@ -693,7 +696,7 @@
         'detail'   => 'IP filtering (tcp/22 ssh)',
         'function' => \&spa_cycle,
         'cmdline'  => $default_client_args,
-        'fwknopd_cmdline' => "$fwknopdCmd -c $cf{'def'} -a $cf{'no_src_match'} " .
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options -c $cf{'def'} -a $cf{'no_src_match'} " .
             "-d $default_digest_file -p $default_pid_file $intf_str",
         'server_positive_output_matches' => [qr/No\saccess\sdata\sfound/],
         'server_receive_re' => qr/No\saccess\sdata\sfound/,
@@ -706,7 +709,7 @@
         'detail'   => 'subnet filtering (tcp/22 ssh)',
         'function' => \&spa_cycle,
         'cmdline'  => $default_client_args,
-        'fwknopd_cmdline' => "$fwknopdCmd -c $cf{'def'} -a $cf{'no_subnet_match'} " .
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options -c $cf{'def'} -a $cf{'no_subnet_match'} " .
             "-d $default_digest_file -p $default_pid_file $intf_str",
         'server_receive_re' => qr/No\saccess\sdata\sfound/,
         'weak_server_receive_check' => $YES,
@@ -718,7 +721,7 @@
         'detail'   => 'IP+subnet filtering (tcp/22 ssh)',
         'function' => \&spa_cycle,
         'cmdline'  => $default_client_args,
-        'fwknopd_cmdline' => "$fwknopdCmd -c $cf{'def'} -a $cf{'no_multi_src'} " .
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options -c $cf{'def'} -a $cf{'no_multi_src'} " .
             "-d $default_digest_file -p $default_pid_file $intf_str",
         'server_receive_re' => qr/No\saccess\sdata\sfound/,
         'weak_server_receive_check' => $YES,
@@ -730,7 +733,7 @@
         'detail'   => 'IP match (tcp/22 ssh)',
         'function' => \&spa_cycle,
         'cmdline'  => $default_client_args,
-        'fwknopd_cmdline' => "$fwknopdCmd -c $cf{'def'} -a $cf{'ip_src_match'} " .
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options -c $cf{'def'} -a $cf{'ip_src_match'} " .
             "-d $default_digest_file -p $default_pid_file $intf_str",
         'fw_rule_created' => $NEW_RULE_REQUIRED,
         'fw_rule_removed' => $NEW_RULE_REMOVED,
@@ -741,7 +744,7 @@
         'detail'   => 'subnet match (tcp/22 ssh)',
         'function' => \&spa_cycle,
         'cmdline'  => $default_client_args,
-        'fwknopd_cmdline' => "$fwknopdCmd -c $cf{'def'} -a $cf{'subnet_src_match'} " .
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options -c $cf{'def'} -a $cf{'subnet_src_match'} " .
             "-d $default_digest_file -p $default_pid_file $intf_str",
         'fw_rule_created' => $NEW_RULE_REQUIRED,
         'fw_rule_removed' => $NEW_RULE_REMOVED,
@@ -752,7 +755,7 @@
         'detail'   => 'multi IP/net match (tcp/22 ssh)',
         'function' => \&spa_cycle,
         'cmdline'  => $default_client_args,
-        'fwknopd_cmdline' => "$fwknopdCmd -c $cf{'def'} -a $cf{'multi_src_access'} " .
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options -c $cf{'def'} -a $cf{'multi_src_access'} " .
             "-d $default_digest_file -p $default_pid_file $intf_str",
         'fw_rule_created' => $NEW_RULE_REQUIRED,
         'fw_rule_removed' => $NEW_RULE_REMOVED,
@@ -763,7 +766,7 @@
         'detail'   => 'multi access stanzas (tcp/22 ssh)',
         'function' => \&spa_cycle,
         'cmdline'  => $default_client_args,
-        'fwknopd_cmdline' => "$fwknopdCmd -c $cf{'def'} -a $cf{'multi_stanza_access'} " .
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options -c $cf{'def'} -a $cf{'multi_stanza_access'} " .
             "-d $default_digest_file -p $default_pid_file $intf_str",
         'fw_rule_created' => $NEW_RULE_REQUIRED,
         'fw_rule_removed' => $NEW_RULE_REMOVED,
@@ -774,7 +777,7 @@
         'detail'   => 'bad/good key stanzas (tcp/22 ssh)',
         'function' => \&spa_cycle,
         'cmdline'  => $default_client_args,
-        'fwknopd_cmdline' => "$fwknopdCmd -c $cf{'def'} -a $cf{'broken_keys_access'} " .
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options -c $cf{'def'} -a $cf{'broken_keys_access'} " .
             "-d $default_digest_file -p $default_pid_file $intf_str",
         'weak_server_receive_check' => $YES,
         'fw_rule_created' => $NEW_RULE_REQUIRED,
@@ -787,7 +790,7 @@
         'detail'   => "non-enabled NAT (tcp/22 ssh)",
         'function' => \&spa_cycle,
         'cmdline'  => "$default_client_args -N $internal_nat_host:22",
-        'fwknopd_cmdline' => "$fwknopdCmd $default_server_conf_args $intf_str",
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options $default_server_conf_args $intf_str",
         'server_positive_output_matches' => [qr/requested\sNAT\saccess.*not\senabled/i],
         'server_conf' => $cf{'def'},
         'fw_rule_created' => $REQUIRE_NO_NEW_RULE,
@@ -798,7 +801,7 @@
         'detail'   => "NAT to $internal_nat_host (tcp/22 ssh)",
         'function' => \&spa_cycle,
         'cmdline'  => "$default_client_args -N $internal_nat_host:22",
-        'fwknopd_cmdline' => qq/$fwknopdCmd -c $cf{"${fw_conf_prefix}_nat"} -a $cf{'open_ports_access'} / .
+        'fwknopd_cmdline' => qq/$fwknopdCmd $srv_sdp_options -c $cf{"${fw_conf_prefix}_nat"} -a $cf{'open_ports_access'} / .
             "-d $default_digest_file -p $default_pid_file $intf_str",
         'server_positive_output_matches' => [
             qr/FWKNOP_FORWARD\s.*dport\s22\s/,
@@ -813,7 +816,7 @@
         'detail'   => "SNAT $internal_nat_host",
         'function' => \&spa_cycle,
         'cmdline'  => "$default_client_args -N $internal_nat_host:22",
-        'fwknopd_cmdline' => qq/$fwknopdCmd -c $cf{"${fw_conf_prefix}_snat"} -a $cf{'open_ports_access'} / .
+        'fwknopd_cmdline' => qq/$fwknopdCmd $srv_sdp_options -c $cf{"${fw_conf_prefix}_snat"} -a $cf{'open_ports_access'} / .
             "-d $default_digest_file -p $default_pid_file $intf_str",
         'server_positive_output_matches' => [
             qr/FWKNOP_FORWARD\s.*dport\s22\s/,
@@ -829,7 +832,7 @@
         'detail'   => "SNAT MASQUERADE",
         'function' => \&spa_cycle,
         'cmdline'  => "$default_client_args -N $internal_nat_host:22",
-        'fwknopd_cmdline' => qq/$fwknopdCmd -c $cf{"${fw_conf_prefix}_snat_no_translate_ip"} / .
+        'fwknopd_cmdline' => qq/$fwknopdCmd $srv_sdp_options -c $cf{"${fw_conf_prefix}_snat_no_translate_ip"} / .
             qq/-a $cf{'open_ports_force_masq_access'} / .
             "-d $default_digest_file -p $default_pid_file $intf_str",
         'server_positive_output_matches' => [
@@ -848,7 +851,7 @@
         'detail'   => "NAT hostname->IP (tcp/22 ssh)",
         'function' => \&spa_cycle,
         'cmdline'  => "$default_client_args -N localhost:22",
-        'fwknopd_cmdline' => qq/$fwknopdCmd -c $cf{"${fw_conf_prefix}_nat"} -a $cf{'open_ports_access'} / .
+        'fwknopd_cmdline' => qq/$fwknopdCmd $srv_sdp_options -c $cf{"${fw_conf_prefix}_nat"} -a $cf{'open_ports_access'} / .
             "-d $default_digest_file -p $default_pid_file $intf_str",
         'server_positive_output_matches' => [
             qr/FWKNOP_FORWARD\s.*dport\s22\s/,
@@ -863,9 +866,9 @@
         'subcategory' => 'client+server',
         'detail'   => "NAT tcp/80 to $internal_nat_host tcp/22",
         'function' => \&spa_cycle,
-        'cmdline'  => "$fwknopCmd -A tcp/80 -a $fake_ip -D $loopback_ip --get-key " .
+        'cmdline'  => "$fwknopCmd $client_sdp_options -A tcp/80 -a $fake_ip -D $loopback_ip --get-key " .
             "$local_key_file $verbose_str -N $internal_nat_host:22",
-        'fwknopd_cmdline' => qq/$fwknopdCmd -c $cf{"${fw_conf_prefix}_nat"} -a $cf{'def_access'} / .
+        'fwknopd_cmdline' => qq/$fwknopdCmd $srv_sdp_options -c $cf{"${fw_conf_prefix}_nat"} -a $cf{'def_access'} / .
             "-d $default_digest_file -p $default_pid_file $intf_str",
         'server_positive_output_matches' => [
             qr/FWKNOP_FORWARD\s.*dport\s22\s/,
@@ -890,7 +893,7 @@
         'detail'   => "force NAT $force_nat_host (tcp/22 ssh)",
         'function' => \&spa_cycle,
         'cmdline'  => $default_client_args,
-        'fwknopd_cmdline' => qq/$fwknopdCmd -c $cf{"${fw_conf_prefix}_nat"} -a $cf{'force_nat_access'} / .
+        'fwknopd_cmdline' => qq/$fwknopdCmd $srv_sdp_options -c $cf{"${fw_conf_prefix}_nat"} -a $cf{'force_nat_access'} / .
             "-d $default_digest_file -p $default_pid_file $intf_str",
         'server_positive_output_matches' => [qr/\sto\:$force_nat_host\:22/i],
         'server_negative_output_matches' => [qr/\sto\:$internal_nat_host\:22/i],
@@ -904,7 +907,7 @@
         'detail'   => "local NAT $force_nat_host (tcp/22 ssh)",
         'function' => \&spa_cycle,
         'cmdline'  => "$default_client_args --nat-local",
-        'fwknopd_cmdline' => qq/$fwknopdCmd -c $cf{"${fw_conf_prefix}_local_nat"} -a $cf{'force_nat_access'} / .
+        'fwknopd_cmdline' => qq/$fwknopdCmd $srv_sdp_options -c $cf{"${fw_conf_prefix}_local_nat"} -a $cf{'force_nat_access'} / .
             "-d $default_digest_file -p $default_pid_file $intf_str",
         'server_positive_output_matches' => [qr/\*\/\sto\:$force_nat_host\:22/i,
             qr/FWKNOP_INPUT.*dport\s22.*\sACCEPT/],
@@ -918,9 +921,9 @@
         'subcategory' => 'client+server',
         'detail'   => "local NAT hostname->IP (tcp/22 ssh)",
         'function' => \&spa_cycle,
-        'cmdline'  => "$fwknopCmd -A tcp/22 -a $fake_ip -D localhost --nat-local " .
+        'cmdline'  => "$fwknopCmd $client_sdp_options -A tcp/22 -a $fake_ip -D localhost --nat-local " .
             "--get-key $local_key_file --no-save-args $verbose_str",
-        'fwknopd_cmdline' => qq/$fwknopdCmd -c $cf{"${fw_conf_prefix}_local_nat"} -a $cf{'force_nat_access'} / .
+        'fwknopd_cmdline' => qq/$fwknopdCmd $srv_sdp_options -c $cf{"${fw_conf_prefix}_local_nat"} -a $cf{'force_nat_access'} / .
             "-d $default_digest_file -p $default_pid_file $intf_str",
         'server_positive_output_matches' => [qr/\*\/\sto\:$force_nat_host\:22/i,
             qr/FWKNOP_INPUT.*dport\s22.*\sACCEPT/],
@@ -936,7 +939,7 @@
         'detail'   => "local NAT rand port to tcp/22",
         'function' => \&spa_cycle,
         'cmdline'  => "$default_client_args --nat-local --nat-rand-port",
-        'fwknopd_cmdline' => qq/$fwknopdCmd -c $cf{"${fw_conf_prefix}_local_nat"} -a $cf{'def_access'} / .
+        'fwknopd_cmdline' => qq/$fwknopdCmd $srv_sdp_options -c $cf{"${fw_conf_prefix}_local_nat"} -a $cf{'def_access'} / .
             "-d $default_digest_file -p $default_pid_file $intf_str",
         'server_positive_output_matches' => [qr|\s\*\/\sto\:$loopback_ip\:22|i,
             qr/FWKNOP_INPUT.*dport\s22.*\sACCEPT/],
@@ -951,7 +954,7 @@
         'detail'   => "NAT rand port to tcp/22",
         'function' => \&spa_cycle,
         'cmdline'  => "$default_client_args --nat-rand-port -N $internal_nat_host",
-        'fwknopd_cmdline' => qq/$fwknopdCmd -c $cf{"${fw_conf_prefix}_nat"} -a $cf{'def_access'} / .
+        'fwknopd_cmdline' => qq/$fwknopdCmd $srv_sdp_options -c $cf{"${fw_conf_prefix}_nat"} -a $cf{'def_access'} / .
             "-d $default_digest_file -p $default_pid_file $intf_str",
         'server_positive_output_matches' => [
             qr/FWKNOP_FORWARD.*dport\s22\s.*\sACCEPT/,
@@ -967,7 +970,7 @@
         'detail'   => "NAT rand port to -N <host>:40001",
         'function' => \&spa_cycle,
         'cmdline'  => "$default_client_args --nat-rand-port -N $internal_nat_host:40001",
-        'fwknopd_cmdline' => qq/$fwknopdCmd -c $cf{"${fw_conf_prefix}_nat"} -a $cf{'def_access'} / .
+        'fwknopd_cmdline' => qq/$fwknopdCmd $srv_sdp_options -c $cf{"${fw_conf_prefix}_nat"} -a $cf{'def_access'} / .
             "-d $default_digest_file -p $default_pid_file $intf_str",
         'server_positive_output_matches' => [
             qr/FWKNOP_FORWARD.*dport\s40001\s.*\sACCEPT/,
@@ -984,9 +987,9 @@
         'subcategory' => 'client+server',
         'detail'   => "local NAT non-FORCE_NAT (tcp/22)",
         'function' => \&spa_cycle,
-        'cmdline'  => "$fwknopCmd -A tcp/22 -a $fake_ip -D $loopback_ip --get-key " .
+        'cmdline'  => "$fwknopCmd $client_sdp_options -A tcp/22 -a $fake_ip -D $loopback_ip --get-key " .
             "$local_key_file $verbose_str --nat-local --nat-port 80",
-        'fwknopd_cmdline' => qq/$fwknopdCmd -c $cf{"${fw_conf_prefix}_local_nat"} -a $cf{'def_access'} / .
+        'fwknopd_cmdline' => qq/$fwknopdCmd $srv_sdp_options -c $cf{"${fw_conf_prefix}_local_nat"} -a $cf{'def_access'} / .
             "-d $default_digest_file -p $default_pid_file $intf_str",
         'server_positive_output_matches' => [qr|\s\*\/\sto\:$loopback_ip\:22|i,
             qr/FWKNOP_INPUT.*dport\s22.*\sACCEPT/],
@@ -1001,7 +1004,7 @@
         'detail'   => 'ECB mode (tcp/22 ssh)',
         'function' => \&spa_cycle,
         'cmdline'  => "$default_client_args -M ecb",
-        'fwknopd_cmdline' => "$fwknopdCmd -c $cf{'def'} -a $cf{'ecb_mode_access'} " .
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options -c $cf{'def'} -a $cf{'ecb_mode_access'} " .
             "-d $default_digest_file -p $default_pid_file $intf_str",
         'server_negative_output_matches' => [qr/Decryption\sfailed/i],
         'fw_rule_created' => $NEW_RULE_REQUIRED,
@@ -1013,7 +1016,7 @@
         'detail'   => 'CFB mode (tcp/22 ssh)',
         'function' => \&spa_cycle,
         'cmdline'  => "$default_client_args -M cfb",
-        'fwknopd_cmdline' => "$fwknopdCmd -c $cf{'def'} -a $cf{'cfb_mode_access'} " .
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options -c $cf{'def'} -a $cf{'cfb_mode_access'} " .
             "-d $default_digest_file -p $default_pid_file $intf_str",
         'server_negative_output_matches' => [qr/Decryption\sfailed/i],
         'fw_rule_created' => $NEW_RULE_REQUIRED,
@@ -1025,7 +1028,7 @@
         'detail'   => 'CTR mode (tcp/22 ssh)',
         'function' => \&spa_cycle,
         'cmdline'  => "$default_client_args -M ctr",
-        'fwknopd_cmdline' => "$fwknopdCmd -c $cf{'def'} -a $cf{'ctr_mode_access'} " .
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options -c $cf{'def'} -a $cf{'ctr_mode_access'} " .
             "-d $default_digest_file -p $default_pid_file $intf_str",
         'server_negative_output_matches' => [qr/Decryption\sfailed/i],
         'fw_rule_created' => $NEW_RULE_REQUIRED,
@@ -1037,7 +1040,7 @@
         'detail'   => 'OFB mode (tcp/22 ssh)',
         'function' => \&spa_cycle,
         'cmdline'  => "$default_client_args -M ofb",
-        'fwknopd_cmdline' => "$fwknopdCmd -c $cf{'def'} -a $cf{'ofb_mode_access'} " .
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options -c $cf{'def'} -a $cf{'ofb_mode_access'} " .
             "-d $default_digest_file -p $default_pid_file $intf_str",
         'server_negative_output_matches' => [qr/Decryption\sfailed/i],
         'fw_rule_created' => $NEW_RULE_REQUIRED,
@@ -1050,7 +1053,7 @@
         'detail'   => 'mode mismatch (tcp/22 ssh)',
         'function' => \&spa_cycle,
         'cmdline'  => "$default_client_args -M ecb",
-        'fwknopd_cmdline' => "$fwknopdCmd -c $cf{'def'} -a $cf{'def_access'} " .
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options -c $cf{'def'} -a $cf{'def_access'} " .
             "-d $default_digest_file -p $default_pid_file $intf_str",
         'server_positive_output_matches' => [qr/Decryption\sfailed/i],
         'fw_rule_created' => $REQUIRE_NO_NEW_RULE,
@@ -1061,9 +1064,10 @@
         'category' => 'Rijndael',
         'subcategory' => 'server',
         'detail'   => '--pcap-file processing',
+        'broken_flag' => 1,
         'function' => \&process_pcap_file_directly,
         'cmdline'  => '',
-        'fwknopd_cmdline' => "$fwknopdCmd -c $cf{'def'} -a $cf{'legacy_iv_access'} " .
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options -c $cf{'def'} -a $cf{'legacy_iv_access'} " .
             "-d $default_digest_file -p $default_pid_file " .
             "--pcap-file $replay_pcap_file --foreground $verbose_str --verbose",
         'server_positive_output_matches' => [qr/Replay\sdetected/i,
@@ -1077,9 +1081,9 @@
         'subcategory' => 'client+server',
         'detail'   => 'complete cycle (tcp/23 telnet)',
         'function' => \&spa_cycle,
-        'cmdline' => "$fwknopCmd -A tcp/23 -a $fake_ip -D $loopback_ip --get-key " .
+        'cmdline' => "$fwknopCmd $client_sdp_options -A tcp/23 -a $fake_ip -D $loopback_ip --get-key " .
             "$local_key_file $verbose_str",
-        'fwknopd_cmdline' => "$fwknopdCmd $default_server_conf_args $intf_str",
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options $default_server_conf_args $intf_str",
         'fw_rule_created' => $NEW_RULE_REQUIRED,
         'fw_rule_removed' => $NEW_RULE_REMOVED,
     },
@@ -1088,9 +1092,9 @@
         'subcategory' => 'client+server',
         'detail'   => 'complete cycle (tcp/9418 git)',
         'function' => \&spa_cycle,
-        'cmdline' => "$fwknopCmd -A tcp/9418 -a $fake_ip -D $loopback_ip --get-key " .
+        'cmdline' => "$fwknopCmd $client_sdp_options -A tcp/9418 -a $fake_ip -D $loopback_ip --get-key " .
             "$local_key_file $verbose_str",
-        'fwknopd_cmdline' => "$fwknopdCmd $default_server_conf_args $intf_str",
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options $default_server_conf_args $intf_str",
         'fw_rule_created' => $NEW_RULE_REQUIRED,
         'fw_rule_removed' => $NEW_RULE_REMOVED,
     },
@@ -1099,9 +1103,9 @@
         'subcategory' => 'client+server',
         'detail'   => 'complete cycle (tcp/60001)',
         'function' => \&spa_cycle,
-        'cmdline' => "$fwknopCmd -A tcp/60001 -a $fake_ip -D $loopback_ip --get-key " .
+        'cmdline' => "$fwknopCmd $client_sdp_options -A tcp/60001 -a $fake_ip -D $loopback_ip --get-key " .
             "$local_key_file $verbose_str",
-        'fwknopd_cmdline' => "$fwknopdCmd $default_server_conf_args $intf_str",
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options $default_server_conf_args $intf_str",
         'fw_rule_created' => $NEW_RULE_REQUIRED,
         'fw_rule_removed' => $NEW_RULE_REMOVED,
     },
@@ -1110,9 +1114,9 @@
         'subcategory' => 'client+server',
         'detail'   => 'multi port (tcp/60001,udp/60001)',
         'function' => \&spa_cycle,
-        'cmdline' => "$fwknopCmd -A tcp/60001,udp/60001 -a $fake_ip -D $loopback_ip --get-key " .
+        'cmdline' => "$fwknopCmd $client_sdp_options -A tcp/60001,udp/60001 -a $fake_ip -D $loopback_ip --get-key " .
             "$local_key_file $verbose_str",
-        'fwknopd_cmdline' => "$fwknopdCmd $default_server_conf_args $intf_str",
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options $default_server_conf_args $intf_str",
         'fw_rule_created' => $NEW_RULE_REQUIRED,
         'fw_rule_removed' => $NEW_RULE_REMOVED,
     },
@@ -1121,9 +1125,9 @@
         'subcategory' => 'client+server',
         'detail'   => "$FW_TYPE multi port re search (1)",
         'function' => \&spa_cycle,
-        'cmdline' => "$fwknopCmd -A tcp/60001,udp/60001 -a $fake_ip -D $loopback_ip --get-key " .
+        'cmdline' => "$fwknopCmd $client_sdp_options -A tcp/60001,udp/60001 -a $fake_ip -D $loopback_ip --get-key " .
             "$local_key_file $verbose_str",
-        'fwknopd_cmdline' => "$fwknopdCmd $default_server_conf_args $intf_str",
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options $default_server_conf_args $intf_str",
         'server_positive_output_matches' => [qr/^1\s+ACCEPT\s+tcp.*dpt:60001/,
             qr/^2\s+ACCEPT\s+udp.*dpt:60001/],
         'fw_rule_created' => $NEW_RULE_REQUIRED,
@@ -1135,9 +1139,9 @@
         'subcategory' => 'client+server',
         'detail'   => 'multi port (tcp/22,udp/53,tcp/1234)',
         'function' => \&spa_cycle,
-        'cmdline' => "$fwknopCmd -A tcp/22,udp/53,tcp/1234 -a $fake_ip -D $loopback_ip --get-key " .
+        'cmdline' => "$fwknopCmd $client_sdp_options -A tcp/22,udp/53,tcp/1234 -a $fake_ip -D $loopback_ip --get-key " .
             "$local_key_file $verbose_str",
-        'fwknopd_cmdline' => "$fwknopdCmd $default_server_conf_args $intf_str",
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options $default_server_conf_args $intf_str",
         'fw_rule_created' => $NEW_RULE_REQUIRED,
         'fw_rule_removed' => $NEW_RULE_REMOVED,
     },
@@ -1146,9 +1150,9 @@
         'subcategory' => 'client+server',
         'detail'   => "$FW_TYPE multi port re search (2)",
         'function' => \&spa_cycle,
-        'cmdline' => "$fwknopCmd -A tcp/22,udp/53,tcp/1234 -a $fake_ip -D $loopback_ip --get-key " .
+        'cmdline' => "$fwknopCmd $client_sdp_options -A tcp/22,udp/53,tcp/1234 -a $fake_ip -D $loopback_ip --get-key " .
             "$local_key_file $verbose_str",
-        'fwknopd_cmdline' => "$fwknopdCmd $default_server_conf_args $intf_str",
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options $default_server_conf_args $intf_str",
         'server_positive_output_matches' => [qr/^1\s+ACCEPT\s+tcp.*dpt:22\s/,
             qr/^2\s+ACCEPT\s+udp.*dpt:53\s/, qr/^3\s+ACCEPT\s+tcp.*dpt:1234\s/],
         'fw_rule_created' => $NEW_RULE_REQUIRED,
@@ -1160,9 +1164,9 @@
         'subcategory' => 'client+server',
         'detail'   => 'complete cycle (udp/53 dns)',
         'function' => \&spa_cycle,
-        'cmdline' => "$fwknopCmd -A udp/53 -a $fake_ip -D $loopback_ip --get-key " .
+        'cmdline' => "$fwknopCmd $client_sdp_options -A udp/53 -a $fake_ip -D $loopback_ip --get-key " .
             "$local_key_file $verbose_str",
-        'fwknopd_cmdline' => "$fwknopdCmd $default_server_conf_args $intf_str",
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options $default_server_conf_args $intf_str",
         'fw_rule_created' => $NEW_RULE_REQUIRED,
         'fw_rule_removed' => $NEW_RULE_REMOVED,
     },
@@ -1172,7 +1176,7 @@
         'detail'   => "-P bpf SPA over port $non_std_spa_port",
         'function' => \&spa_cycle,
         'cmdline'  => "$default_client_args --server-port $non_std_spa_port",
-        'fwknopd_cmdline' => "$fwknopdCmd $default_server_conf_args $intf_str " .
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options $default_server_conf_args $intf_str " .
             qq|-P "udp port $non_std_spa_port"|,
         'server_positive_output_matches' => [qr/PCAP\sfilter.*\s$non_std_spa_port/],
         'fw_rule_created' => $NEW_RULE_REQUIRED,
@@ -1185,7 +1189,7 @@
         'detail'   => 'random SPA port (tcp/22 ssh)',
         'function' => \&spa_cycle,
         'cmdline'  => "$default_client_args -r",
-        'fwknopd_cmdline' => "$fwknopdCmd $default_server_conf_args $intf_str " .
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options $default_server_conf_args $intf_str " .
             qq|-P "udp"|,
         'fw_rule_created' => $NEW_RULE_REQUIRED,
         'fw_rule_removed' => $NEW_RULE_REMOVED,
@@ -1195,11 +1199,12 @@
         'category' => 'Rijndael',
         'subcategory' => 'client+server',
         'detail'   => 'spoof username (tcp/22)',
+        'skip_if_sdp' => 1,
         'function' => \&spa_cycle,
         'cmdline'  => "SPOOF_USER=$spoof_user LD_LIBRARY_PATH=$lib_dir $valgrind_str " .
-            "$fwknopCmd -A tcp/22 -a $fake_ip -D $loopback_ip --get-key " .
+            "$fwknopCmd $client_sdp_options -A tcp/22 -a $fake_ip -D $loopback_ip --get-key " .
             "$local_key_file $verbose_str",
-        'fwknopd_cmdline' => "$fwknopdCmd $default_server_conf_args $intf_str",
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options $default_server_conf_args $intf_str",
         'positive_output_matches' => [qr/Username:\s*$spoof_user/],
         'server_positive_output_matches' => [qr/Username:\s*$spoof_user/],
     },
@@ -1212,7 +1217,7 @@
         'detail'   => "$FW_TYPE rules not duplicated",
         'function' => \&iptables_rules_not_duplicated,
         'cmdline'  => "$default_client_args --test",
-        'fwknopd_cmdline' => "$fwknopdCmd $default_server_conf_args $intf_str",
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options $default_server_conf_args $intf_str",
     },
 
     {
@@ -1228,7 +1233,7 @@
         'subcategory' => 'server',
         'detail'   => 'ipfw active/expire sets not equal',
         'function' => \&generic_exec,
-        'cmdline' => "$fwknopdCmd -c $cf{'ipfw_active_expire'} -a $cf{'def_access'} " .
+        'cmdline' => "$fwknopdCmd $srv_sdp_options -c $cf{'ipfw_active_expire'} -a $cf{'def_access'} " .
             "-d $default_digest_file -p $default_pid_file $intf_str",
         'positive_output_matches' => [qr/Cannot\sset\sidentical\sipfw\sactive\sand\sexpire\ssets/],
         'exec_err' => $YES,
@@ -1238,9 +1243,9 @@
         'subcategory' => 'client+server',
         'detail'   => 'localhost hostname->IP spoofed',
         'function' => \&spa_cycle,
-        'cmdline' => "$fwknopCmd -A tcp/22 -a $fake_ip -D localhost --get-key " .
+        'cmdline' => "$fwknopCmd $client_sdp_options -A tcp/22 -a $fake_ip -D localhost --get-key " .
             "$local_key_file --no-save-args $verbose_str -P udpraw -Q $spoof_ip",
-        'fwknopd_cmdline' => "$fwknopdCmd $default_server_conf_args $intf_str",
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options $default_server_conf_args $intf_str",
         'fw_rule_created' => $NEW_RULE_REQUIRED,
         'fw_rule_removed' => $NEW_RULE_REMOVED,
     },

@@ -85,7 +85,7 @@
         'detail'   => 'multi gpg-IDs (tcp/22 ssh)',
         'function' => \&spa_cycle,
         'cmdline'  => $default_client_gpg_args,
-        'fwknopd_cmdline' => "$fwknopdCmd -c $cf{'def'} " .
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options -c $cf{'def'} " .
             "-a $cf{'multi_gpg_access'} $intf_str " .
             "-d $default_digest_file -p $default_pid_file",
         'fw_rule_created' => $NEW_RULE_REQUIRED,
@@ -98,7 +98,7 @@
         'detail'   => "$FW_TYPE - no flush at init",
         'function' => \&iptables_no_flush_init_exit,
         'cmdline'  => $default_client_gpg_args,
-        'fwknopd_cmdline' => qq/$fwknopdCmd -c $cf{"${fw_conf_prefix}_no_flush_init"} / .
+        'fwknopd_cmdline' => qq/$fwknopdCmd $srv_sdp_options -c $cf{"${fw_conf_prefix}_no_flush_init"} / .
             "-a $cf{'multi_gpg_access'} $intf_str " .
             "-d $default_digest_file -p $default_pid_file",
         'fw_rule_created' => $NEW_RULE_REQUIRED,
@@ -110,7 +110,7 @@
         'detail'   => "$FW_TYPE - no flush at exit",
         'function' => \&iptables_no_flush_init_exit,
         'cmdline'  => $default_client_gpg_args,
-        'fwknopd_cmdline' => qq/$fwknopdCmd -c $cf{"${fw_conf_prefix}_no_flush_exit"} / .
+        'fwknopd_cmdline' => qq/$fwknopdCmd $srv_sdp_options -c $cf{"${fw_conf_prefix}_no_flush_exit"} / .
             "-a $cf{'multi_gpg_access'} $intf_str " .
             "-d $default_digest_file -p $default_pid_file",
         'fw_rule_created' => $NEW_RULE_REQUIRED,
@@ -122,7 +122,7 @@
         'detail'   => "$FW_TYPE - no flush at init or exit",
         'function' => \&iptables_no_flush_init_exit,
         'cmdline'  => $default_client_gpg_args,
-        'fwknopd_cmdline' => qq/$fwknopdCmd -c $cf{"${fw_conf_prefix}_no_flush_init_or_exit"} / .
+        'fwknopd_cmdline' => qq/$fwknopdCmd $srv_sdp_options -c $cf{"${fw_conf_prefix}_no_flush_init_or_exit"} / .
             "-a $cf{'multi_gpg_access'} $intf_str " .
             "-d $default_digest_file -p $default_pid_file",
         'fw_rule_created' => $NEW_RULE_REQUIRED,
@@ -134,7 +134,7 @@
         'subcategory' => 'client+server',
         'detail'   => 'complete cycle (tcp/23 telnet)',
         'function' => \&spa_cycle,
-        'cmdline' => "$fwknopCmd -A tcp/23 -a $fake_ip -D $loopback_ip --get-key " .
+        'cmdline' => "$fwknopCmd $client_sdp_options -A tcp/23 -a $fake_ip -D $loopback_ip --get-key " .
             "$local_key_file $verbose_str " .
             "--gpg-recipient-key $gpg_server_key " .
             "--gpg-signer-key $gpg_client_key " .
@@ -148,7 +148,7 @@
         'subcategory' => 'client+server',
         'detail'   => 'complete cycle (tcp/9418 git)',
         'function' => \&spa_cycle,
-        'cmdline' => "$fwknopCmd -A tcp/9418 -a $fake_ip -D $loopback_ip --get-key " .
+        'cmdline' => "$fwknopCmd $client_sdp_options -A tcp/9418 -a $fake_ip -D $loopback_ip --get-key " .
             "$local_key_file $verbose_str " .
             "--gpg-recipient-key $gpg_server_key " .
             "--gpg-signer-key $gpg_client_key " .
@@ -162,7 +162,7 @@
         'subcategory' => 'client+server',
         'detail'   => 'complete cycle (tcp/60001)',
         'function' => \&spa_cycle,
-        'cmdline' => "$fwknopCmd -A tcp/60001 -a $fake_ip -D $loopback_ip --get-key " .
+        'cmdline' => "$fwknopCmd $client_sdp_options -A tcp/60001 -a $fake_ip -D $loopback_ip --get-key " .
             "$local_key_file $verbose_str " .
             "--gpg-recipient-key $gpg_server_key " .
             "--gpg-signer-key $gpg_client_key " .
@@ -177,7 +177,7 @@
         'subcategory' => 'client+server',
         'detail'   => 'complete cycle (udp/53 dns)',
         'function' => \&spa_cycle,
-        'cmdline' => "$fwknopCmd -A udp/53 -a $fake_ip -D $loopback_ip --get-key " .
+        'cmdline' => "$fwknopCmd $client_sdp_options -A udp/53 -a $fake_ip -D $loopback_ip --get-key " .
             "$local_key_file $verbose_str " .
             "--gpg-recipient-key $gpg_server_key " .
             "--gpg-signer-key $gpg_client_key " .
@@ -203,7 +203,7 @@
         'function' => \&replay_detection,
         'pkt_prefix' => 'U2FsdGVkX1',
         'cmdline'  => $default_client_gpg_args,
-        'fwknopd_cmdline' => "$fwknopdCmd $default_server_conf_args $intf_str",
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options $default_server_conf_args $intf_str",
         'server_positive_output_matches' => [qr/Data\sis\snot\sa\svalid\sSPA\smessage\sformat/],
     },
     {
@@ -213,7 +213,7 @@
         'function' => \&replay_detection,
         'pkt_prefix' => 'hQ',
         'cmdline'  => $default_client_gpg_args,
-        'fwknopd_cmdline' => "$fwknopdCmd $default_server_conf_args $intf_str",
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options $default_server_conf_args $intf_str",
         'server_positive_output_matches' => [qr/Data\sis\snot\sa\svalid\sSPA\smessage\sformat/],
     },
 

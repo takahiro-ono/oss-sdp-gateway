@@ -183,7 +183,7 @@
         'subcategory' => 'compatibility',
         'detail'   => 'client FKO -> C server',
         'function' => \&perl_fko_module_client_compatibility,
-        'fwknopd_cmdline' => "$fwknopdCmd $default_server_conf_args $intf_str",
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options $default_server_conf_args $intf_str",
         'fw_rule_created' => $NEW_RULE_REQUIRED,
         'fw_rule_removed' => $NEW_RULE_REMOVED,
     },
@@ -192,7 +192,7 @@
         'subcategory' => 'compatibility',
         'detail'   => 'FKO -> C invalid legacy IV',
         'function' => \&perl_fko_module_client_compatibility,
-        'fwknopd_cmdline' => "$fwknopdCmd -c $cf{'def'} -a $cf{'legacy_iv_access'} " .
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options -c $cf{'def'} -a $cf{'legacy_iv_access'} " .
             "-d $default_digest_file -p $default_pid_file " .
             "$intf_str",
         'server_positive_output_matches' => [qr/Decryption failed/],
@@ -203,7 +203,7 @@
         'subcategory' => 'compatibility',
         'detail'   => 'FKO -> C valid legacy IV',
         'function' => \&perl_fko_module_client_compatibility,
-        'fwknopd_cmdline' => "$fwknopdCmd -c $cf{'def'} -a $cf{'legacy_iv_access'} " .
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options -c $cf{'def'} -a $cf{'legacy_iv_access'} " .
             "-d $default_digest_file -p $default_pid_file " .
             "$intf_str",
         'set_legacy_iv' => $YES,

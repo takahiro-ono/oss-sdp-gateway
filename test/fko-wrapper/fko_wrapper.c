@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
+#include <inttypes.h>
 #include "fko.h"
 
 #define ENABLE_GPG_TESTS 0
@@ -40,14 +41,15 @@
 #define SPA_MSG2        "123.123.123.123,tcp/22"
 #define SPA_NAT_MSG     "1.2.3.4,1234"
 #define SERVER_AUTH_MSG "passwd"
+#define SDP_CLIENT_ID    99999
 
 #define IS_EMPTY_LINE(x) ( \
     x == '#' || x == '\n' || x == '\r' || x == ';' || x == '\0' \
 )
 
 static void display_ctx(fko_ctx_t ctx);
-static void test_loop(int new_ctx_flag, int destroy_ctx_flag);
-static void test_loop_compounded(void);
+static void test_loop(int new_ctx_flag, int destroy_ctx_flag, int disable_sdp);
+static void test_loop_compounded(int disable_sdp);
 #if FUZZING_INTERFACES
 static void spa_encoded_msg_fuzzing(void);
 #endif
@@ -63,6 +65,16 @@ static void spa_func_getset_int(fko_ctx_t *ctx, char *set_name,
         char *get_name, int (*spa_get)(fko_ctx_t ctx, int *val),
         int min, int max, int final_val, int new_ctx_flag, int destroy_ctx_flag);
 
+static void spa_func_getset_uint32(fko_ctx_t *ctx, char *set_name,
+        int (*spa_set)(fko_ctx_t ctx, const uint32_t modifier),
+        char *get_name, int (*spa_get)(fko_ctx_t ctx, uint32_t *val),
+		uint32_t min, uint32_t max, uint32_t final_val, int new_ctx_flag, int destroy_ctx_flag);
+
+static void spa_func_getset_uint16(fko_ctx_t *ctx, char *set_name,
+        int (*spa_set)(fko_ctx_t ctx, const uint16_t modifier),
+        char *get_name, int (*spa_get)(fko_ctx_t ctx, uint16_t *val),
+		uint16_t min, uint16_t max, uint16_t final_val, int new_ctx_flag, int destroy_ctx_flag);
+
 static void spa_func_getset_short(fko_ctx_t *ctx, char *set_name,
         int (*spa_set)(fko_ctx_t ctx, const short modifier),
         char *get_name, int (*spa_get)(fko_ctx_t ctx, short *val),
@@ -72,18 +84,31 @@ static void spa_func_getset_short(fko_ctx_t *ctx, char *set_name,
 int spa_calls = 0;
 int spa_compounded_calls = 0;
 
-int main(void) {
+int main(int argc, char **argv) {
 
-    test_loop(NO_NEW_CTX, NO_CTX_DESTROY);
-    test_loop(NEW_CTX, CTX_DESTROY);
-    test_loop(NEW_CTX, NO_CTX_DESTROY);
-    test_loop(NO_NEW_CTX, CTX_DESTROY);
+	int disable_sdp = 0;
+	char *disabled = "1";
+
+	if(argc > 1)
+	{
+		if(strncmp(argv[1], disabled, 1))
+			disable_sdp = 1;
+
+		printf("\n[.] Disable SDP setting: %s \n\n", argv[1]);
+	}
+	else
+		printf("\n[.] FKO Wrapper main() did not receive required arg");
+
+    test_loop(NO_NEW_CTX, NO_CTX_DESTROY, disable_sdp);
+    test_loop(NEW_CTX, CTX_DESTROY, disable_sdp);
+    test_loop(NEW_CTX, NO_CTX_DESTROY, disable_sdp);
+    test_loop(NO_NEW_CTX, CTX_DESTROY, disable_sdp);
 
     printf("\n[+] Total libfko function calls (before compounded tests): %d\n\n",
             spa_calls);
 
     printf("[+] Running compounded tests via: test_loop_compounded()...\n");
-    test_loop_compounded();
+    test_loop_compounded(disable_sdp);
 
     printf("\n[+] Total compounded function calls: %d\n", spa_compounded_calls);
     printf("[+] Total libfko function calls (after compounded tests): %d\n\n",
@@ -285,17 +310,29 @@ static void ctx_add_dupe_data(fko_ctx_t *ctx)
 
 
 static void
-test_loop_compounded(void)
+test_loop_compounded(int disable_sdp)
 {
     fko_ctx_t  ctx = NULL, decrypt_ctx = NULL;
     char *spa_data = NULL;
     int i, j, k, l, res;
+    uint32_t sdp_client_id = SDP_CLIENT_ID;
+
+    if(disable_sdp)
+    	sdp_client_id = 0;
 
     for (i=0; i<FCN_CALLS; i++) {
 
         fko_new(&ctx);
 
         for (j=-1; j<FKO_LAST_MSG_TYPE+1; j++) {
+
+        	res = fko_set_disable_sdp_mode(ctx, disable_sdp);
+            if (res != FKO_SUCCESS)
+                printf("fko_set_disable_sdp_mode(): %s\n", fko_errstr(res));
+
+        	res = fko_set_sdp_client_id(ctx, sdp_client_id);
+            if (res != FKO_SUCCESS)
+                printf("fko_set_sdp_client_id(): %s\n", fko_errstr(res));
 
             res = fko_set_spa_message_type(ctx, j);
             if (res != FKO_SUCCESS)
@@ -339,7 +376,7 @@ test_loop_compounded(void)
                         if (res == FKO_SUCCESS) {
 
                             res = fko_new_with_data(&decrypt_ctx, spa_data, NULL,
-                                0, FKO_ENC_MODE_CBC, HMAC_KEY, l, FKO_HMAC_SHA256);
+                                0, FKO_ENC_MODE_CBC, HMAC_KEY, l, FKO_HMAC_SHA256, sdp_client_id);
 
                             if (res == FKO_SUCCESS) {
                                 res = fko_decrypt_spa_data(decrypt_ctx, ENC_KEY, k);
@@ -372,11 +409,12 @@ test_loop_compounded(void)
 }
 
 static void
-test_loop(int new_ctx_flag, int destroy_ctx_flag)
+test_loop(int new_ctx_flag, int destroy_ctx_flag, int disable_sdp)
 {
     fko_ctx_t  ctx = NULL, decrypt_ctx = NULL;
     int        i, j;
     char       *spa_data = NULL, encode_buf[100], decode_buf[100];
+    uint32_t   sdp_client_id = SDP_CLIENT_ID;
 
     printf("[+] test_loop(): %s, %s\n",
             new_ctx_flag == NEW_CTX ? "NEW_CTX" : "NO_NEW_CTX",
@@ -469,6 +507,23 @@ test_loop(int new_ctx_flag, int destroy_ctx_flag)
             FKO_LAST_HMAC_MODE+F_INT, FKO_HMAC_SHA256,
             NO_DIGEST, new_ctx_flag, destroy_ctx_flag);
 
+    if(disable_sdp)
+    {
+    	sdp_client_id = 0;
+
+        spa_func_getset_uint16(&ctx, "fko_set_disable_sdp_mode",
+                &fko_set_disable_sdp_mode, "fko_get_spa_hmac_type",
+                &fko_get_disable_sdp_mode, 0, 1, (uint16_t)disable_sdp,
+				new_ctx_flag, destroy_ctx_flag);
+    }
+    else
+    {
+        spa_func_getset_uint32(&ctx, "fko_set_sdp_client_id",
+                &fko_set_sdp_client_id, "fko_get_sdp_client_id",
+                &fko_get_sdp_client_id, 0, UINT32_MAX, sdp_client_id,
+				new_ctx_flag, destroy_ctx_flag);
+    }
+
     printf("Trying encrypt / authenticate step with bogus key lengths...\n");
     for (i=-100; i < 200; i += 10) {
         for (j=-100; j < 200; j += 10) {
@@ -496,18 +551,25 @@ test_loop(int new_ctx_flag, int destroy_ctx_flag)
 
     printf("fko_new_with_data(): %s (data: %s)\n",
         fko_errstr(fko_new_with_data(&decrypt_ctx, spa_data, NULL,
-        0, FKO_ENC_MODE_CBC, NULL, 0, FKO_HMAC_SHA256)), spa_data);
+        0, FKO_ENC_MODE_CBC, NULL, 0, FKO_HMAC_SHA256, sdp_client_id)), spa_data);
 
     /* verify hmac, decrypt, and display ctx all together*/
-    for (i=0; i<FCN_CALLS; i++) {
-        display_ctx(decrypt_ctx);
-        printf("fko_verify_hmac() (1): %s\n",
-            fko_errstr(fko_verify_hmac(decrypt_ctx, HMAC_KEY, 16)));
+    /* this piece cannot be done in SDP mode
+     * once the SDP Client ID is removed to do decryption, a second run
+     * of the HMAC verification would fail
+     */
+    if(disable_sdp)
+    {
+		for (i=0; i<FCN_CALLS; i++) {
+			display_ctx(decrypt_ctx);
+			printf("fko_verify_hmac() (1): %s\n",
+				fko_errstr(fko_verify_hmac(decrypt_ctx, HMAC_KEY, 16)));
 
-        printf("fko_decrypt_spa_data() (1): %s\n",
-            fko_errstr(fko_decrypt_spa_data(decrypt_ctx, ENC_KEY, 16)));
+			printf("fko_decrypt_spa_data() (1): %s\n",
+				fko_errstr(fko_decrypt_spa_data(decrypt_ctx, ENC_KEY, 16)));
 
-        ctx_update(&ctx, new_ctx_flag, destroy_ctx_flag, DO_PRINT);
+			ctx_update(&ctx, new_ctx_flag, destroy_ctx_flag, DO_PRINT);
+		}
     }
 
     /* now, separately verify hmac, decrypt, and display ctx */
@@ -515,6 +577,13 @@ test_loop(int new_ctx_flag, int destroy_ctx_flag)
         printf("fko_verify_hmac() (2): %s\n",
             fko_errstr(fko_verify_hmac(decrypt_ctx, HMAC_KEY, 16)));
         ctx_update(&ctx, new_ctx_flag, destroy_ctx_flag, DO_PRINT);
+    }
+
+    if(!disable_sdp)
+    {
+		/* now remove the sdp client id in order to decrypt */
+		printf("fko_strip_sdp_client_id() (1): %s\n",
+			fko_errstr(fko_strip_sdp_client_id(decrypt_ctx)));
     }
 
     /* now decrypt */
@@ -570,7 +639,7 @@ test_loop(int new_ctx_flag, int destroy_ctx_flag)
     printf("fko_new_with_data(): %s (data: %s)\n",
         fko_errstr(fko_new_with_data(&decrypt_ctx, "tooshort", ENC_KEY,
         strlen(ENC_KEY), FKO_ENC_MODE_CBC, HMAC_KEY, strlen(HMAC_KEY),
-        FKO_HMAC_SHA256)), "tooshort");
+        FKO_HMAC_SHA256, sdp_client_id)), "tooshort");
 
     return;
 }
@@ -654,6 +723,80 @@ static void spa_func_getset_int(fko_ctx_t *ctx, char *set_name,
         (spa_set)(default_ctx, i);
     }
     printf("%s(%d): %s (FINAL)\n", set_name, final_val,
+            fko_errstr((spa_set)(*ctx, final_val)));
+    display_ctx(*ctx);
+
+    fko_spa_data_final(default_ctx, ENC_KEY, 16, HMAC_KEY, 16);
+    fko_destroy(default_ctx);
+    default_ctx = NULL;
+
+    return;
+}
+
+static void spa_func_getset_uint32(fko_ctx_t *ctx, char *set_name,
+        int (*spa_set)(fko_ctx_t ctx, const uint32_t modifier),
+        char *get_name, int (*spa_get)(fko_ctx_t ctx, uint32_t *val),
+		uint32_t min, uint32_t max, uint32_t final_val, int new_ctx_flag, int destroy_ctx_flag)
+{
+    fko_ctx_t default_ctx = NULL;
+    uint32_t get_val;
+    uint32_t i;
+    int res;
+
+    spa_default_ctx(&default_ctx);
+
+    printf("[+] calling libfko get/set: %s/%s\n", get_name, set_name);
+    for (i=min; i <= max; i++) {
+        get_val = 1234;  /* meaningless default */
+        printf("%s(%"PRIu32"): %s\n", set_name, i, fko_errstr((spa_set)(*ctx, i)));
+        printf("%s(%"PRIu32"): %s (DUPE)\n", set_name, i, fko_errstr((spa_set)(*ctx, i)));
+        res = (spa_get)(*ctx, &get_val);
+        printf("%s(%"PRIu32"): %s\n", get_name, get_val, fko_errstr(res));
+
+        ctx_update(ctx, new_ctx_flag, destroy_ctx_flag, DO_PRINT);
+        spa_calls += 3;
+
+        /* also set on a fully populated context */
+        (spa_set)(default_ctx, i);
+    }
+    printf("%s(%"PRIu32"): %s (FINAL)\n", set_name, final_val,
+            fko_errstr((spa_set)(*ctx, final_val)));
+    display_ctx(*ctx);
+
+    fko_spa_data_final(default_ctx, ENC_KEY, 16, HMAC_KEY, 16);
+    fko_destroy(default_ctx);
+    default_ctx = NULL;
+
+    return;
+}
+
+static void spa_func_getset_uint16(fko_ctx_t *ctx, char *set_name,
+        int (*spa_set)(fko_ctx_t ctx, const uint16_t modifier),
+        char *get_name, int (*spa_get)(fko_ctx_t ctx, uint16_t *val),
+		uint16_t min, uint16_t max, uint16_t final_val, int new_ctx_flag, int destroy_ctx_flag)
+{
+    fko_ctx_t default_ctx = NULL;
+    uint16_t get_val;
+    uint16_t i;
+    int res;
+
+    spa_default_ctx(&default_ctx);
+
+    printf("[+] calling libfko get/set: %s/%s\n", get_name, set_name);
+    for (i=min; i <= max; i++) {
+        get_val = 1234;  /* meaningless default */
+        printf("%s(%"PRIu16"): %s\n", set_name, i, fko_errstr((spa_set)(*ctx, i)));
+        printf("%s(%"PRIu16"): %s (DUPE)\n", set_name, i, fko_errstr((spa_set)(*ctx, i)));
+        res = (spa_get)(*ctx, &get_val);
+        printf("%s(%"PRIu16"): %s\n", get_name, get_val, fko_errstr(res));
+
+        ctx_update(ctx, new_ctx_flag, destroy_ctx_flag, DO_PRINT);
+        spa_calls += 3;
+
+        /* also set on a fully populated context */
+        (spa_set)(default_ctx, i);
+    }
+    printf("%s(%"PRIu16"): %s (FINAL)\n", set_name, final_val,
             fko_errstr((spa_set)(*ctx, final_val)));
     display_ctx(*ctx);
 

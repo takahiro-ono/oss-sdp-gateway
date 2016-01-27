@@ -60,6 +60,7 @@ int
 verify_file_perms_ownership(const char *file)
 {
     int res = 1;
+    uid_t caller_uid = 0;
 
 #if HAVE_STAT
     struct stat st;
@@ -95,10 +96,12 @@ verify_file_perms_ownership(const char *file)
             */
         }
 
-        if(st.st_uid != getuid())
+        caller_uid = getuid();
+        if(st.st_uid != caller_uid)
         {
-            log_msg(LOG_VERBOSITY_ERROR, "[-] file: %s not owned by current effective user id",
-                file);
+            log_msg(LOG_VERBOSITY_ERROR, "[-] file: %s (owner: %llu) not owned by current effective user id: %llu",
+                file, (unsigned long long)st.st_uid, (unsigned long long)caller_uid);
+
             /* when we start in enforcing this instead of just warning
              * the user
             res = 0;

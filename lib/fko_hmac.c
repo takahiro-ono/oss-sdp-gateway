@@ -110,7 +110,7 @@ fko_verify_hmac(fko_ctx_t ctx,
          */
         if(! ctx->added_gpg_prefix)
         {
-            res = add_gpg_prefix(ctx);
+            //res = add_gpg_prefix(ctx);
         }
     }
     else
@@ -120,7 +120,7 @@ fko_verify_hmac(fko_ctx_t ctx,
          */
         if(! ctx->added_salted_str)
         {
-            res = add_salted_str(ctx);
+            //res = add_salted_str(ctx);
         }
     }
 

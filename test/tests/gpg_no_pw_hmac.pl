@@ -22,7 +22,7 @@
             . "--gpg-home-dir $gpg_client_home_dir_no_pw "
             . "--rc-file $cf{'rc_hmac_b64_key'}",
         'fwknopd_cmdline' => "LD_LIBRARY_PATH=$lib_dir " .
-            "$valgrind_str $fwknopdCmd -c $cf{'def'} " .
+            "$valgrind_str $fwknopdCmd $srv_sdp_options -c $cf{'def'} " .
             "-a $cf{'gpg_no_pw_hmac_clientdir_access'} $intf_str " .
             "-d $default_digest_file -p $default_pid_file",
         'fw_rule_created' => $NEW_RULE_REQUIRED,
@@ -49,7 +49,7 @@
             . "--gpg-home-dir $gpg_client_home_dir_no_pw "
             . "--rc-file $cf{'rc_gpg_hmac_sha512_b64_key'}",
         'fwknopd_cmdline' => "LD_LIBRARY_PATH=$lib_dir " .
-            "$valgrind_str $fwknopdCmd -c $cf{'def'} " .
+            "$valgrind_str $fwknopdCmd $srv_sdp_options -c $cf{'def'} " .
             "-a $cf{'gpg_no_pw_hmac_sha512_access'} $intf_str " .
             "-d $default_digest_file -p $default_pid_file",
         'fw_rule_created' => $NEW_RULE_REQUIRED,
@@ -75,7 +75,7 @@
         'subcategory' => 'client+server',
         'detail'   => 'complete cycle (tcp/23 telnet)',
         'function' => \&spa_cycle,
-        'cmdline' => "$fwknopCmd -A tcp/23 -a $fake_ip -D $loopback_ip --get-key " .
+        'cmdline' => "$fwknopCmd $client_sdp_options -A tcp/23 -a $fake_ip -D $loopback_ip --get-key " .
             "$local_key_file $verbose_str " .
             "--gpg-recipient-key $gpg_server_key " .
             "--gpg-signer-key $gpg_client_key " .
@@ -91,7 +91,7 @@
         'subcategory' => 'client+server',
         'detail'   => 'complete cycle (tcp/9418 git)',
         'function' => \&spa_cycle,
-        'cmdline' => "$fwknopCmd -A tcp/9418 -a $fake_ip -D $loopback_ip --get-key " .
+        'cmdline' => "$fwknopCmd $client_sdp_options -A tcp/9418 -a $fake_ip -D $loopback_ip --get-key " .
             "$local_key_file $verbose_str " .
             "--gpg-recipient-key $gpg_server_key " .
             "--gpg-signer-key $gpg_client_key " .
@@ -107,7 +107,7 @@
         'subcategory' => 'client+server',
         'detail'   => 'complete cycle (tcp/60001 git)',
         'function' => \&spa_cycle,
-        'cmdline' => "$fwknopCmd -A tcp/60001 -a $fake_ip -D $loopback_ip --get-key " .
+        'cmdline' => "$fwknopCmd $client_sdp_options -A tcp/60001 -a $fake_ip -D $loopback_ip --get-key " .
             "$local_key_file $verbose_str " .
             "--gpg-recipient-key $gpg_server_key " .
             "--gpg-signer-key $gpg_client_key " .
@@ -123,7 +123,7 @@
         'subcategory' => 'client+server',
         'detail'   => 'complete cycle (udp/53 dns)',
         'function' => \&spa_cycle,
-        'cmdline' => "$fwknopCmd -A udp/53 -a $fake_ip -D $loopback_ip --get-key " .
+        'cmdline' => "$fwknopCmd $client_sdp_options -A udp/53 -a $fake_ip -D $loopback_ip --get-key " .
             "$local_key_file $verbose_str " .
             "--gpg-recipient-key $gpg_server_key " .
             "--gpg-signer-key $gpg_client_key " .

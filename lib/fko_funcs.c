@@ -33,6 +33,7 @@
 #include "cipher_funcs.h"
 #include "base64.h"
 #include "digest.h"
+#include "dbg.h"
 
 /* Initialize an fko context.
 */
@@ -141,6 +142,12 @@ fko_new(fko_ctx_t *r_ctx)
         return res;
     }
 
+    /* Default is to use SDP mode
+    */
+    ctx->disable_sdp_mode = FKO_DEFAULT_DISABLE_SDP_MODE;
+    ctx->encoded_sdp_client_id = NULL;
+    ctx->encoded_sdp_client_id_len = 0;
+
 #if HAVE_LIBGPGME
     /* Set gpg signature verify on.
     */
@@ -163,7 +170,7 @@ int
 fko_new_with_data(fko_ctx_t *r_ctx, const char * const enc_msg,
     const char * const dec_key, const int dec_key_len,
     int encryption_mode, const char * const hmac_key,
-    const int hmac_key_len, const int hmac_type)
+    const int hmac_key_len, const int hmac_type, const uint32_t sdp_client_id)
 {
     fko_ctx_t   ctx = NULL;
     int         res = FKO_SUCCESS; /* Are we optimistic or what? */
@@ -188,6 +195,13 @@ fko_new_with_data(fko_ctx_t *r_ctx, const char * const enc_msg,
     ctx = calloc(1, sizeof *ctx);
     if(ctx == NULL)
         return(FKO_ERROR_MEMORY_ALLOCATION);
+
+    // if SDP client ID is nonzero, SDP mode is enabled
+    ctx->sdp_client_id = sdp_client_id;
+    if(sdp_client_id > 0)
+    	ctx->disable_sdp_mode = 0;
+    else
+    	ctx->disable_sdp_mode = 1;
 
     enc_msg_len = strnlen(enc_msg, MAX_SPA_ENCODED_MSG_SIZE);
 
@@ -232,13 +246,34 @@ fko_new_with_data(fko_ctx_t *r_ctx, const char * const enc_msg,
     /* Check HMAC if the access stanza had an HMAC key
     */
     if(hmac_key_len > 0 && hmac_key != NULL)
-        res = fko_verify_hmac(ctx, hmac_key, hmac_key_len);
-    if(res != FKO_SUCCESS)
     {
-        fko_destroy(ctx);
-        ctx = NULL;
-        return res;
+        res = fko_verify_hmac(ctx, hmac_key, hmac_key_len);
+		if(res != FKO_SUCCESS)
+		{
+			fko_destroy(ctx);
+			ctx = NULL;
+			return res;
+		}
     }
+
+	if(sdp_client_id > 0)
+	{
+		/* The HMAC has been successfully verified (if it was present)
+		 * If this is SDP mode, time to remove the SDP client ID from the packet data
+		 * It was already captured much earlier in order to find the right
+		 * access rules, but now it needs to be stripped from the buffer.
+		 * This will also copy the encoded version of the ID to the
+		 * context (really just for certain tests).
+		 */
+		res = fko_strip_sdp_client_id(ctx);
+		if(res != FKO_SUCCESS)
+		{
+			fko_destroy(ctx);
+			ctx = NULL;
+			return res;
+		}
+	}
+
 
     /* Consider it initialized here.
     */
@@ -311,12 +346,20 @@ fko_destroy(fko_ctx_t ctx)
         if(zero_free(ctx->raw_digest, ctx->raw_digest_len) != FKO_SUCCESS)
             zero_free_rv = FKO_ERROR_ZERO_OUT_DATA;
 
+    if(ctx->encoded_sdp_client_id != NULL)
+        if(zero_free(ctx->encoded_sdp_client_id, ctx->encoded_sdp_client_id_len) != FKO_SUCCESS)
+            zero_free_rv = FKO_ERROR_ZERO_OUT_DATA;
+
     if(ctx->encoded_msg != NULL)
         if(zero_free(ctx->encoded_msg, ctx->encoded_msg_len) != FKO_SUCCESS)
             zero_free_rv = FKO_ERROR_ZERO_OUT_DATA;
 
     if(ctx->encrypted_msg != NULL)
         if(zero_free(ctx->encrypted_msg, ctx->encrypted_msg_len) != FKO_SUCCESS)
+            zero_free_rv = FKO_ERROR_ZERO_OUT_DATA;
+
+    if(ctx->final_msg != NULL)
+        if(zero_free(ctx->final_msg, ctx->final_msg_len) != FKO_SUCCESS)
             zero_free_rv = FKO_ERROR_ZERO_OUT_DATA;
 
     if(ctx->msg_hmac != NULL)
@@ -459,6 +502,131 @@ fko_get_version(fko_ctx_t ctx, char **version)
     return(FKO_SUCCESS);
 }
 
+/* Enable/disable Software Defined Perimeter Mode
+ */
+int
+fko_set_disable_sdp_mode(fko_ctx_t ctx, uint16_t disable_sdp_mode)
+{
+    /* Must be initialized
+    */
+    if(!CTX_INITIALIZED(ctx))
+        return(FKO_ERROR_CTX_NOT_INITIALIZED);
+
+    ctx->disable_sdp_mode = disable_sdp_mode;
+
+    return(FKO_SUCCESS);
+}
+
+/* Get current setting of disable_sdp_mode
+ */
+int
+fko_get_disable_sdp_mode(fko_ctx_t ctx, uint16_t *disable_sdp_mode)
+{
+    /* Must be initialized
+    */
+    if(!CTX_INITIALIZED(ctx))
+        return(FKO_ERROR_CTX_NOT_INITIALIZED);
+
+    *disable_sdp_mode = ctx->disable_sdp_mode;
+
+    return(FKO_SUCCESS);
+}
+
+/* Set sdp client id
+ */
+int
+fko_set_sdp_client_id(fko_ctx_t ctx, uint32_t sdp_client_id)
+{
+    /* Must be initialized
+    */
+    if(!CTX_INITIALIZED(ctx))
+        return(FKO_ERROR_CTX_NOT_INITIALIZED);
+
+    ctx->sdp_client_id = sdp_client_id;
+
+    return(FKO_SUCCESS);
+}
+
+/* Get sdp client id
+ */
+int
+fko_get_sdp_client_id(fko_ctx_t ctx, uint32_t *sdp_client_id)
+{
+    /* Must be initialized
+    */
+    if(!CTX_INITIALIZED(ctx))
+        return(FKO_ERROR_CTX_NOT_INITIALIZED);
+
+    *sdp_client_id = ctx->sdp_client_id;
+
+    return(FKO_SUCCESS);
+}
+
+/* This function is only called if this is SDP mode and
+ * HMAC has been successfully verified (if it was present)
+ * So it's time to remove the SDP client ID from the packet data
+ * It was already captured much earlier in order to find the right
+ * access rules, but now it needs to be stripped from the buffer.
+ * This will also copy the encoded version of the ID to the
+ * context (really just for certain tests).
+ */
+int
+fko_strip_sdp_client_id(fko_ctx_t ctx)
+{
+	char *tbuf = NULL;
+	char *ndx = NULL;
+	int res = 0;
+
+	// first store the encoded sdp client id in the context
+	tbuf = calloc(1, B64_SDP_CLIENT_ID_STR_LEN + 1);
+	if(tbuf == NULL)
+	{
+		fko_destroy(ctx);
+		ctx = NULL;
+		return FKO_ERROR_MEMORY_ALLOCATION;
+	}
+
+	strncpy(tbuf, ctx->encrypted_msg, B64_SDP_CLIENT_ID_STR_LEN);
+	tbuf[B64_SDP_CLIENT_ID_STR_LEN] = '\0';
+	res = fko_set_encoded_sdp_client_id(ctx, tbuf);
+	free(tbuf);
+	tbuf = NULL;
+
+	if(res != FKO_SUCCESS)
+	{
+		return res;
+	}
+
+	// the ID is always 6 bytes
+	ndx = ctx->encrypted_msg + B64_SDP_CLIENT_ID_STR_LEN;
+
+	tbuf = strndup(ndx, MAX_SPA_ENCODED_MSG_SIZE);
+	if(tbuf == NULL)
+	{
+		return FKO_ERROR_MEMORY_ALLOCATION;
+	}
+
+	free(ctx->encrypted_msg);
+
+	ctx->encrypted_msg = strndup(tbuf, MAX_SPA_ENCODED_MSG_SIZE);
+
+	free(tbuf);
+
+	if(ctx->encrypted_msg == NULL)
+	{
+		return FKO_ERROR_MEMORY_ALLOCATION;
+	}
+
+	ctx->encrypted_msg_len = strnlen(ctx->encrypted_msg, MAX_SPA_ENCODED_MSG_SIZE);
+
+	if(! is_valid_encoded_msg_len(ctx->encrypted_msg_len))
+	{
+		return(FKO_ERROR_INVALID_DATA_FUNCS_NEW_MSGLEN_VALIDFAIL);
+	}
+
+	return FKO_SUCCESS;
+}
+
 /* Final update and encoding of data in the context.
  * This does require all requisite fields be properly
  * set.
@@ -469,6 +637,8 @@ fko_spa_data_final(fko_ctx_t ctx,
     const char * const hmac_key, const int hmac_key_len)
 {
     char   *tbuf;
+    char   *tmp_ptr;
+    int     new_msg_len = 0;
     int     res = 0, data_with_hmac_len = 0;
 
     /* Must be initialized
@@ -479,11 +649,97 @@ fko_spa_data_final(fko_ctx_t ctx,
     if(enc_key_len < 0)
         return(FKO_ERROR_INVALID_KEY_LEN);
 
+    debug("fko_spa_data_final() : calling fko_encrypt_spa_data...");
     res = fko_encrypt_spa_data(ctx, enc_key, enc_key_len);
+    if(res != FKO_SUCCESS)
+    	return res;
+    debug("fko_spa_data_final() : returned from fko_encrypt_spa_data");
+
+    /* Notice we omit the first 10 bytes if Rijndael encryption is
+     * used (to eliminate the consistent 'Salted__' string), and
+     * in GnuPG mode we eliminate the consistent 'hQ' base64 encoded
+     * prefix
+    */
+    debug("fko_spa_data_final() : calculating tmp_ptr...");
+    tmp_ptr = ctx->encrypted_msg;
+    if(ctx->encryption_type == FKO_ENCRYPTION_RIJNDAEL)
+        tmp_ptr += B64_RIJNDAEL_SALT_STR_LEN;
+    else if(ctx->encryption_type == FKO_ENCRYPTION_GPG)
+        tmp_ptr += B64_GPG_PREFIX_STR_LEN;
+    debug("fko_spa_data_final() : done calculating tmp_ptr");
+
+    /* If this is not SDP mode, just remove the unwanted prefix
+     */
+    if(ctx->disable_sdp_mode)
+    {
+    	// need a new buffer to assemble everything
+        new_msg_len = strlen(tmp_ptr) + 1;
+        if(! is_valid_encoded_msg_len(new_msg_len))
+            return(FKO_ERROR_INVALID_DATA_ENCODE_MSGLEN_VALIDFAIL);
+
+        tbuf = calloc(1, new_msg_len);
+        if(tbuf == NULL)
+            return(FKO_ERROR_MEMORY_ALLOCATION);
+
+        // make the change
+        strlcpy(tbuf, tmp_ptr, new_msg_len);
+
+        /* encrypted_msg needs to
+         * be freed before re-assignment.
+        */
+        free(ctx->encrypted_msg);
+
+        ctx->encrypted_msg = strdup(tbuf);
+        free(tbuf);
+
+        ctx->encrypted_msg_len = strnlen(ctx->encrypted_msg, MAX_SPA_ENCODED_MSG_SIZE);
+        if(! is_valid_encoded_msg_len(ctx->encrypted_msg_len))
+            return(FKO_ERROR_INVALID_DATA_ENCODE_MSGLEN_VALIDFAIL);
+    }
+    else
+    {
+        debug("fko_spa_data_final() : calculating new message len, but first...");
+        debug("fko_spa_data_final() : sdp client id string len: %d", ctx->encoded_sdp_client_id_len);
+
+    	// remove the unwanted data and insert the SDP client ID at this time
+        new_msg_len = ctx->encoded_sdp_client_id_len + strlen(tmp_ptr) + 1;
+        if(! is_valid_encoded_msg_len(new_msg_len))
+            return(FKO_ERROR_INVALID_DATA_ENCODE_MSGLEN_VALIDFAIL);
+
+        debug("fko_spa_data_final() : calculated message len: %d", new_msg_len);
+
+        tbuf = calloc(1, new_msg_len);
+        if(tbuf == NULL)
+            return(FKO_ERROR_MEMORY_ALLOCATION);
+
+
+        // put 'em together
+        debug("fko_spa_data_final() : copying sdp client id string: %s;", ctx->encoded_sdp_client_id);
+        debug("fko_spa_data_final() : encrypted_(encoded)_msg: \n\t%s;", ctx->encrypted_msg);
+        debug("fko_spa_data_final() : tmp_ptr: \n\t%s;", tmp_ptr);
+        strlcpy(tbuf, ctx->encoded_sdp_client_id, new_msg_len);
+        debug("fko_spa_data_final() : concatting rest of message...");
+        strlcat(tbuf, tmp_ptr, new_msg_len);
+        debug("fko_spa_data_final() : tbuf: \n\t%s;", tbuf);
+
+        /* encrypted_msg needs to
+         * be freed before re-assignment.
+        */
+        debug("fko_spa_data_final() : freeing old message string...");
+        free(ctx->encrypted_msg);
+
+        debug("fko_spa_data_final() : duplicating new message...");
+        ctx->encrypted_msg = strdup(tbuf);
+        free(tbuf);
+
+        ctx->encrypted_msg_len = strnlen(ctx->encrypted_msg, MAX_SPA_ENCODED_MSG_SIZE);
+        if(! is_valid_encoded_msg_len(ctx->encrypted_msg_len))
+            return(FKO_ERROR_INVALID_DATA_ENCODE_MSGLEN_VALIDFAIL);
+    }
 
     /* Now calculate hmac if so configured
     */
-    if (res == FKO_SUCCESS && ctx->hmac_type != FKO_HMAC_UNKNOWN)
+    if (ctx->hmac_type != FKO_HMAC_UNKNOWN)
     {
         if(hmac_key_len < 0)
             return(FKO_ERROR_INVALID_KEY_LEN);
@@ -491,6 +747,7 @@ fko_spa_data_final(fko_ctx_t ctx,
         if(hmac_key == NULL)
             return(FKO_ERROR_INVALID_KEY_LEN);
 
+        debug("fko_spa_data_final() : setting HMAC...");
         res = fko_set_spa_hmac(ctx, hmac_key, hmac_key_len);
 
         if (res == FKO_SUCCESS)
@@ -502,10 +759,12 @@ fko_spa_data_final(fko_ctx_t ctx,
             data_with_hmac_len
                 = ctx->encrypted_msg_len+1+ctx->msg_hmac_len+1;
 
+            debug("fko_spa_data_final() : expanding message buffer...");
             tbuf = realloc(ctx->encrypted_msg, data_with_hmac_len);
             if (tbuf == NULL)
                 return(FKO_ERROR_MEMORY_ALLOCATION);
 
+            debug("fko_spa_data_final() : concatting HMAC...");
             strlcat(tbuf, ctx->msg_hmac, data_with_hmac_len);
 
             ctx->encrypted_msg     = tbuf;
@@ -513,6 +772,7 @@ fko_spa_data_final(fko_ctx_t ctx,
         }
     }
 
+    debug("fko_spa_data_final() : exiting function with return value: %d", res);
     return res;
 }
 
@@ -521,7 +781,6 @@ fko_spa_data_final(fko_ctx_t ctx,
 int
 fko_get_spa_data(fko_ctx_t ctx, char **spa_data)
 {
-
 #if HAVE_LIBFIU
     fiu_return_on("fko_get_spa_data_init", FKO_ERROR_CTX_NOT_INITIALIZED);
 #endif
@@ -549,16 +808,6 @@ fko_get_spa_data(fko_ctx_t ctx, char **spa_data)
 #endif
 
     *spa_data = ctx->encrypted_msg;
-
-    /* Notice we omit the first 10 bytes if Rijndael encryption is
-     * used (to eliminate the consistent 'Salted__' string), and
-     * in GnuPG mode we eliminate the consistent 'hQ' base64 encoded
-     * prefix
-    */
-    if(ctx->encryption_type == FKO_ENCRYPTION_RIJNDAEL)
-        *spa_data += B64_RIJNDAEL_SALT_STR_LEN;
-    else if(ctx->encryption_type == FKO_ENCRYPTION_GPG)
-        *spa_data += B64_GPG_PREFIX_STR_LEN;
 
     return(FKO_SUCCESS);
 }

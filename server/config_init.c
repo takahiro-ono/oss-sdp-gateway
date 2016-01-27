@@ -935,6 +935,13 @@ validate_options(fko_srv_options_t *opts)
     if(opts->config[CONF_SYSLOG_FACILITY] == NULL)
         set_config_entry(opts, CONF_SYSLOG_FACILITY, DEF_SYSLOG_FACILITY);
 
+    /* SDP Mode
+    */
+    if(opts->config[CONF_DISABLE_SDP_MODE] == NULL)
+    {
+    	opts->disable_sdp_mode = 0;
+        set_config_entry(opts, CONF_DISABLE_SDP_MODE, DEF_DISABLE_SDP_MODE);
+    }
 
     /* Validate integer variable ranges
     */
@@ -1226,6 +1233,10 @@ config_init(fko_srv_options_t *opts, int argc, char **argv)
             case 'D':
                 opts->dump_config = 1;
                 break;
+            case DISABLE_SDP_MODE:
+            	opts->disable_sdp_mode = 1;
+            	set_config_entry(opts, CONF_DISABLE_SDP_MODE, "Y");
+            	break;
             case DUMP_SERVER_ERR_CODES:
                 dump_server_errors();
                 clean_exit(opts, NO_FW_CLEANUP, EXIT_SUCCESS);

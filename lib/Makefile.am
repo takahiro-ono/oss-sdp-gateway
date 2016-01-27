@@ -8,7 +8,7 @@ libfko_source_files = \
     fko.h fko_limits.h fko_timestamp.c fko_hmac.c hmac.c hmac.h \
     fko_user.c fko_user.h md5.c md5.h rijndael.c rijndael.h sha1.c \
     sha1.h sha2.c sha2.h fko_context.h fko_state.h \
-    gpgme_funcs.c gpgme_funcs.h
+    gpgme_funcs.c gpgme_funcs.h dbg.h
 
 
 if WANT_C_UNIT_TESTS

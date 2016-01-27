@@ -118,6 +118,7 @@
 #define DEF_SYSLOG_IDENTITY             MY_NAME
 #define DEF_SYSLOG_FACILITY             "LOG_DAEMON"
 #define DEF_ENABLE_DESTINATION_RULE     "N"
+#define DEF_DISABLE_SDP_MODE            "N"
 
 #define DEF_FW_ACCESS_TIMEOUT           30
 
@@ -216,7 +217,7 @@
 
 /* The minimum possible valid SPA data size.
 */
-#define MIN_SPA_DATA_SIZE   140
+#define MIN_SPA_DATA_SIZE   80
 
 /* Configuration file parameter tags.
  * This will correspond to entries in the configuration parameters
@@ -324,6 +325,7 @@ enum {
     CONF_AFL_PKT_FILE,
 #endif
     CONF_FAULT_INJECTION_TAG,
+	CONF_DISABLE_SDP_MODE,
 
     NUMBER_OF_CONFIG_ENTRIES  /* Marks the end and number of entries */
 };
@@ -361,6 +363,7 @@ typedef struct acc_string_list
 */
 typedef struct acc_stanza
 {
+	uint32_t			 sdp_client_id;
     char                *source;
     acc_int_list_t      *source_list;
     char                *destination;
@@ -578,6 +581,7 @@ typedef struct spa_pkt_info
     unsigned int    packet_dst_ip;
     unsigned short  packet_src_port;
     unsigned short  packet_dst_port;
+    uint32_t        sdp_client_id;
     unsigned char   packet_data[MAX_SPA_PACKET_LEN+1];
 } spa_pkt_info_t;
 
@@ -585,6 +589,7 @@ typedef struct spa_pkt_info
 */
 typedef struct spa_data
 {
+	uint32_t	    sdp_client_id;
     char           *username;
     time_t          timestamp;
     char           *version;
@@ -622,6 +627,7 @@ typedef struct fko_srv_options
 
     /* Operational flags
     */
+    unsigned char   disable_sdp_mode;   /* Flag to disable SDP Mode */
     unsigned char   test;               /* Test mode flag */
     unsigned char   afl_fuzzing;        /* SPA pkts from stdin for AFL fuzzing */
     unsigned char   verbose;            /* Verbose mode flag */

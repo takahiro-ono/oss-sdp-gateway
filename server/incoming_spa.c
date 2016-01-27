@@ -55,7 +55,10 @@ preprocess_spa_data(const fko_srv_options_t *opts, spa_pkt_info_t *spa_pkt)
 {
 
     char    *ndx = (char *)&(spa_pkt->packet_data);
+    char    *decoded_sdp_client_id = NULL;
+    char    *encoded_sdp_client_id = NULL;
     int      i, pkt_data_len = 0;
+    uint32_t sdp_client_id = 0;
 
     pkt_data_len = spa_pkt->packet_data_len;
 
@@ -138,6 +141,29 @@ preprocess_spa_data(const fko_srv_options_t *opts, spa_pkt_info_t *spa_pkt)
      * The ultimate test will be whether the SPA data authenticates via an
      * HMAC anyway.
     */
+
+    /* If this is SDP mode
+     */
+    if(strncasecmp(opts->config[CONF_DISABLE_SDP_MODE], "N", 1) == 0)
+    {
+    	// make space for the decoded string, really need 5 bytes, but 8 will work
+    	decoded_sdp_client_id = calloc(1, FKO_SDP_CLIENT_ID_SIZE*2);
+    	if(decoded_sdp_client_id == NULL)
+            return(FKO_ERROR_MEMORY_ALLOCATION);
+
+    	// Copy out the SDP client ID, NOT extracting yet
+    	encoded_sdp_client_id = strndup((char *)(spa_pkt->packet_data), B64_SDP_CLIENT_ID_STR_LEN);
+
+    	// decode from b64 to original data
+    	fko_base64_decode(encoded_sdp_client_id, (unsigned char*)decoded_sdp_client_id);
+    	free(encoded_sdp_client_id);
+
+    	// copy to a proper uint32_t
+    	memcpy((void*)(&sdp_client_id), decoded_sdp_client_id, FKO_SDP_CLIENT_ID_SIZE);
+    	spa_pkt->sdp_client_id = sdp_client_id;
+    	free(decoded_sdp_client_id);
+    }
+
     return(FKO_SUCCESS);
 }
 
@@ -155,7 +181,7 @@ get_raw_digest(char **digest, char *pkt_data)
      * we can get the outer message digest
     */
     res = fko_new_with_data(&ctx, (char *)pkt_data, NULL, 0,
-            FKO_DEFAULT_ENC_MODE, NULL, 0, 0);
+            FKO_DEFAULT_ENC_MODE, NULL, 0, 0, 0);
 
     if(res != FKO_SUCCESS)
     {
@@ -234,16 +260,25 @@ static int
 get_spa_data_fields(fko_ctx_t ctx, spa_data_t *spdat)
 {
     int res = FKO_SUCCESS;
+    uint16_t disable_sdp_mode = 0;
 
-    res = fko_get_username(ctx, &(spdat->username));
+    res = fko_get_disable_sdp_mode(ctx, &disable_sdp_mode);
     if(res != FKO_SUCCESS)
         return(res);
+
+	res = fko_get_sdp_client_id(ctx, &(spdat->sdp_client_id));
+	if(res != FKO_SUCCESS)
+		return(res);
+
+	res = fko_get_username(ctx, &(spdat->username));
+	if(res != FKO_SUCCESS)
+		return(res);
+
+	res = fko_get_version(ctx, &(spdat->version));
+	if(res != FKO_SUCCESS)
+		return(res);
 
     res = fko_get_timestamp(ctx, &(spdat->timestamp));
-    if(res != FKO_SUCCESS)
-        return(res);
-
-    res = fko_get_version(ctx, &(spdat->version));
     if(res != FKO_SUCCESS)
         return(res);
 
@@ -263,9 +298,9 @@ get_spa_data_fields(fko_ctx_t ctx, spa_data_t *spdat)
     if(res != FKO_SUCCESS)
         return(res);
 
-    res = fko_get_spa_client_timeout(ctx, (int *)&(spdat->client_timeout));
-    if(res != FKO_SUCCESS)
-        return(res);
+	res = fko_get_spa_client_timeout(ctx, (int *)&(spdat->client_timeout));
+	if(res != FKO_SUCCESS)
+		return(res);
 
     return(res);
 }
@@ -550,7 +585,7 @@ handle_rijndael_enc(acc_stanza_t *acc, spa_pkt_info_t *spa_pkt,
     {
         *res = fko_new_with_data(ctx, (char *)spa_pkt->packet_data,
             acc->key, acc->key_len, acc->encryption_mode, acc->hmac_key,
-            acc->hmac_key_len, acc->hmac_type);
+            acc->hmac_key_len, acc->hmac_type, spa_pkt->sdp_client_id);
         *attempted_decrypt = 1;
         if(*res == FKO_SUCCESS)
             *cmd_exec_success = 1;
@@ -573,7 +608,7 @@ handle_gpg_enc(acc_stanza_t *acc, spa_pkt_info_t *spa_pkt,
         {
             *res = fko_new_with_data(ctx, (char *)spa_pkt->packet_data, NULL,
                     0, FKO_ENC_MODE_ASYMMETRIC, acc->hmac_key,
-                    acc->hmac_key_len, acc->hmac_type);
+                    acc->hmac_key_len, acc->hmac_type, spa_pkt->sdp_client_id);
 
             if(*res != FKO_SUCCESS)
             {
@@ -904,6 +939,9 @@ incoming_spa(fko_srv_options_t *opts)
     */
     acc_stanza_t        *acc = opts->acc_stanzas;
 
+    char *preamble = "incoming_spa() :";
+    log_msg(LOG_DEBUG, "%s just arrived, stay tuned", preamble);
+
     inet_ntop(AF_INET, &(spa_pkt->packet_src_ip),
         spadat.pkt_source_ip, sizeof(spadat.pkt_source_ip));
 
@@ -1104,13 +1142,16 @@ incoming_spa(fko_srv_options_t *opts)
             continue;
         }
 
-        /* If REQUIRE_USERNAME is set, make sure the username in this SPA data
-         * matches.
+        /* If SDP Mode is disabled and REQUIRE_USERNAME is set,
+         * make sure the username in this SPA data matches.
         */
-        if(! check_username(acc, &spadat, stanza_num))
+        if(strncasecmp(opts->config[CONF_DISABLE_SDP_MODE], "Y", 1) == 0)
         {
-            acc = acc->next;
-            continue;
+			if(! check_username(acc, &spadat, stanza_num))
+			{
+				acc = acc->next;
+				continue;
+			}
         }
 
         /* Take action based on SPA message type.

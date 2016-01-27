@@ -164,6 +164,7 @@ main(int argc, char **argv)
     int                 key_len = 0, orig_key_len = 0, hmac_key_len = 0, enc_mode;
     int                 tmp_port = 0;
     char                dump_buf[CTX_DUMP_BUFSIZE];
+    uint32_t            sdp_client_id = 0;
 
     fko_cli_options_t   options;
 
@@ -175,6 +176,8 @@ main(int argc, char **argv)
     /* Handle command line
     */
     config_init(&options, argc, argv);
+
+    log_msg(LOG_VERBOSITY_DEBUG, "fwknop main() : completed config_init");
 
 #if HAVE_LIBFIU
         /* Set any fault injection points early
@@ -306,6 +309,8 @@ main(int argc, char **argv)
             clean_exit(ctx, &options, key, &key_len,
                     hmac_key, &hmac_key_len, EXIT_FAILURE);
     }
+
+    log_msg(LOG_VERBOSITY_DEBUG, "fwknop main() : calling fko_set_spa_message...");
     res = fko_set_spa_message(ctx, access_buf);
     if(res != FKO_SUCCESS)
     {
@@ -313,11 +318,13 @@ main(int argc, char **argv)
         clean_exit(ctx, &options, key, &key_len,
             hmac_key, &hmac_key_len, EXIT_FAILURE);
     }
+    log_msg(LOG_VERBOSITY_DEBUG, "fwknop main() : returned from fko_set_spa_message");
 
     /* Set NAT access string
     */
     if (options.nat_local || options.nat_access_str[0] != 0x0)
     {
+        log_msg(LOG_VERBOSITY_DEBUG, "fwknop main() : calling set_nat_access...");
         res = set_nat_access(ctx, &options, access_buf);
         if(res != FKO_SUCCESS)
         {
@@ -325,6 +332,7 @@ main(int argc, char **argv)
             clean_exit(ctx, &options, key, &key_len,
                     hmac_key, &hmac_key_len, EXIT_FAILURE);
         }
+        log_msg(LOG_VERBOSITY_DEBUG, "fwknop main() : returned from set_nat_access");
     }
 
     /* Set username
@@ -339,6 +347,33 @@ main(int argc, char **argv)
                     hmac_key, &hmac_key_len, EXIT_FAILURE);
         }
     }
+
+    /* Set SDP mode on or off
+     */
+    log_msg(LOG_VERBOSITY_DEBUG, "fwknop main() : checking option disable_sdp_mode...");
+    if(options.disable_sdp_mode)
+    {
+        log_msg(LOG_VERBOSITY_DEBUG, "fwknop main() : calling fko_set_disable_sdp_mode...");
+    	res = fko_set_disable_sdp_mode(ctx, options.disable_sdp_mode);
+    	if(res != FKO_SUCCESS)
+        {
+            errmsg("fko_set_disable_sdp_mode", res);
+            clean_exit(ctx, &options, key, &key_len,
+                    hmac_key, &hmac_key_len, EXIT_FAILURE);
+        }
+        log_msg(LOG_VERBOSITY_DEBUG, "fwknop main() : returned from fko_set_disable_sdp_mode");
+    }
+    else
+    {
+    	res = fko_set_sdp_client_id(ctx, options.sdp_client_id);
+    	if(res != FKO_SUCCESS)
+        {
+            errmsg("fko_set_sdp_client_id", res);
+            clean_exit(ctx, &options, key, &key_len,
+                    hmac_key, &hmac_key_len, EXIT_FAILURE);
+        }
+    }
+    log_msg(LOG_VERBOSITY_DEBUG, "fwknop main() : finished checking option disable_sdp_mode");
 
     /* Set up for using GPG if specified.
     */
@@ -468,6 +503,7 @@ main(int argc, char **argv)
 
     /* Finalize the context data (encrypt and encode the SPA data)
     */
+    log_msg(LOG_VERBOSITY_DEBUG, "fwknop main() : calling fko_spa_data_final...");
     res = fko_spa_data_final(ctx, key, key_len, hmac_key, hmac_key_len);
     if(res != FKO_SUCCESS)
     {
@@ -478,6 +514,7 @@ main(int argc, char **argv)
         clean_exit(ctx, &options, key, &orig_key_len,
                 hmac_key, &hmac_key_len, EXIT_FAILURE);
     }
+    log_msg(LOG_VERBOSITY_DEBUG, "fwknop main() : returned from fko_spa_data_final");
 
     /* Display the context data.
     */
@@ -577,8 +614,20 @@ main(int argc, char **argv)
          * This also verifies the HMAC and truncates it if there are no
          * problems.
         */
+        res = fko_get_sdp_client_id(ctx, &sdp_client_id);
+        if(res != FKO_SUCCESS)
+        {
+            errmsg("fko_get_sdp_client_id", res);
+            if(fko_destroy(ctx2) == FKO_ERROR_ZERO_OUT_DATA)
+                log_msg(LOG_VERBOSITY_ERROR,
+                        "[*] Could not zero out sensitive data buffer.");
+            ctx2 = NULL;
+            clean_exit(ctx, &options, key, &orig_key_len,
+                hmac_key, &hmac_key_len, EXIT_FAILURE);
+        }
+
         res = fko_new_with_data(&ctx2, spa_data, NULL,
-            0, enc_mode, hmac_key, hmac_key_len, options.hmac_type);
+            0, enc_mode, hmac_key, hmac_key_len, options.hmac_type, sdp_client_id);
         if(res != FKO_SUCCESS)
         {
             errmsg("fko_new_with_data", res);
@@ -666,6 +715,8 @@ main(int argc, char **argv)
 
     clean_exit(ctx, &options, key, &orig_key_len,
             hmac_key, &hmac_key_len, EXIT_SUCCESS);
+
+    log_msg(LOG_VERBOSITY_DEBUG, "fwknop main() : Supposedly exiting successfully, code is: %d", EXIT_SUCCESS);
 
     return EXIT_SUCCESS;  /* quiet down a gcc warning */
 }
@@ -1368,6 +1419,7 @@ clean_exit(fko_ctx_t ctx, fko_cli_options_t *opts,
     zero_buf_wrapper(hmac_key, *hmac_key_len);
     *key_len = 0;
     *hmac_key_len = 0;
+    log_msg(LOG_VERBOSITY_DEBUG, "fwknop clean_exit() : Supposedly exiting successfully, code is: %d", exit_status);
     exit(exit_status);
 }
 

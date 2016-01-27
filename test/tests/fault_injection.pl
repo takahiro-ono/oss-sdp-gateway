@@ -55,7 +55,7 @@
         'subcategory' => 'fiu-run libc/mm/*',
         'detail'   => 'client',
         'function' => \&fiu_run_fault_injection,
-        'cmdline' => "$fwknopCmd -A tcp/22 -a $fake_ip -D $loopback_ip --get-key " .
+        'cmdline' => "$fwknopCmd $client_sdp_options -A tcp/22 -a $fake_ip -D $loopback_ip --get-key " .
             "$local_key_file --no-save-args $verbose_str",
         'fiu_injection_style' => 'enable_random name=libc/mm/*,probability=0.05',
         'fiu_iterations' => 1000
@@ -65,7 +65,7 @@
         'subcategory' => 'fiu-run posix/io/rw/*',
         'detail'   => 'client',
         'function' => \&fiu_run_fault_injection,
-        'cmdline' => "$fwknopCmd -A tcp/22 -a $fake_ip -D $loopback_ip --get-key " .
+        'cmdline' => "$fwknopCmd $client_sdp_options -A tcp/22 -a $fake_ip -D $loopback_ip --get-key " .
             "$local_key_file --no-save-args $verbose_str",
         'fiu_injection_style' => 'enable_random name=posix/io/rw/*,probability=0.05',
         'fiu_iterations' => 1000
@@ -76,7 +76,7 @@
         'subcategory' => 'fiu-run libc/mm/*',
         'detail'   => 'server',
         'function' => \&fiu_run_fault_injection,
-        'cmdline'  => "$fwknopdCmd $default_server_conf_args $intf_str --exit-parse-config",
+        'cmdline'  => "$fwknopdCmd $srv_sdp_options $default_server_conf_args $intf_str --exit-parse-config",
         'fiu_injection_style' => 'enable_random name=libc/mm/*,probability=0.05',
         'fiu_iterations' => 1000
     },
@@ -85,7 +85,7 @@
         'subcategory' => 'fiu-run posix/io/rw/*',
         'detail'   => 'server',
         'function' => \&fiu_run_fault_injection,
-        'cmdline'  => "$fwknopdCmd $default_server_conf_args $intf_str --exit-parse-config",
+        'cmdline'  => "$fwknopdCmd $srv_sdp_options $default_server_conf_args $intf_str --exit-parse-config",
         'fiu_injection_style' => 'enable_random name=posix/io/rw/*,probability=0.05',
         'fiu_iterations' => 1000
     },
@@ -93,9 +93,10 @@
         'category' => 'fault injection',
         'subcategory' => 'fiu-run libc/mm/*',
         'detail'   => 'server pcap file',
+        'skip_if_sdp' => 1,
         'function' => \&fiu_run_fault_injection,
-        'cmdline'  => "$fwknopdCmd $default_server_conf_args $intf_str --exit-parse-config",
-        'cmdline' => "$fwknopdCmd -c $cf{'def'} -a $cf{'hmac_access'} -C 100 " .
+        'cmdline'  => "$fwknopdCmd $srv_sdp_options $default_server_conf_args $intf_str --exit-parse-config",
+        'cmdline' => "$fwknopdCmd $srv_sdp_options -c $cf{'def'} -a $cf{'hmac_access'} -C 100 " .
             "-d $default_digest_file -p $default_pid_file " .
             "--pcap-file $multi_pkts_pcap_file --foreground $verbose_str --test " .
             "--no-ipt-check-support",
@@ -106,9 +107,10 @@
         'category' => 'fault injection',
         'subcategory' => 'fiu-run posix/io/rw/*',
         'detail'   => 'server pcap file',
+        'skip_if_sdp' => 1,
         'function' => \&fiu_run_fault_injection,
-        'cmdline'  => "$fwknopdCmd $default_server_conf_args $intf_str --exit-parse-config",
-        'cmdline' => "$fwknopdCmd -c $cf{'def'} -a $cf{'hmac_access'} -C 100 " .
+        'cmdline'  => "$fwknopdCmd $srv_sdp_options $default_server_conf_args $intf_str --exit-parse-config",
+        'cmdline' => "$fwknopdCmd $srv_sdp_options -c $cf{'def'} -a $cf{'hmac_access'} -C 100 " .
             "-d $default_digest_file -p $default_pid_file " .
             "--pcap-file $multi_pkts_pcap_file --foreground $verbose_str --test " .
             "--no-ipt-check-support",
@@ -413,7 +415,7 @@
         'no_ip_check' => 1,
         'client_pkt_tries' => 1,
         'cmdline'  => $default_client_hmac_args,
-        'fwknopd_cmdline' => "$fwknopdCmd -c $cf{'disable_aging'} -a $cf{'hmac_access'} " .
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options -c $cf{'disable_aging'} -a $cf{'hmac_access'} " .
             "-d $default_digest_file -p $default_pid_file $intf_str " .
             "--fault-injection-tag fko_get_username_init",
         'server_positive_output_matches' => [qr/FKO Context is not initialized/],
@@ -427,7 +429,7 @@
         'no_ip_check' => 1,
         'client_pkt_tries' => 1,
         'cmdline'  => $default_client_hmac_args,
-        'fwknopd_cmdline' => "$fwknopdCmd -c $cf{'disable_aging'} -a $cf{'hmac_access'} " .
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options -c $cf{'disable_aging'} -a $cf{'hmac_access'} " .
             "-d $default_digest_file -p $default_pid_file $intf_str " .
             "--fault-injection-tag fko_get_username_val",
         'server_positive_output_matches' => [qr/Args contain invalid data/],
@@ -443,7 +445,7 @@
         'no_ip_check' => 1,
         'client_pkt_tries' => 1,
         'cmdline'  => $default_client_hmac_args,
-        'fwknopd_cmdline' => "$fwknopdCmd -c $cf{'disable_aging'} -a $cf{'hmac_access'} " .
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options -c $cf{'disable_aging'} -a $cf{'hmac_access'} " .
             "-d $default_digest_file -p $default_pid_file $intf_str " .
             "--fault-injection-tag fko_get_timestamp_init",
         'server_positive_output_matches' => [qr/FKO Context is not initialized/],
@@ -457,7 +459,7 @@
         'no_ip_check' => 1,
         'client_pkt_tries' => 1,
         'cmdline'  => $default_client_hmac_args,
-        'fwknopd_cmdline' => "$fwknopdCmd -c $cf{'disable_aging'} -a $cf{'hmac_access'} " .
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options -c $cf{'disable_aging'} -a $cf{'hmac_access'} " .
             "-d $default_digest_file -p $default_pid_file $intf_str " .
             "--fault-injection-tag fko_get_timestamp_val",
         'server_positive_output_matches' => [qr/Args contain invalid data/],
@@ -473,7 +475,7 @@
         'no_ip_check' => 1,
         'client_pkt_tries' => 1,
         'cmdline'  => $default_client_hmac_args,
-        'fwknopd_cmdline' => "$fwknopdCmd -c $cf{'disable_aging'} -a $cf{'hmac_access'} " .
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options -c $cf{'disable_aging'} -a $cf{'hmac_access'} " .
             "-d $default_digest_file -p $default_pid_file $intf_str " .
             "--fault-injection-tag fko_get_spa_message_type_init",
         'server_positive_output_matches' => [qr/FKO Context is not initialized/],
@@ -487,7 +489,7 @@
         'no_ip_check' => 1,
         'client_pkt_tries' => 1,
         'cmdline'  => $default_client_hmac_args,
-        'fwknopd_cmdline' => "$fwknopdCmd -c $cf{'disable_aging'} -a $cf{'hmac_access'} " .
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options -c $cf{'disable_aging'} -a $cf{'hmac_access'} " .
             "-d $default_digest_file -p $default_pid_file $intf_str " .
             "--fault-injection-tag fko_get_spa_message_type_val",
         'server_positive_output_matches' => [qr/Args contain invalid data/],
@@ -503,7 +505,7 @@
         'no_ip_check' => 1,
         'client_pkt_tries' => 1,
         'cmdline'  => $default_client_hmac_args,
-        'fwknopd_cmdline' => "$fwknopdCmd -c $cf{'disable_aging'} -a $cf{'hmac_access'} " .
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options -c $cf{'disable_aging'} -a $cf{'hmac_access'} " .
             "-d $default_digest_file -p $default_pid_file $intf_str " .
             "--fault-injection-tag fko_get_spa_message_init",
         'server_positive_output_matches' => [qr/FKO Context is not initialized/],
@@ -517,7 +519,7 @@
         'no_ip_check' => 1,
         'client_pkt_tries' => 1,
         'cmdline'  => $default_client_hmac_args,
-        'fwknopd_cmdline' => "$fwknopdCmd -c $cf{'disable_aging'} -a $cf{'hmac_access'} " .
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options -c $cf{'disable_aging'} -a $cf{'hmac_access'} " .
             "-d $default_digest_file -p $default_pid_file $intf_str " .
             "--fault-injection-tag fko_get_spa_message_val",
         'server_positive_output_matches' => [qr/Args contain invalid data/],
@@ -533,7 +535,7 @@
         'no_ip_check' => 1,
         'client_pkt_tries' => 1,
         'cmdline'  => $default_client_hmac_args,
-        'fwknopd_cmdline' => "$fwknopdCmd -c $cf{'disable_aging'} -a $cf{'hmac_access'} " .
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options -c $cf{'disable_aging'} -a $cf{'hmac_access'} " .
             "-d $default_digest_file -p $default_pid_file $intf_str " .
             "--fault-injection-tag fko_set_spa_encryption_mode_init",
         'server_positive_output_matches' => [qr/FKO Context is not initialized/],
@@ -547,7 +549,7 @@
         'no_ip_check' => 1,
         'client_pkt_tries' => 1,
         'cmdline'  => $default_client_hmac_args,
-        'fwknopd_cmdline' => "$fwknopdCmd -c $cf{'disable_aging'} -a $cf{'hmac_access'} " .
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options -c $cf{'disable_aging'} -a $cf{'hmac_access'} " .
             "-d $default_digest_file -p $default_pid_file $intf_str " .
             "--fault-injection-tag fko_set_spa_encryption_mode_val",
         'server_positive_output_matches' => [qr/Args contain invalid data/],
@@ -563,7 +565,7 @@
         'no_ip_check' => 1,
         'client_pkt_tries' => 1,
         'cmdline'  => $default_client_hmac_args,
-        'fwknopd_cmdline' => "$fwknopdCmd -c $cf{'disable_aging'} -a $cf{'hmac_access'} " .
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options -c $cf{'disable_aging'} -a $cf{'hmac_access'} " .
             "-d $default_digest_file -p $default_pid_file $intf_str " .
             "--fault-injection-tag fko_set_spa_hmac_type_init",
         'server_positive_output_matches' => [qr/FKO Context is not initialized/],
@@ -577,7 +579,7 @@
         'no_ip_check' => 1,
         'client_pkt_tries' => 1,
         'cmdline'  => $default_client_hmac_args,
-        'fwknopd_cmdline' => "$fwknopdCmd -c $cf{'disable_aging'} -a $cf{'hmac_access'} " .
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options -c $cf{'disable_aging'} -a $cf{'hmac_access'} " .
             "-d $default_digest_file -p $default_pid_file $intf_str " .
             "--fault-injection-tag fko_set_spa_hmac_type_val",
         'server_positive_output_matches' => [qr/Args contain invalid data/],
@@ -593,7 +595,7 @@
         'no_ip_check' => 1,
         'client_pkt_tries' => 1,
         'cmdline'  => $default_client_hmac_args,
-        'fwknopd_cmdline' => "$fwknopdCmd -c $cf{'disable_aging'} -a $cf{'hmac_access'} " .
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options -c $cf{'disable_aging'} -a $cf{'hmac_access'} " .
             "-d $default_digest_file -p $default_pid_file $intf_str " .
             "--fault-injection-tag fko_get_spa_nat_access_init",
         'server_positive_output_matches' => [qr/FKO Context is not initialized/],
@@ -607,7 +609,7 @@
         'no_ip_check' => 1,
         'client_pkt_tries' => 1,
         'cmdline'  => $default_client_hmac_args,
-        'fwknopd_cmdline' => "$fwknopdCmd -c $cf{'disable_aging'} -a $cf{'hmac_access'} " .
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options -c $cf{'disable_aging'} -a $cf{'hmac_access'} " .
             "-d $default_digest_file -p $default_pid_file $intf_str " .
             "--fault-injection-tag fko_get_spa_nat_access_val",
         'server_positive_output_matches' => [qr/Args contain invalid data/],
@@ -623,7 +625,7 @@
         'no_ip_check' => 1,
         'client_pkt_tries' => 1,
         'cmdline'  => $default_client_hmac_args,
-        'fwknopd_cmdline' => "$fwknopdCmd -c $cf{'disable_aging'} -a $cf{'hmac_access'} " .
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options -c $cf{'disable_aging'} -a $cf{'hmac_access'} " .
             "-d $default_digest_file -p $default_pid_file $intf_str " .
             "--fault-injection-tag fko_get_spa_server_auth_init",
         'server_positive_output_matches' => [qr/FKO Context is not initialized/],
@@ -637,7 +639,7 @@
         'no_ip_check' => 1,
         'client_pkt_tries' => 1,
         'cmdline'  => $default_client_hmac_args,
-        'fwknopd_cmdline' => "$fwknopdCmd -c $cf{'disable_aging'} -a $cf{'hmac_access'} " .
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options -c $cf{'disable_aging'} -a $cf{'hmac_access'} " .
             "-d $default_digest_file -p $default_pid_file $intf_str " .
             "--fault-injection-tag fko_get_spa_server_auth_val",
         'server_positive_output_matches' => [qr/Args contain invalid data/],
@@ -653,7 +655,7 @@
         'no_ip_check' => 1,
         'client_pkt_tries' => 1,
         'cmdline'  => $default_client_hmac_args,
-        'fwknopd_cmdline' => "$fwknopdCmd -c $cf{'disable_aging'} -a $cf{'hmac_access'} " .
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options -c $cf{'disable_aging'} -a $cf{'hmac_access'} " .
             "-d $default_digest_file -p $default_pid_file $intf_str " .
             "--fault-injection-tag fko_get_raw_spa_digest_type_init",
         'server_positive_output_matches' => [qr/FKO Context is not initialized/],
@@ -669,7 +671,7 @@
         'no_ip_check' => 1,
         'client_pkt_tries' => 1,
         'cmdline'  => $default_client_hmac_args,
-        'fwknopd_cmdline' => "$fwknopdCmd -c $cf{'disable_aging'} -a $cf{'hmac_access'} " .
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options -c $cf{'disable_aging'} -a $cf{'hmac_access'} " .
             "-d $default_digest_file -p $default_pid_file $intf_str " .
             "--fault-injection-tag fko_get_spa_digest_type_init --test",
             ### --test above since tag only triggered when dumping context
@@ -684,7 +686,7 @@
         'no_ip_check' => 1,
         'client_pkt_tries' => 1,
         'cmdline'  => $default_client_hmac_args,
-        'fwknopd_cmdline' => "$fwknopdCmd -c $cf{'disable_aging'} -a $cf{'hmac_access'} " .
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options -c $cf{'disable_aging'} -a $cf{'hmac_access'} " .
             "-d $default_digest_file -p $default_pid_file $intf_str " .
             "--fault-injection-tag fko_get_spa_digest_type_val --test",
             ### --test above since tag only triggered when dumping context
@@ -701,7 +703,7 @@
         'no_ip_check' => 1,
         'client_pkt_tries' => 1,
         'cmdline'  => $default_client_hmac_args,
-        'fwknopd_cmdline' => "$fwknopdCmd -c $cf{'disable_aging'} -a $cf{'hmac_access'} " .
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options -c $cf{'disable_aging'} -a $cf{'hmac_access'} " .
             "-d $default_digest_file -p $default_pid_file $intf_str " .
             "--fault-injection-tag fko_get_spa_digest_init --test",
             ### --test above since tag only triggered when dumping context
@@ -716,7 +718,7 @@
         'no_ip_check' => 1,
         'client_pkt_tries' => 1,
         'cmdline'  => $default_client_hmac_args,
-        'fwknopd_cmdline' => "$fwknopdCmd -c $cf{'disable_aging'} -a $cf{'hmac_access'} " .
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options -c $cf{'disable_aging'} -a $cf{'hmac_access'} " .
             "-d $default_digest_file -p $default_pid_file $intf_str " .
             "--fault-injection-tag fko_get_spa_digest_val --test",
             ### --test above since tag only triggered when dumping context
@@ -733,7 +735,7 @@
         'no_ip_check' => 1,
         'client_pkt_tries' => 1,
         'cmdline'  => $default_client_hmac_args,
-        'fwknopd_cmdline' => "$fwknopdCmd -c $cf{'disable_aging'} -a $cf{'hmac_access'} " .
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options -c $cf{'disable_aging'} -a $cf{'hmac_access'} " .
             "-d $default_digest_file -p $default_pid_file $intf_str " .
             "--fault-injection-tag fko_get_spa_client_timeout_init",
         'server_positive_output_matches' => [qr/FKO Context is not initialized/],
@@ -747,7 +749,7 @@
         'no_ip_check' => 1,
         'client_pkt_tries' => 1,
         'cmdline'  => $default_client_hmac_args,
-        'fwknopd_cmdline' => "$fwknopdCmd -c $cf{'disable_aging'} -a $cf{'hmac_access'} " .
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options -c $cf{'disable_aging'} -a $cf{'hmac_access'} " .
             "-d $default_digest_file -p $default_pid_file $intf_str " .
             "--fault-injection-tag fko_get_spa_client_timeout_val",
         'server_positive_output_matches' => [qr/Args contain invalid data/],
@@ -763,7 +765,7 @@
         'no_ip_check' => 1,
         'client_pkt_tries' => 1,
         'cmdline'  => $default_client_hmac_args,
-        'fwknopd_cmdline' => "$fwknopdCmd -c $cf{'disable_aging'} -a $cf{'hmac_access'} " .
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options -c $cf{'disable_aging'} -a $cf{'hmac_access'} " .
             "-d $default_digest_file -p $default_pid_file $intf_str " .
             "--fault-injection-tag fko_get_version_init",
         'server_positive_output_matches' => [qr/FKO Context is not initialized/],
@@ -777,7 +779,7 @@
         'no_ip_check' => 1,
         'client_pkt_tries' => 1,
         'cmdline'  => $default_client_hmac_args,
-        'fwknopd_cmdline' => "$fwknopdCmd -c $cf{'disable_aging'} -a $cf{'hmac_access'} " .
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options -c $cf{'disable_aging'} -a $cf{'hmac_access'} " .
             "-d $default_digest_file -p $default_pid_file $intf_str " .
             "--fault-injection-tag fko_get_version_val",
         'server_positive_output_matches' => [qr/Args contain invalid data/],
@@ -793,7 +795,7 @@
         'no_ip_check' => 1,
         'client_pkt_tries' => 1,
         'cmdline'  => $default_client_hmac_args,
-        'fwknopd_cmdline' => "$fwknopdCmd -c $cf{'disable_aging'} -a $cf{'hmac_access'} " .
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options -c $cf{'disable_aging'} -a $cf{'hmac_access'} " .
             "-d $default_digest_file -p $default_pid_file $intf_str " .
             "--fault-injection-tag set_spa_digest_type_init",
         'server_positive_output_matches' => [qr/Error setting digest type for SPA data\: FKO Context/],
@@ -807,7 +809,7 @@
         'no_ip_check' => 1,
         'client_pkt_tries' => 1,
         'cmdline'  => $default_client_hmac_args,
-        'fwknopd_cmdline' => "$fwknopdCmd -c $cf{'disable_aging'} -a $cf{'hmac_access'} " .
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options -c $cf{'disable_aging'} -a $cf{'hmac_access'} " .
             "-d $default_digest_file -p $default_pid_file $intf_str " .
             "--fault-injection-tag set_spa_digest_type_val",
         'server_positive_output_matches' => [qr/FKO_ERROR_INVALID_DATA_ENCODE_DIGEST_VALIDFAIL/],
@@ -823,7 +825,7 @@
         'no_ip_check' => 1,
         'client_pkt_tries' => 1,
         'cmdline'  => $default_client_hmac_args,
-        'fwknopd_cmdline' => "$fwknopdCmd -c $cf{'disable_aging'} -a $cf{'hmac_access'} " .
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options -c $cf{'disable_aging'} -a $cf{'hmac_access'} " .
             "-d $default_digest_file -p $default_pid_file $intf_str " .
             "--fault-injection-tag fko_set_raw_spa_digest_init",
         'server_positive_output_matches' => [qr/FKO Context is not initialized/],
@@ -837,7 +839,7 @@
         'no_ip_check' => 1,
         'client_pkt_tries' => 1,
         'cmdline'  => $default_client_hmac_args,
-        'fwknopd_cmdline' => "$fwknopdCmd -c $cf{'disable_aging'} -a $cf{'hmac_access'} " .
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options -c $cf{'disable_aging'} -a $cf{'hmac_access'} " .
             "-d $default_digest_file -p $default_pid_file $intf_str " .
             "--fault-injection-tag fko_get_raw_spa_digest_init",
         'server_positive_output_matches' => [qr/FKO Context is not initialized/],
@@ -853,7 +855,7 @@
         'no_ip_check' => 1,
         'client_pkt_tries' => 1,
         'cmdline'  => $default_client_hmac_args,
-        'fwknopd_cmdline' => "$fwknopdCmd -c $cf{'disable_aging'} -a $cf{'hmac_access'} " .
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options -c $cf{'disable_aging'} -a $cf{'hmac_access'} " .
             "-d $default_digest_file -p $default_pid_file $intf_str " .
             "--fault-injection-tag zero_free_err",
         'server_positive_output_matches' => [qr/Could not zero out sensitive data/],
@@ -867,7 +869,7 @@
         'no_ip_check' => 1,
         'client_pkt_tries' => 1,
         'cmdline'  => $default_client_hmac_args,
-        'fwknopd_cmdline' => "$fwknopdCmd -c $cf{'disable_aging'} -a $cf{'hmac_access'} " .
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options -c $cf{'disable_aging'} -a $cf{'hmac_access'} " .
             "-d $default_digest_file -p $default_pid_file $intf_str " .
             "--fault-injection-tag zero_buf_err",
         'server_positive_output_matches' => [qr/Could not zero out sensitive data/],
@@ -882,7 +884,7 @@
         'no_ip_check' => 1,
         'client_pkt_tries' => 1,
         'cmdline'  => $default_client_hmac_args,
-        'fwknopd_cmdline' => "$fwknopdCmd -c $cf{'disable_aging'} -a $cf{'hmac_access'} " .
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options -c $cf{'disable_aging'} -a $cf{'hmac_access'} " .
             "-d $default_digest_file -p $default_pid_file $intf_str " .
             "--fault-injection-tag is_valid_encoded_msg_len_val",
         'server_positive_output_matches' => [qr/FKO_ERROR_INVALID_DATA_FUNCS_NEW_MSGLEN_VALIDFAIL/],
@@ -896,7 +898,7 @@
         'no_ip_check' => 1,
         'client_pkt_tries' => 1,
         'cmdline'  => $default_client_hmac_args,
-        'fwknopd_cmdline' => "$fwknopdCmd -c $cf{'disable_aging'} -a $cf{'hmac_access'} " .
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options -c $cf{'disable_aging'} -a $cf{'hmac_access'} " .
             "-d $default_digest_file -p $default_pid_file $intf_str " .
             "--fault-injection-tag fko_new_with_data_msg",
         'server_positive_output_matches' => [qr/FKO_ERROR_INVALID_DATA_FUNCS_NEW_ENCMSG_MISSING/],
@@ -910,7 +912,7 @@
         'no_ip_check' => 1,
         'client_pkt_tries' => 1,
         'cmdline'  => $default_client_hmac_args,
-        'fwknopd_cmdline' => "$fwknopdCmd -c $cf{'disable_aging'} -a $cf{'hmac_access'} " .
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options -c $cf{'disable_aging'} -a $cf{'hmac_access'} " .
             "-d $default_digest_file -p $default_pid_file $intf_str " .
             "--fault-injection-tag fko_new_with_data_keylen",
         'server_positive_output_matches' => [qr/Invalid key length/],
@@ -925,7 +927,7 @@
         'function' => \&fault_injection_tag,
         'no_ip_check' => 1,
         'client_pkt_tries' => 1,
-        'cmdline' => "$fwknopdCmd -c $cf{'disable_aging'} -a $cf{'hmac_access'} " .
+        'cmdline' => "$fwknopdCmd $srv_sdp_options -c $cf{'disable_aging'} -a $cf{'hmac_access'} " .
             "-d $default_digest_file -p $default_pid_file $intf_str " .
             "--fault-injection-tag fw_config_init",
         'fw_rule_created' => $REQUIRE_NO_NEW_RULE,

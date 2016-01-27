@@ -36,6 +36,7 @@
 #include "utils.h"
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <inttypes.h>
 
 #ifdef WIN32
   #define STDIN_FILENO 0
@@ -134,6 +135,8 @@ enum
     FWKNOP_CLI_ARG_RESOLVE_HTTP_ONLY,
     FWKNOP_CLI_ARG_WGET_CMD,
     FWKNOP_CLI_ARG_NO_SAVE_ARGS,
+	FWKNOP_CLI_ARG_DISABLE_SDP_MODE,
+	FWKNOP_CLI_ARG_SDP_CLIENT_ID,
     FWKNOP_CLI_LAST_ARG
 } fwknop_cli_arg_t;
 
@@ -182,7 +185,9 @@ static fko_var_t fko_var_array[FWKNOP_CLI_LAST_ARG] =
     { "RESOLVE_IP_HTTPS",      FWKNOP_CLI_ARG_RESOLVE_IP_HTTPS      },
     { "RESOLVE_HTTP_ONLY",     FWKNOP_CLI_ARG_RESOLVE_HTTP_ONLY     },
     { "WGET_CMD",              FWKNOP_CLI_ARG_WGET_CMD              },
-    { "NO_SAVE_ARGS",          FWKNOP_CLI_ARG_NO_SAVE_ARGS          }
+    { "NO_SAVE_ARGS",          FWKNOP_CLI_ARG_NO_SAVE_ARGS          },
+	{ "DISABLE_SDP_MODE",      FWKNOP_CLI_ARG_DISABLE_SDP_MODE      },
+    { "SDP_CLIENT_ID", 		   FWKNOP_CLI_ARG_SDP_CLIENT_ID 		}
 };
 
 /* Array to define which conf. variables are critical and should not be
@@ -1292,6 +1297,25 @@ parse_rc_param(fko_cli_options_t *options, const char *var_name, char * val)
             options->no_save_args = 1;
         else;
     }
+    /* SDP mode - yes or no.
+    */
+    else if (var->pos == FWKNOP_CLI_ARG_DISABLE_SDP_MODE)
+    {
+        if (is_yes_str(val))
+            options->disable_sdp_mode = 1;
+        else
+        	options->disable_sdp_mode = 0;
+    }
+    /* SDP Client ID */
+    else if (var->pos == FWKNOP_CLI_ARG_SDP_CLIENT_ID)
+    {
+        tmpint = strtol_wrapper(val, 0, UINT32_MAX, NO_EXIT_UPON_ERR, &is_err);;
+        if(is_err == FKO_SUCCESS)
+            options->sdp_client_id = (uint32_t)tmpint;
+        else
+            parse_error = -1;
+    }
+
     /* The variable is not a configuration variable */
     else
     {
@@ -1462,6 +1486,12 @@ add_single_var_to_rc(FILE* fhandle, short var_pos, fko_cli_options_t *options)
             break;
         case FWKNOP_CLI_ARG_NO_SAVE_ARGS :
             bool_to_yesno(options->no_save_args, val, sizeof(val));
+            break;
+        case FWKNOP_CLI_ARG_DISABLE_SDP_MODE:
+        	bool_to_yesno( (int)(options->disable_sdp_mode), val, sizeof(val));
+        	break;
+        case FWKNOP_CLI_ARG_SDP_CLIENT_ID:
+            snprintf(val, sizeof(val)-1, "%"PRIu32, options->sdp_client_id);
             break;
         default:
             log_msg(LOG_VERBOSITY_WARNING,
@@ -1848,6 +1878,18 @@ validate_options(fko_cli_options_t *options)
                     "[-] WARNING: Should use -a or -R to harden SPA against potential MITM attacks");
             }
         }
+
+        /* If SDP mode, must have defined sdp_client_id
+         */
+        if(!options->disable_sdp_mode)
+        {
+        	if(options->sdp_client_id == FKO_DEFAULT_SDP_CLIENT_ID)
+        	{
+    			log_msg(LOG_VERBOSITY_ERROR,
+    				"SDP_CLIENT_ID must be specified when SDP mode is enabled");
+    			exit(EXIT_FAILURE);
+        	}
+        }
     }
 
     /* Make sure -a overrides IP resolution
@@ -1952,6 +1994,9 @@ set_defaults(fko_cli_options_t *options)
 
     options->input_fd       = FD_INVALID;
 
+    options->disable_sdp_mode = FKO_DEFAULT_DISABLE_SDP_MODE;
+    options->sdp_client_id    = FKO_DEFAULT_SDP_CLIENT_ID;
+
     return;
 }
 
@@ -2055,6 +2100,9 @@ config_init(fko_cli_options_t *options, int argc, char **argv)
                 strlcpy(options->spa_server_str, optarg, sizeof(options->spa_server_str));
                 add_var_to_bitmask(FWKNOP_CLI_ARG_SPA_SERVER, &var_bitmask);
                 break;
+            case DISABLE_SDP_MODE:
+            	options->disable_sdp_mode = 1;
+            	break;
             case 'E':
                 strlcpy(options->args_save_file, optarg, sizeof(options->args_save_file));
                 break;
@@ -2283,6 +2331,11 @@ config_init(fko_cli_options_t *options, int argc, char **argv)
                 }
                 strlcpy(options->resolve_url, optarg, rlen);
                 add_var_to_bitmask(FWKNOP_CLI_ARG_RESOLVE_URL, &var_bitmask);
+                break;
+            case SDP_CLIENT_ID:
+            	options->sdp_client_id = (uint32_t)strtol_wrapper(optarg, 0,
+                        UINT32_MAX, EXIT_UPON_ERR, &is_err);
+            	add_var_to_bitmask(FWKNOP_CLI_ARG_SDP_CLIENT_ID, &var_bitmask);
                 break;
             case SERVER_RESOLVE_IPV4:
                 options->spa_server_resolve_ipv4 = 1;

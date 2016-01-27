@@ -1,4 +1,5 @@
 [default]
+SDP_CLIENT_ID       333333
 HMAC_DIGEST_TYPE    sha256
 HMAC_KEY_BASE64     Yh+xizBnl6FotC5ec7FanVGClRMlsOAPh2u6eovnerfBVKwaVKzjGoblFMHMc593TNyi0dWn4opLoTIV9q/ttg==
 GPG_HOMEDIR         conf/client-gpg

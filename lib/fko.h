@@ -32,6 +32,8 @@
 #define FKO_H 1
 
 #include <time.h>
+#include <stdint.h>
+#include "dbg.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -172,6 +174,7 @@ typedef enum {
     FKO_ERROR_INVALID_DATA_DECODE_TIMEOUT_VALIDFAIL,
     FKO_ERROR_INVALID_DATA_DECODE_TIMEOUT_DECODEFAIL,
     FKO_ERROR_INVALID_DATA_ENCODE_MESSAGE_TOOBIG,
+    FKO_ERROR_INVALID_DATA_ENCODE_SDPCLIENTLEN_VALIDFAIL,
     FKO_ERROR_INVALID_DATA_ENCODE_MSGLEN_VALIDFAIL,
     FKO_ERROR_INVALID_DATA_ENCODE_DIGEST_VALIDFAIL,
     FKO_ERROR_INVALID_DATA_ENCODE_DIGEST_TOOBIG,
@@ -290,6 +293,10 @@ typedef enum {
 #define FKO_DEFAULT_KEY_LEN      0
 #define FKO_DEFAULT_HMAC_KEY_LEN 0
 #define FKO_DEFAULT_HMAC_MODE    FKO_HMAC_SHA256
+#define FKO_DEFAULT_DISABLE_SDP_MODE 0
+#define FKO_DEFAULT_SDP_CLIENT_ID 0
+#define FKO_SDP_CLIENT_ID_SIZE    4
+#define B64_SDP_CLIENT_ID_STR_LEN 6
 
 /* Define the consistent prefixes or salt on some encryption schemes.
 */
@@ -310,6 +317,10 @@ typedef enum {
 */
 struct fko_context;
 typedef struct fko_context *fko_ctx_t;
+
+/* Function pointer for SPA packet field parsing
+ */
+typedef int (*field_parser_ptr_t)(char *tbuf, char **ndx, int *t_size, fko_ctx_t ctx);
 
 /* Some gpg-specifc data types and constants.
 */
@@ -334,7 +345,8 @@ enum {
 DLL_API int fko_new(fko_ctx_t *ctx);
 DLL_API int fko_new_with_data(fko_ctx_t *ctx, const char * const enc_msg,
     const char * const dec_key, const int dec_key_len, int encryption_mode,
-    const char * const hmac_key, const int hmac_key_len, const int hmac_type);
+    const char * const hmac_key, const int hmac_key_len, const int hmac_type,
+	const uint32_t sdp_client_id);
 DLL_API int fko_destroy(fko_ctx_t ctx);
 DLL_API int fko_spa_data_final(fko_ctx_t ctx, const char * const enc_key,
     const int enc_key_len, const char * const hmac_key, const int hmac_key_len);
@@ -356,6 +368,10 @@ DLL_API int fko_set_raw_spa_digest(fko_ctx_t ctx);
 DLL_API int fko_set_spa_encryption_type(fko_ctx_t ctx, const short encrypt_type);
 DLL_API int fko_set_spa_encryption_mode(fko_ctx_t ctx, const int encrypt_mode);
 DLL_API int fko_set_spa_data(fko_ctx_t ctx, const char * const enc_msg);
+DLL_API int fko_set_disable_sdp_mode(fko_ctx_t ctx, uint16_t disable_sdp_mode);
+DLL_API int fko_set_sdp_client_id(fko_ctx_t ctx, uint32_t sdp_client_id);
+DLL_API int fko_set_encoded_sdp_client_id(fko_ctx_t ctx, char *encoded_sdp_client_id);
+DLL_API int fko_strip_sdp_client_id(fko_ctx_t ctx);
 #if AFL_FUZZING
 DLL_API int fko_afl_set_spa_data(fko_ctx_t ctx, const char * const enc_msg,
         const int enc_msg_len);
@@ -372,6 +388,7 @@ DLL_API int fko_key_gen(char * const key_base64, const int key_len,
 DLL_API int fko_base64_encode(unsigned char * const in, char * const out, int in_len);
 DLL_API int fko_base64_decode(const char * const in, unsigned char *out);
 
+DLL_API int fko_encode_sdp_spa_data(fko_ctx_t ctx);
 DLL_API int fko_encode_spa_data(fko_ctx_t ctx);
 DLL_API int fko_decode_spa_data(fko_ctx_t ctx);
 DLL_API int fko_encrypt_spa_data(fko_ctx_t ctx, const char * const enc_key,
@@ -383,7 +400,7 @@ DLL_API int fko_verify_hmac(fko_ctx_t ctx, const char * const hmac_key,
 DLL_API int fko_set_spa_hmac(fko_ctx_t ctx, const char * const hmac_key,
     const int hmac_key_len);
 DLL_API int fko_get_spa_hmac(fko_ctx_t ctx, char **enc_data);
-
+DLL_API int fko_get_encoded_sdp_client_id(fko_ctx_t ctx, char **encoded_sdp_client_id);
 DLL_API int fko_get_encoded_data(fko_ctx_t ctx, char **enc_data);
 #if FUZZING_INTERFACES
 DLL_API int fko_set_encoded_data(fko_ctx_t ctx, const char * const encoded_msg,
@@ -410,7 +427,8 @@ DLL_API int fko_get_spa_encryption_mode(fko_ctx_t ctx, int *spa_enc_mode);
 DLL_API int fko_get_spa_data(fko_ctx_t ctx, char **spa_data);
 
 DLL_API int fko_get_version(fko_ctx_t ctx, char **version);
-
+DLL_API int fko_get_disable_sdp_mode(fko_ctx_t ctx, uint16_t *disable_sdp_mode);
+DLL_API int fko_get_sdp_client_id(fko_ctx_t ctx, uint32_t *sdp_client_id);
 /* GPG-related functions
 */
 DLL_API int fko_set_gpg_exe(fko_ctx_t ctx, const char * const gpg_exe);

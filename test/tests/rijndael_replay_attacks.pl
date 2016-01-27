@@ -5,7 +5,7 @@
         'detail'   => 'replay attack detection',
         'function' => \&replay_detection,
         'cmdline'  => $default_client_args,
-        'fwknopd_cmdline' => "$fwknopdCmd $default_server_conf_args $intf_str",
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options $default_server_conf_args $intf_str",
         'server_positive_output_matches' => [qr/Replay\sdetected\sfrom\ssource\sIP/],
     },
     {
@@ -15,7 +15,7 @@
         'function' => \&replay_detection,
         'pkt_prefix' => 'U2FsdGVkX1',
         'cmdline'  => $default_client_args,
-        'fwknopd_cmdline' => "$fwknopdCmd $default_server_conf_args $intf_str",
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options $default_server_conf_args $intf_str",
         'server_positive_output_matches' => [qr/Data\sis\snot\sa\svalid\sSPA\smessage\sformat/],
     },
 
@@ -26,7 +26,7 @@
         'function' => \&replay_detection,
         'pkt_prefix' => 'hQ',
         'cmdline'  => $default_client_args,
-        'fwknopd_cmdline' => "$fwknopdCmd $default_server_conf_args $intf_str",
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options $default_server_conf_args $intf_str",
         'server_positive_output_matches' => [qr/Args\scontain\sinvalid\sdata/],
     },
     {
@@ -35,7 +35,7 @@
         'detail'   => 'UDP server replay detection',
         'function' => \&replay_detection,
         'cmdline'  => $default_client_args,
-        'fwknopd_cmdline' => "$fwknopdCmd $default_server_conf_args $intf_str --udp-server",
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options $default_server_conf_args $intf_str --udp-server",
         'server_positive_output_matches' => [qr/Replay\sdetected\sfrom\ssource\sIP/],
     },
 );

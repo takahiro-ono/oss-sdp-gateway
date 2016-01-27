@@ -101,6 +101,20 @@ constant_runtime_cmp(const char *a, const char *b, int len)
         return 0 - bad;
 }
 
+/* Validate encoded sdp client id length
+*/
+int
+is_valid_encoded_sdp_client_id_len(const int len)
+{
+#if HAVE_LIBFIU
+    fiu_return_on("is_valid_encoded_sdp_client_id_len", 0);
+#endif
+    if(len != B64_SDP_CLIENT_ID_STR_LEN)
+        return(0);
+
+    return(1);
+}
+
 /* Validate encoded message length
 */
 int
@@ -640,15 +654,17 @@ dump_ctx_to_buffer(fko_ctx_t ctx, char *dump_buf, size_t dump_buf_len)
     int         cp = 0;
     int         err = FKO_LAST_ERROR;
 
-    char       *rand_val        = NULL;
-    char       *username        = NULL;
-    char       *version         = NULL;
-    char       *spa_message     = NULL;
-    char       *nat_access      = NULL;
-    char       *server_auth     = NULL;
-    char       *enc_data        = NULL;
-    char       *hmac_data       = NULL;
-    char       *spa_digest      = NULL;
+    char       *rand_val              = NULL;
+    uint32_t    sdp_client_id         = 0;
+    char       *username              = NULL;
+    char       *version               = NULL;
+    char       *spa_message           = NULL;
+    char       *nat_access            = NULL;
+    char       *server_auth           = NULL;
+    char       *encoded_sdp_client_id = NULL;
+    char       *enc_data              = NULL;
+    char       *hmac_data             = NULL;
+    char       *spa_digest            = NULL;
 #if HAVE_LIBGPGME
     char          *gpg_signer        = NULL;
     char          *gpg_recip         = NULL;
@@ -666,13 +682,18 @@ dump_ctx_to_buffer(fko_ctx_t ctx, char *dump_buf, size_t dump_buf_len)
     char        hmac_str[24]     = {0};
     char        enc_mode_str[FKO_ENCRYPTION_MODE_BUFSIZE] = {0};
 
-    time_t      timestamp       = 0;
-    short       msg_type        = -1;
-    short       digest_type     = -1;
-    short       hmac_type       = -1;
-    short       encryption_type = -1;
-    int         encryption_mode = -1;
-    int         client_timeout  = -1;
+    time_t      timestamp        = 0;
+    short       msg_type         = -1;
+    short       digest_type      = -1;
+    short       hmac_type        = -1;
+    short       encryption_type  = -1;
+    int         encryption_mode  = -1;
+    int         client_timeout   = -1;
+    uint16_t    disable_sdp_mode = 0;
+    char       *sdp_mode_string  = NULL;
+    char       *preamble         = "dump_ctx_to_buffer() :";
+
+    debug("%s Just arrived", preamble);
 
     /* Zero-ed the buffer */
     memset(dump_buf, 0, dump_buf_len);
@@ -683,24 +704,47 @@ dump_ctx_to_buffer(fko_ctx_t ctx, char *dump_buf, size_t dump_buf_len)
 
     else
     {
+        debug("%s Parsing the fko context...", preamble);
         /* Parse the FKO context and collect data */
         RETURN_ON_FKO_ERROR(err, fko_get_rand_value(ctx, &rand_val));
+        RETURN_ON_FKO_ERROR(err, fko_get_sdp_client_id(ctx, &sdp_client_id));
+        debug("%s Passed call to fko_get_sdp_client_id()", preamble);
         RETURN_ON_FKO_ERROR(err, fko_get_username(ctx, &username));
+        debug("%s Passed call to fko_get_username()", preamble);
         RETURN_ON_FKO_ERROR(err, fko_get_timestamp(ctx, &timestamp));
+        debug("%s Passed call to fko_get_timestamp()", preamble);
         RETURN_ON_FKO_ERROR(err, fko_get_version(ctx, &version));
+        debug("%s Passed call to fko_get_version()", preamble);
         RETURN_ON_FKO_ERROR(err, fko_get_spa_message_type(ctx, &msg_type));
+        debug("%s Passed call to fko_get_spa_message_type()", preamble);
         RETURN_ON_FKO_ERROR(err, fko_get_spa_message(ctx, &spa_message));
+        debug("%s Passed call to fko_get_spa_message()", preamble);
         RETURN_ON_FKO_ERROR(err, fko_get_spa_nat_access(ctx, &nat_access));
+        debug("%s Passed call to fko_get_spa_nat_access()", preamble);
         RETURN_ON_FKO_ERROR(err, fko_get_spa_server_auth(ctx, &server_auth));
+        debug("%s Passed call to fko_get_spa_server_auth()", preamble);
         RETURN_ON_FKO_ERROR(err, fko_get_spa_client_timeout(ctx, &client_timeout));
+        debug("%s Passed call to fko_get_spa_client_timeout()", preamble);
         RETURN_ON_FKO_ERROR(err, fko_get_spa_digest_type(ctx, &digest_type));
+        debug("%s Passed call to fko_get_spa_digest_type()", preamble);
         RETURN_ON_FKO_ERROR(err, fko_get_spa_hmac_type(ctx, &hmac_type));
+        debug("%s Passed call to fko_get_spa_hmac_type()", preamble);
         RETURN_ON_FKO_ERROR(err, fko_get_spa_encryption_type(ctx, &encryption_type));
+        debug("%s Passed call to fko_get_spa_encryption_type()", preamble);
         RETURN_ON_FKO_ERROR(err, fko_get_spa_encryption_mode(ctx, &encryption_mode));
+        debug("%s Passed call to fko_get_spa_encryption_mode()", preamble);
+        RETURN_ON_FKO_ERROR(err, fko_get_disable_sdp_mode(ctx, &disable_sdp_mode));
+        debug("%s Passed call to fko_get_disable_sdp_mode()", preamble);
+        RETURN_ON_FKO_ERROR(err, fko_get_encoded_sdp_client_id(ctx, &encoded_sdp_client_id));
+        debug("%s Passed call to fko_get_encoded_sdp_client_id()", preamble);
         RETURN_ON_FKO_ERROR(err, fko_get_encoded_data(ctx, &enc_data));
+        debug("%s Passed call to fko_get_encoded_data()", preamble);
         RETURN_ON_FKO_ERROR(err, fko_get_spa_hmac(ctx, &hmac_data));
+        debug("%s Passed call to fko_get_spa_hmac()", preamble);
         RETURN_ON_FKO_ERROR(err, fko_get_spa_digest(ctx, &spa_digest));
+        debug("%s Passed call to fko_get_spa_digest()", preamble);
         RETURN_ON_FKO_ERROR(err, fko_get_spa_data(ctx, &spa_data));
+        debug("%s Passed call to fko_get_spa_data()", preamble);
 
 #if HAVE_LIBGPGME
         if(encryption_mode == FKO_ENC_MODE_ASYMMETRIC)
@@ -724,6 +768,8 @@ dump_ctx_to_buffer(fko_ctx_t ctx, char *dump_buf, size_t dump_buf_len)
         }
 #endif
 
+        debug("%s Passed all get() calls", preamble);
+
         /* Convert the digest integer to a string */
         if (digest_inttostr(digest_type, digest_str, sizeof(digest_str)) != 0)
             return (FKO_ERROR_INVALID_DIGEST_TYPE);
@@ -739,21 +785,29 @@ dump_ctx_to_buffer(fko_ctx_t ctx, char *dump_buf, size_t dump_buf_len)
                 return (FKO_ERROR_UNSUPPORTED_HMAC_MODE);
         }
 
+        /* Make string regarding SDP mode  */
+        if(disable_sdp_mode)
+        	sdp_mode_string = "SDP Mode Disabled";
+        else
+        	sdp_mode_string = "SDP Mode Enabled";
+
         /* Fill in the buffer to dump */
         cp  = append_msg_to_buf(dump_buf,    dump_buf_len,    "SPA Field Values:\n=================\n");
-        cp += append_msg_to_buf(dump_buf+cp, dump_buf_len-cp, "   Random Value: %s\n", rand_val == NULL ? NULL_STRING : rand_val);
-        cp += append_msg_to_buf(dump_buf+cp, dump_buf_len-cp, "       Username: %s\n", username == NULL ? NULL_STRING : username);
-        cp += append_msg_to_buf(dump_buf+cp, dump_buf_len-cp, "      Timestamp: %u\n", (unsigned int) timestamp);
-        cp += append_msg_to_buf(dump_buf+cp, dump_buf_len-cp, "    FKO Version: %s\n", version == NULL ? NULL_STRING : version);
-        cp += append_msg_to_buf(dump_buf+cp, dump_buf_len-cp, "   Message Type: %i (%s)\n", msg_type, msg_type_inttostr(msg_type));
-        cp += append_msg_to_buf(dump_buf+cp, dump_buf_len-cp, " Message String: %s\n", spa_message == NULL ? NULL_STRING : spa_message);
-        cp += append_msg_to_buf(dump_buf+cp, dump_buf_len-cp, "     Nat Access: %s\n", nat_access == NULL ? NULL_STRING : nat_access);
-        cp += append_msg_to_buf(dump_buf+cp, dump_buf_len-cp, "    Server Auth: %s\n", server_auth == NULL ? NULL_STRING : server_auth);
-        cp += append_msg_to_buf(dump_buf+cp, dump_buf_len-cp, " Client Timeout: %u\n", client_timeout);
-        cp += append_msg_to_buf(dump_buf+cp, dump_buf_len-cp, "    Digest Type: %u (%s)\n", digest_type, digest_str);
-        cp += append_msg_to_buf(dump_buf+cp, dump_buf_len-cp, "      HMAC Type: %u (%s)\n", hmac_type, hmac_type == 0 ? "None" : hmac_str);
-        cp += append_msg_to_buf(dump_buf+cp, dump_buf_len-cp, "Encryption Type: %d (%s)\n", encryption_type, enc_type_inttostr(encryption_type));
-        cp += append_msg_to_buf(dump_buf+cp, dump_buf_len-cp, "Encryption Mode: %d (%s)\n", encryption_mode, enc_mode_str);
+        cp += append_msg_to_buf(dump_buf+cp, dump_buf_len-cp, "    Random Value: %s\n", rand_val == NULL ? NULL_STRING : rand_val);
+        cp += append_msg_to_buf(dump_buf+cp, dump_buf_len-cp, "   SDP Client ID: %"PRIu32"\n", sdp_client_id);
+        cp += append_msg_to_buf(dump_buf+cp, dump_buf_len-cp, "        Username: %s\n", username == NULL ? NULL_STRING : username);
+        cp += append_msg_to_buf(dump_buf+cp, dump_buf_len-cp, "       Timestamp: %u\n", (unsigned int) timestamp);
+        cp += append_msg_to_buf(dump_buf+cp, dump_buf_len-cp, "     FKO Version: %s\n", version == NULL ? NULL_STRING : version);
+        cp += append_msg_to_buf(dump_buf+cp, dump_buf_len-cp, "    Message Type: %i (%s)\n", msg_type, msg_type_inttostr(msg_type));
+        cp += append_msg_to_buf(dump_buf+cp, dump_buf_len-cp, "  Message String: %s\n", spa_message == NULL ? NULL_STRING : spa_message);
+        cp += append_msg_to_buf(dump_buf+cp, dump_buf_len-cp, "      Nat Access: %s\n", nat_access == NULL ? NULL_STRING : nat_access);
+        cp += append_msg_to_buf(dump_buf+cp, dump_buf_len-cp, "     Server Auth: %s\n", server_auth == NULL ? NULL_STRING : server_auth);
+        cp += append_msg_to_buf(dump_buf+cp, dump_buf_len-cp, "  Client Timeout: %u\n", client_timeout);
+        cp += append_msg_to_buf(dump_buf+cp, dump_buf_len-cp, "     Digest Type: %u (%s)\n", digest_type, digest_str);
+        cp += append_msg_to_buf(dump_buf+cp, dump_buf_len-cp, "       HMAC Type: %u (%s)\n", hmac_type, hmac_type == 0 ? "None" : hmac_str);
+        cp += append_msg_to_buf(dump_buf+cp, dump_buf_len-cp, " Encryption Type: %d (%s)\n", encryption_type, enc_type_inttostr(encryption_type));
+        cp += append_msg_to_buf(dump_buf+cp, dump_buf_len-cp, " Encryption Mode: %d (%s)\n", encryption_mode, enc_mode_str);
+        cp += append_msg_to_buf(dump_buf+cp, dump_buf_len-cp, "Disable SDP Mode: %"PRIu16" (%s)\n", disable_sdp_mode, sdp_mode_string);
 #if HAVE_LIBGPGME
         if(encryption_mode == FKO_ENC_MODE_ASYMMETRIC)
         {
@@ -769,10 +823,11 @@ dump_ctx_to_buffer(fko_ctx_t ctx, char *dump_buf, size_t dump_buf_len)
             cp += append_msg_to_buf(dump_buf+cp, dump_buf_len-cp, "        GPG exe: %s\n", gpg_exe == NULL ? GPG_EXE : gpg_exe);
         }
 #endif
-        cp += append_msg_to_buf(dump_buf+cp, dump_buf_len-cp, "   Encoded Data: %s\n", enc_data == NULL ? NULL_STRING : enc_data);
-        cp += append_msg_to_buf(dump_buf+cp, dump_buf_len-cp, "SPA Data Digest: %s\n", spa_digest == NULL ? NULL_STRING : spa_digest);
-        cp += append_msg_to_buf(dump_buf+cp, dump_buf_len-cp, "           HMAC: %s\n", hmac_data == NULL ? NULL_STRING : hmac_data);
-        append_msg_to_buf(dump_buf+cp, dump_buf_len-cp, " Final SPA Data: %s\n", spa_data);
+        cp += append_msg_to_buf(dump_buf+cp, dump_buf_len-cp, "  Encoded SDP ID: %s\n", encoded_sdp_client_id == NULL ? NULL_STRING : encoded_sdp_client_id);
+        cp += append_msg_to_buf(dump_buf+cp, dump_buf_len-cp, "    Encoded Data: %s\n", enc_data == NULL ? NULL_STRING : enc_data);
+        cp += append_msg_to_buf(dump_buf+cp, dump_buf_len-cp, " SPA Data Digest: %s\n", spa_digest == NULL ? NULL_STRING : spa_digest);
+        cp += append_msg_to_buf(dump_buf+cp, dump_buf_len-cp, "            HMAC: %s\n", hmac_data == NULL ? NULL_STRING : hmac_data);
+        append_msg_to_buf(dump_buf+cp, dump_buf_len-cp, "  Final SPA Data: %s\n", spa_data);
 
         err = FKO_SUCCESS;
     }

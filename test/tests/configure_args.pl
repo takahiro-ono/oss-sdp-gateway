@@ -15,7 +15,7 @@
         'detail'   => "UDP server --udp-server / tcp/22",
         'function' => \&spa_cycle,
         'cmdline'  => $default_client_hmac_args,
-        'fwknopd_cmdline' => "$fwknopdCmd -c $cf{'def'} -a $cf{'hmac_access'} " .
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options -c $cf{'def'} -a $cf{'hmac_access'} " .
             "-d $default_digest_file -p $default_pid_file $intf_str --udp-server",
         'fw_rule_created' => $NEW_RULE_REQUIRED,
         'fw_rule_removed' => $NEW_RULE_REMOVED,
@@ -26,7 +26,7 @@
         'detail'   => "3 cycles UDP server / tcp/22",
         'function' => \&spa_cycle,
         'cmdline'  => $default_client_hmac_args,
-        'fwknopd_cmdline' => "$fwknopdCmd -c $cf{'def'} -a $cf{'hmac_access'} " .
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options -c $cf{'def'} -a $cf{'hmac_access'} " .
             "-d $default_digest_file -p $default_pid_file $intf_str --udp-server",
         'fw_rule_created' => $NEW_RULE_REQUIRED,
         'fw_rule_removed' => $NEW_RULE_REMOVED,
@@ -39,9 +39,9 @@
         'detail'   => 'command execution (UDP server)',
         'function' => \&spa_cmd_exec_cycle,
         'cmdline'  => qq|$fwknopCmd --server-cmd "touch $cmd_exec_test_file" | .
-            "-a $fake_ip -D $loopback_ip --rc-file $cf{'rc_hmac_b64_key'} ".
+            "$client_sdp_options -a $fake_ip -D $loopback_ip --rc-file $cf{'rc_hmac_b64_key'} ".
             "$verbose_str",
-        'fwknopd_cmdline'  => "$fwknopdCmd -c $cf{'def'} -a $cf{'hmac_cmd_access'} " .
+        'fwknopd_cmdline'  => "$fwknopdCmd $srv_sdp_options -c $cf{'def'} -a $cf{'hmac_cmd_access'} " .
             "-d $default_digest_file -p $default_pid_file $intf_str --udp-server",
         'fw_rule_created' => $REQUIRE_NO_NEW_RULE,
     },
@@ -59,7 +59,7 @@
         'detail'   => 'complete cycle (tcp/22 ssh)',
         'function' => \&spa_cycle,
         'cmdline'  => $default_client_hmac_args,
-        'fwknopd_cmdline' => "$fwknopdCmd -c $cf{'def'} -a $cf{'hmac_access'} " .
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options -c $cf{'def'} -a $cf{'hmac_access'} " .
             "-d $default_digest_file -p $default_pid_file $intf_str",
         'fw_rule_created' => $NEW_RULE_REQUIRED,
         'fw_rule_removed' => $NEW_RULE_REMOVED,
@@ -72,7 +72,7 @@
         'detail'   => '3 cycles (tcp/22 ssh)',
         'function' => \&spa_cycle,
         'cmdline'  => $default_client_hmac_args,
-        'fwknopd_cmdline' => "$fwknopdCmd -c $cf{'def'} -a $cf{'hmac_access'} " .
+        'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options -c $cf{'def'} -a $cf{'hmac_access'} " .
             "-d $default_digest_file -p $default_pid_file $intf_str",
         'fw_rule_created' => $NEW_RULE_REQUIRED,
         'fw_rule_removed' => $NEW_RULE_REMOVED,
@@ -87,9 +87,9 @@
         'detail'   => 'command execution',
         'function' => \&spa_cmd_exec_cycle,
         'cmdline'  => qq|$fwknopCmd --server-cmd "touch $cmd_exec_test_file" | .
-            "-a $fake_ip -D $loopback_ip --rc-file $cf{'rc_hmac_b64_key'} ".
+            "$client_sdp_options -a $fake_ip -D $loopback_ip --rc-file $cf{'rc_hmac_b64_key'} ".
             "$verbose_str",
-        'fwknopd_cmdline'  => "$fwknopdCmd -c $cf{'def'} -a $cf{'hmac_cmd_access'} " .
+        'fwknopd_cmdline'  => "$fwknopdCmd $srv_sdp_options -c $cf{'def'} -a $cf{'hmac_cmd_access'} " .
             "-d $default_digest_file -p $default_pid_file $intf_str",
         'fw_rule_created' => $REQUIRE_NO_NEW_RULE,
         'server_positive_output_matches' => [qr/without execvpe/],

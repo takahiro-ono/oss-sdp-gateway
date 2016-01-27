@@ -65,6 +65,8 @@ enum {
     FD_SET_STDIN,
     FD_SET_ALT,
     FAULT_INJECTION_TAG,
+	DISABLE_SDP_MODE,
+	SDP_CLIENT_ID,
 
     /* Put GPG-related items below the following line */
     GPG_ENCRYPTION      = 0x200,
@@ -74,6 +76,7 @@ enum {
     GPG_EXE_PATH,
     GPG_AGENT,
     GPG_ALLOW_NO_SIGNING_PW,
+
     NOOP /* Just to be a marker for the end */
 };
 
@@ -96,6 +99,7 @@ static struct option cmd_opts[] =
     {"no-save-args",        0, NULL, NO_SAVE_ARGS},
     {"server-cmd",          1, NULL, 'C'},
     {"digest-type",         1, NULL, FKO_DIGEST_NAME},
+    {"disable-sdp",         0, NULL, DISABLE_SDP_MODE},
     {"destination",         1, NULL, 'D'},
     {"save-args-file",      1, NULL, 'E'},
     {"encryption-mode",     1, NULL, ENCRYPTION_MODE},
@@ -140,6 +144,7 @@ static struct option cmd_opts[] =
     {"resolve-ip-https",    0, NULL, 'R'}, /* synonym, default is HTTPS */
     {"resolve-http-only",   0, NULL, RESOLVE_HTTP_ONLY},
     {"resolve-url",         1, NULL, RESOLVE_URL},
+    {"sdp-id",              1, NULL, SDP_CLIENT_ID},
     {"server-resolve-ipv4", 0, NULL, SERVER_RESOLVE_IPV4},
     {"show-last",           0, NULL, SHOW_LAST_ARGS},
     {"source-ip",           0, NULL, 's'},

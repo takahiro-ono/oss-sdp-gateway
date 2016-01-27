@@ -1,4 +1,5 @@
 [default]
+SDP_CLIENT_ID               333333
 ACCESS                      tcp/22
 SPA_SERVER                  127.0.0.1
 ALLOW_IP                    resolve

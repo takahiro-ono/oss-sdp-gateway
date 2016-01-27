@@ -33,6 +33,7 @@
 #include "cipher_funcs.h"
 #include "base64.h"
 #include "digest.h"
+#include "dbg.h"
 
 #if HAVE_LIBGPGME
   #include "gpgme_funcs.h"
@@ -95,6 +96,8 @@ _rijndael_encrypt(fko_ctx_t ctx, const char *enc_key, const int enc_key_len)
             return(FKO_ERROR_ZERO_OUT_DATA);
     }
 
+    debug("_rijndael_encrypt() : msg before encryption: \n\t%s;", plaintext);
+
     /* Make a bucket for the encrypted version and populate it.
     */
     ciphertext = calloc(1, pt_len + 32); /* Plus padding for salt and Block */
@@ -126,6 +129,8 @@ _rijndael_encrypt(fko_ctx_t ctx, const char *enc_key, const int enc_key_len)
 
     b64_encode(ciphertext, b64ciphertext, cipher_len);
     strip_b64_eq(b64ciphertext);
+
+    debug("_rijndael_encrypt() : encrypted msg after encoding: \n\t%s;", b64ciphertext);
 
     if(ctx->encrypted_msg != NULL)
         zero_free_rv = zero_free(ctx->encrypted_msg,
@@ -167,6 +172,9 @@ _rijndael_decrypt(fko_ctx_t ctx,
     int             cipher_len=0, pt_len, i, err = 0, res = FKO_SUCCESS;
     int             zero_free_rv = FKO_SUCCESS;
 
+    debug("\n_rijndael_decrypt() : encrypted_(encoded)_msg_len: %d", ctx->encrypted_msg_len);
+    debug("_rijndael_decrypt() : encrypted_(encoded)_msg: \n\t%s\n", ctx->encrypted_msg);
+
     if(key_len < 0 || key_len > RIJNDAEL_MAX_KEYSIZE)
         return(FKO_ERROR_INVALID_KEY_LEN);
 
@@ -178,6 +186,9 @@ _rijndael_decrypt(fko_ctx_t ctx,
         res = add_salted_str(ctx);
         if(res != FKO_SUCCESS)
             return res;
+
+        debug("_rijndael_decrypt() : with Salt_ added, encrypted_(encoded)_msg_len: %d", ctx->encrypted_msg_len);
+        debug("_rijndael_decrypt() : with Salt_ added, encrypted_(encoded)_msg: \n\t%s\n", ctx->encrypted_msg);
     }
 
     /* Create a bucket for the (base64) decoded encrypted data and get the
@@ -229,6 +240,9 @@ _rijndael_decrypt(fko_ctx_t ctx,
 
     pt_len = rij_decrypt(cipher, cipher_len, dec_key, key_len,
                 (unsigned char*)ctx->encoded_msg, encryption_mode);
+
+    debug("\n_rijndael_decrypt() : decrypted msg len: %d", pt_len);
+    debug("_rijndael_decrypt() : decrypted msg: \n\t%s\n", ctx->encoded_msg);
 
     /* Done with cipher...
     */
@@ -589,7 +603,12 @@ fko_encrypt_spa_data(fko_ctx_t ctx, const char * const enc_key,
      * go ahead and re-encode here.
     */
     if(ctx->encoded_msg == NULL || FKO_IS_SPA_DATA_MODIFIED(ctx))
-        res = fko_encode_spa_data(ctx);
+    {
+    	if(ctx->disable_sdp_mode)
+    		res = fko_encode_spa_data(ctx);
+    	else
+    		res = fko_encode_sdp_spa_data(ctx);
+    }
 
     if(res != FKO_SUCCESS)
         return(res);

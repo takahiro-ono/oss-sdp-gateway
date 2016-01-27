@@ -130,6 +130,7 @@ verify_file_perms_ownership(const char *file)
 {
 #if HAVE_STAT
     struct stat st;
+    uid_t caller_uid = 0;
 
     /* Every file that fwknopd deals with should be owned
      * by the user and permissions set to 600 (user read/write)
@@ -159,10 +160,11 @@ verify_file_perms_ownership(const char *file)
             */
         }
 
-        if(st.st_uid != getuid())
+        caller_uid = getuid();
+        if(st.st_uid != caller_uid)
         {
-            log_msg(LOG_WARNING, "[-] file: %s not owned by current effective user id",
-                file);
+            log_msg(LOG_WARNING, "[-] file: %s (owner: %llu) not owned by current effective user id: %llu",
+                file, (unsigned long long)st.st_uid, (unsigned long long)caller_uid);
             /* when we start in enforcing this instead of just warning
              * the user
             res = 0;
