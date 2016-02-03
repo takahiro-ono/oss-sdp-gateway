@@ -41,6 +41,7 @@
 #include "utils.h"
 #include "log_msg.h"
 #include "cmd_cycle.h"
+#include "bstrlib.h"
 
 #define FATAL_ERR -1
 
@@ -52,6 +53,10 @@
   #include "cunit_common.h"
   DECLARE_TEST_SUITE(access, "Access test suite");
 #endif
+
+
+static fko_srv_options_t *access_opts_g = NULL;
+static int access_counter_g = 0;
 
 /* Add an access string entry
 */
@@ -930,82 +935,118 @@ free_acc_stanza_data(acc_stanza_t *acc)
     return;
 }
 
+
+/* Expand one access entry that may be multi-value.
+*/
+static int
+expand_one_acc_ent_list(acc_stanza_t *acc)
+{
+	/* Expand the source string to 32-bit integer IP + masks for each entry.
+	*/
+	if(expand_acc_int_list(&(acc->source_list), acc->source) != SUCCESS)
+	{
+		log_msg(LOG_ERR, "[*] Fatal invalid SOURCE in access stanza");
+		return 0;
+	}
+
+	if(acc->destination != NULL && strlen(acc->destination))
+	{
+		if(expand_acc_int_list(&(acc->destination_list), acc->destination) != SUCCESS)
+		{
+			log_msg(LOG_ERR, "[*] Fatal invalid DESTINATION in access stanza");
+			return 0;
+		}
+	}
+
+	/* Now expand the open_ports string.
+	*/
+	if(acc->open_ports != NULL && strlen(acc->open_ports))
+	{
+		if(expand_acc_port_list(&(acc->oport_list), acc->open_ports) != SUCCESS)
+		{
+			log_msg(LOG_ERR, "[*] Fatal invalid OPEN_PORTS in access stanza");
+			return 0;
+		}
+	}
+
+	if(acc->restrict_ports != NULL && strlen(acc->restrict_ports))
+	{
+		if(expand_acc_port_list(&(acc->rport_list), acc->restrict_ports) != SUCCESS)
+		{
+			log_msg(LOG_ERR, "[*] Fatal invalid RESTRICT_PORTS in access stanza");
+			return 0;
+		}
+	}
+
+	/* Expand the GPG_REMOTE_ID string.
+	*/
+	if(acc->gpg_remote_id != NULL && strlen(acc->gpg_remote_id))
+	{
+		if(expand_acc_string_list(&(acc->gpg_remote_id_list),
+					acc->gpg_remote_id) != SUCCESS)
+		{
+			log_msg(LOG_ERR, "[*] Fatal invalid GPG_REMOTE_ID list in access stanza");
+			return 0;
+		}
+	}
+
+	/* Expand the GPG_FINGERPRINT_ID string.
+	*/
+	if(acc->gpg_remote_fpr != NULL && strlen(acc->gpg_remote_fpr))
+	{
+		if(expand_acc_string_list(&(acc->gpg_remote_fpr_list),
+					acc->gpg_remote_fpr) != SUCCESS)
+		{
+			log_msg(LOG_ERR, "[*] Fatal invalid GPG_FINGERPRINT_ID list in access stanza");
+			return 0;
+		}
+	}
+
+    return SUCCESS;
+}
+
+
+static int
+traverse_expand_hash_cb(hash_table_node_t *node)
+{
+	int res = SUCCESS;
+	acc_stanza_t *acc = (acc_stanza_t *)(node->data);
+	res = expand_one_acc_ent_list(acc);
+	if(res == SUCCESS)
+		return 0;
+	return 1;
+}
+
+
 /* Expand any access entries that may be multi-value.
 */
 static void
 expand_acc_ent_lists(fko_srv_options_t *opts)
 {
-    acc_stanza_t   *acc = opts->acc_stanzas;
+	if(opts->disable_sdp_mode)
+	{
+		acc_stanza_t   *acc = opts->acc_stanzas;
 
-    /* We need to do this for each stanza.
-    */
-    while(acc)
-    {
-        /* Expand the source string to 32-bit integer IP + masks for each entry.
-        */
-        if(expand_acc_int_list(&(acc->source_list), acc->source) == 0)
-        {
-            log_msg(LOG_ERR, "[*] Fatal invalid SOURCE in access stanza");
-            clean_exit(opts, NO_FW_CLEANUP, EXIT_FAILURE);
-        }
+		/* We need to do this for each stanza.
+		*/
+		while(acc)
+		{
+			if(expand_one_acc_ent_list(acc) != SUCCESS)
+				clean_exit(opts, NO_FW_CLEANUP, EXIT_FAILURE);
+			acc = acc->next;
+		}
+	}
+	else
+	{
+		// hash_table_traverse returns 0 for success, unlike the functions in this file
+		if( hash_table_traverse(opts->acc_stanza_hash_tbl, traverse_expand_hash_cb)	!= 0 )
+			clean_exit(opts, NO_FW_CLEANUP, EXIT_FAILURE);
+	}
 
-        if(acc->destination != NULL && strlen(acc->destination))
-        {
-            if(expand_acc_int_list(&(acc->destination_list), acc->destination) == 0)
-            {
-                log_msg(LOG_ERR, "[*] Fatal invalid DESTINATION in access stanza");
-                clean_exit(opts, NO_FW_CLEANUP, EXIT_FAILURE);
-            }
-        }
-
-        /* Now expand the open_ports string.
-        */
-        if(acc->open_ports != NULL && strlen(acc->open_ports))
-        {
-            if(expand_acc_port_list(&(acc->oport_list), acc->open_ports) == 0)
-            {
-                log_msg(LOG_ERR, "[*] Fatal invalid OPEN_PORTS in access stanza");
-                clean_exit(opts, NO_FW_CLEANUP, EXIT_FAILURE);
-            }
-        }
-
-        if(acc->restrict_ports != NULL && strlen(acc->restrict_ports))
-        {
-            if(expand_acc_port_list(&(acc->rport_list), acc->restrict_ports) == 0)
-            {
-                log_msg(LOG_ERR, "[*] Fatal invalid RESTRICT_PORTS in access stanza");
-                clean_exit(opts, NO_FW_CLEANUP, EXIT_FAILURE);
-            }
-        }
-
-        /* Expand the GPG_REMOTE_ID string.
-        */
-        if(acc->gpg_remote_id != NULL && strlen(acc->gpg_remote_id))
-        {
-            if(expand_acc_string_list(&(acc->gpg_remote_id_list),
-                        acc->gpg_remote_id) != SUCCESS)
-            {
-                log_msg(LOG_ERR, "[*] Fatal invalid GPG_REMOTE_ID list in access stanza");
-                clean_exit(opts, NO_FW_CLEANUP, EXIT_FAILURE);
-            }
-        }
-
-        /* Expand the GPG_FINGERPRINT_ID string.
-        */
-        if(acc->gpg_remote_fpr != NULL && strlen(acc->gpg_remote_fpr))
-        {
-            if(expand_acc_string_list(&(acc->gpg_remote_fpr_list),
-                        acc->gpg_remote_fpr) != SUCCESS)
-            {
-                log_msg(LOG_ERR, "[*] Fatal invalid GPG_FINGERPRINT_ID list in access stanza");
-                clean_exit(opts, NO_FW_CLEANUP, EXIT_FAILURE);
-            }
-        }
-
-        acc = acc->next;
-    }
-    return;
+	return;
 }
+
+
 
 void
 free_acc_stanzas(fko_srv_options_t *opts)
@@ -1029,6 +1070,112 @@ free_acc_stanzas(fko_srv_options_t *opts)
     return;
 }
 
+static void
+destroy_hash_node_cb(hash_table_node_t *node)
+{
+  if(node->key != NULL) bdestroy((bstring)(node->key));
+  if(node->data != NULL)
+  {
+	  free_acc_stanza_data((acc_stanza_t*)(node->data));
+	  free(node->data);
+  }
+}
+
+static int
+traverse_dump_hash_cb(hash_table_node_t *node)
+{
+	acc_stanza_t *acc = (acc_stanza_t *)(node->data);
+
+    fprintf(stdout,
+        "SDP_CLIENT_ID:  %"PRIu32"\n"
+        "==============================================================\n"
+        "                     SOURCE:  %s\n"
+        "                DESTINATION:  %s\n"
+        "                 OPEN_PORTS:  %s\n"
+        "             RESTRICT_PORTS:  %s\n"
+        "                        KEY:  %s\n"
+        "                 KEY_BASE64:  %s\n"
+        "                    KEY_LEN:  %d\n"
+        "                   HMAC_KEY:  %s\n"
+        "            HMAC_KEY_BASE64:  %s\n"
+        "               HMAC_KEY_LEN:  %d\n"
+        "           HMAC_DIGEST_TYPE:  %d\n"
+        "          FW_ACCESS_TIMEOUT:  %i\n"
+        "            ENABLE_CMD_EXEC:  %s\n"
+        "       ENABLE_CMD_SUDO_EXEC:  %s\n"
+        "         CMD_SUDO_EXEC_USER:  %s\n"
+        "        CMD_SUDO_EXEC_GROUP:  %s\n"
+        "              CMD_EXEC_USER:  %s\n"
+        "             CMD_EXEC_GROUP:  %s\n"
+        "             CMD_CYCLE_OPEN:  %s\n"
+        "            CMD_CYCLE_CLOSE:  %s\n"
+        "            CMD_CYCLE_TIMER:  %i\n"
+        "           REQUIRE_USERNAME:  %s\n"
+        "     REQUIRE_SOURCE_ADDRESS:  %s\n"
+        "             FORCE_NAT (ip):  %s\n"
+        "          FORCE_NAT (proto):  %s\n"
+        "           FORCE_NAT (port):  %d\n"
+        "            FORCE_SNAT (ip):  %s\n"
+        "           FORCE_MASQUERADE:  %s\n"
+        "               DISABLE_DNAT:  %s\n"
+        "                FORWARD_ALL:  %s\n"
+        "              ACCESS_EXPIRE:  %s"  /* asctime() adds a newline */
+        "               GPG_HOME_DIR:  %s\n"
+        "                    GPG_EXE:  %s\n"
+        "             GPG_DECRYPT_ID:  %s\n"
+        "             GPG_DECRYPT_PW:  %s\n"
+        "            GPG_REQUIRE_SIG:  %s\n"
+        "GPG_IGNORE_SIG_VERIFY_ERROR:  %s\n"
+        "              GPG_REMOTE_ID:  %s\n"
+        "         GPG_FINGERPRINT_ID:  %s\n",
+		acc->sdp_client_id,
+        acc->source,
+        (acc->destination == NULL) ? "<not set>" : acc->destination,
+        (acc->open_ports == NULL) ? "<not set>" : acc->open_ports,
+        (acc->restrict_ports == NULL) ? "<not set>" : acc->restrict_ports,
+        (acc->key == NULL) ? "<not set>" : "<see the access.conf file>",
+        (acc->key_base64 == NULL) ? "<not set>" : "<see the access.conf file>",
+        acc->key_len ? acc->key_len : 0,
+        (acc->hmac_key == NULL) ? "<not set>" : "<see the access.conf file>",
+        (acc->hmac_key_base64 == NULL) ? "<not set>" : "<see the access.conf file>",
+        acc->hmac_key_len ? acc->hmac_key_len : 0,
+        acc->hmac_type,
+        acc->fw_access_timeout,
+        acc->enable_cmd_exec ? "Yes" : "No",
+        acc->enable_cmd_sudo_exec ? "Yes" : "No",
+        (acc->cmd_sudo_exec_user == NULL) ? "<not set>" : acc->cmd_sudo_exec_user,
+        (acc->cmd_sudo_exec_group == NULL) ? "<not set>" : acc->cmd_sudo_exec_group,
+        (acc->cmd_exec_user == NULL) ? "<not set>" : acc->cmd_exec_user,
+        (acc->cmd_exec_group == NULL) ? "<not set>" : acc->cmd_exec_group,
+        (acc->cmd_cycle_open == NULL) ? "<not set>" : acc->cmd_cycle_open,
+        (acc->cmd_cycle_close == NULL) ? "<not set>" : acc->cmd_cycle_close,
+        acc->cmd_cycle_timer,
+        (acc->require_username == NULL) ? "<not set>" : acc->require_username,
+        acc->require_source_address ? "Yes" : "No",
+        acc->force_nat ? acc->force_nat_ip : "<not set>",
+        acc->force_nat && acc->force_nat_proto != NULL ? acc->force_nat_proto : "<not set>",
+        acc->force_nat ? acc->force_nat_port : 0,
+        acc->force_snat ? acc->force_snat_ip : "<not set>",
+        acc->force_masquerade ? "Yes" : "No",
+        acc->disable_dnat ? "Yes" : "No",
+        acc->forward_all ? "Yes" : "No",
+        (acc->access_expire_time > 0) ? asctime(localtime(&acc->access_expire_time)) : "<not set>\n",
+        (acc->gpg_home_dir == NULL) ? "<not set>" : acc->gpg_home_dir,
+        (acc->gpg_exe == NULL) ? "<not set>" : acc->gpg_exe,
+        (acc->gpg_decrypt_id == NULL) ? "<not set>" : acc->gpg_decrypt_id,
+        (acc->gpg_decrypt_pw == NULL) ? "<not set>" : "<see the access.conf file>",
+        acc->gpg_require_sig ? "Yes" : "No",
+        acc->gpg_ignore_sig_error  ? "Yes" : "No",
+        (acc->gpg_remote_id == NULL) ? "<not set>" : acc->gpg_remote_id,
+        (acc->gpg_remote_fpr == NULL) ? "<not set>" : acc->gpg_remote_fpr
+    );
+
+    fprintf(stdout, "\n");
+
+    return 0;
+}
+
+
 /* Wrapper for free_acc_stanzas(), we may put additional initialization
  * code here.
 */
@@ -1047,11 +1194,12 @@ acc_stanza_init(fko_srv_options_t *opts)
  * location, yada-yada-yada.
 */
 static acc_stanza_t*
-acc_stanza_add(fko_srv_options_t *opts)
+acc_stanza_add(fko_srv_options_t *opts, char *val)
 {
     acc_stanza_t    *acc     = opts->acc_stanzas;
     acc_stanza_t    *new_acc = calloc(1, sizeof(acc_stanza_t));
     acc_stanza_t    *last_acc;
+    bstring          key     = NULL;
 
     if(new_acc == NULL)
     {
@@ -1061,24 +1209,153 @@ acc_stanza_add(fko_srv_options_t *opts)
         clean_exit(opts, NO_FW_CLEANUP, EXIT_FAILURE);
     }
 
-    /* If this is not the first acc entry, we walk our acc pointer to the
-     * end of the existing list.
-    */
-    if(acc == NULL)
+    if(opts->disable_sdp_mode)
     {
-        opts->acc_stanzas = new_acc;
+		/* If this is not the first acc entry, we walk our acc pointer to the
+		 * end of the existing list.
+		*/
+		if(acc == NULL)
+		{
+			opts->acc_stanzas = new_acc;
+		}
+		else
+		{
+			do {
+				last_acc = acc;
+			} while((acc = acc->next));
+
+			last_acc->next = new_acc;
+		}
     }
     else
     {
-        do {
-            last_acc = acc;
-        } while((acc = acc->next));
+    	if(opts->acc_stanza_hash_tbl == NULL)
+    	{
+    		//need to initialize hash table
+    		opts->acc_stanza_hash_tbl = hash_table_create(opts->acc_stanza_hash_tbl_length,
+    				NULL, NULL, destroy_hash_node_cb);
+    		if(opts->acc_stanza_hash_tbl == NULL)
+    		{
+    	        log_msg(LOG_ERR,
+    	            "[*] Fatal memory allocation error creating access stanza hash table"
+    	        );
+    	        free_acc_stanza_data(new_acc);
+    	        free(new_acc);
+    	        clean_exit(opts, NO_FW_CLEANUP, EXIT_FAILURE);
+    		}
+    	}
 
-        last_acc->next = new_acc;
+    	if( val == NULL || (strnlen(val, 11) < 1))
+    	{
+    		log_msg(LOG_ERR,
+				"[*] Fatal error - SDP_CLIENT_ID string invalid"
+			);
+	        free_acc_stanza_data(new_acc);
+	        free(new_acc);
+	        clean_exit(opts, NO_FW_CLEANUP, EXIT_FAILURE);
+    	}
+
+    	key = bfromcstr(val);
+
+    	if( hash_table_set(opts->acc_stanza_hash_tbl, key, new_acc) != FKO_SUCCESS )
+		{
+	        log_msg(LOG_ERR,
+	            "[*] Fatal error creating access stanza hash table node"
+	        );
+	        bdestroy(key);
+	        free_acc_stanza_data(new_acc);
+	        free(new_acc);
+	        clean_exit(opts, NO_FW_CLEANUP, EXIT_FAILURE);
+		}
     }
 
     return(new_acc);
 }
+
+static void
+set_one_acc_defaults(acc_stanza_t *acc)
+{
+	access_counter_g++;
+
+    /* set default fw_access_timeout if necessary
+    */
+    if(acc->fw_access_timeout < 1)
+        acc->fw_access_timeout = DEF_FW_ACCESS_TIMEOUT;
+
+    /* set default gpg keyring path if necessary
+    */
+    if(acc->gpg_decrypt_pw != NULL)
+    {
+        if(acc->gpg_home_dir == NULL)
+            add_acc_string(&(acc->gpg_home_dir),
+            		access_opts_g->config[CONF_GPG_HOME_DIR], NULL, access_opts_g);
+
+        if(! acc->gpg_require_sig)
+        {
+            if (acc->gpg_disable_sig)
+            {
+                log_msg(LOG_INFO,
+                    "Warning: GPG_REQUIRE_SIG should really be enabled for stanza source: '%s' (#%d)",
+                    acc->source, access_counter_g
+                );
+            }
+            else
+            {
+                /* Make this the default unless explicitly disabled
+                */
+                acc->gpg_require_sig = 1;
+            }
+        }
+        else
+        {
+            if (acc->gpg_disable_sig)
+            {
+                log_msg(LOG_INFO,
+                    "Warning: GPG_REQUIRE_SIG and GPG_DISABLE_SIG are both set, will check sigs (stanza source: '%s' #%d)",
+                    acc->source, access_counter_g
+                );
+            }
+        }
+
+        /* If signature checking is enabled, make sure we either have sig ID's or
+         * fingerprint ID's to check
+        */
+        if(! acc->gpg_disable_sig
+                && (acc->gpg_remote_id == NULL && acc->gpg_remote_fpr == NULL))
+        {
+            log_msg(LOG_INFO,
+                "Warning: Must have either sig ID's or fingerprints to check via GPG_REMOTE_ID or GPG_FINGERPRINT_ID (stanza source: '%s' #%d)",
+                acc->source, access_counter_g
+            );
+            clean_exit(access_opts_g, NO_FW_CLEANUP, EXIT_FAILURE);
+        }
+    }
+
+    if(acc->encryption_mode == FKO_ENC_MODE_UNKNOWN)
+        acc->encryption_mode = FKO_DEFAULT_ENC_MODE;
+
+    /* if we're using an HMAC key and the HMAC digest type was not
+     * set for HMAC_DIGEST_TYPE, then assume it's SHA256
+    */
+
+    if(acc->hmac_type == FKO_HMAC_UNKNOWN
+            && acc->hmac_key_len > 0 && acc->hmac_key != NULL)
+    {
+        acc->hmac_type = FKO_DEFAULT_HMAC_MODE;
+    }
+
+    return;
+}
+
+static int
+traverse_set_acc_defaults_cb(hash_table_node_t *node)
+{
+	acc_stanza_t *acc = (acc_stanza_t *)(node->data);
+	if(acc)
+		set_one_acc_defaults(acc);
+	return 0;
+}
+
 
 /* Scan the access options for entries that have not been set, but need
  * a default value.
@@ -1086,84 +1363,24 @@ acc_stanza_add(fko_srv_options_t *opts)
 static void
 set_acc_defaults(fko_srv_options_t *opts)
 {
-    acc_stanza_t    *acc = opts->acc_stanzas;
-    int              i=1;
+	acc_stanza_t    *acc = opts->acc_stanzas;
+    access_counter_g = 0;
+    access_opts_g = opts;
 
-    if(!acc)
-        return;
-
-    while(acc)
+    if(opts->disable_sdp_mode)
     {
-        /* set default fw_access_timeout if necessary
-        */
-        if(acc->fw_access_timeout < 1)
-            acc->fw_access_timeout = DEF_FW_ACCESS_TIMEOUT;
-
-        /* set default gpg keyring path if necessary
-        */
-        if(acc->gpg_decrypt_pw != NULL)
-        {
-            if(acc->gpg_home_dir == NULL)
-                add_acc_string(&(acc->gpg_home_dir),
-                        opts->config[CONF_GPG_HOME_DIR], NULL, opts);
-
-            if(! acc->gpg_require_sig)
-            {
-                if (acc->gpg_disable_sig)
-                {
-                    log_msg(LOG_INFO,
-                        "Warning: GPG_REQUIRE_SIG should really be enabled for stanza source: '%s' (#%d)",
-                        acc->source, i
-                    );
-                }
-                else
-                {
-                    /* Make this the default unless explicitly disabled
-                    */
-                    acc->gpg_require_sig = 1;
-                }
-            }
-            else
-            {
-                if (acc->gpg_disable_sig)
-                {
-                    log_msg(LOG_INFO,
-                        "Warning: GPG_REQUIRE_SIG and GPG_DISABLE_SIG are both set, will check sigs (stanza source: '%s' #%d)",
-                        acc->source, i
-                    );
-                }
-            }
-
-            /* If signature checking is enabled, make sure we either have sig ID's or
-             * fingerprint ID's to check
-            */
-            if(! acc->gpg_disable_sig
-                    && (acc->gpg_remote_id == NULL && acc->gpg_remote_fpr == NULL))
-            {
-                log_msg(LOG_INFO,
-                    "Warning: Must have either sig ID's or fingerprints to check via GPG_REMOTE_ID or GPG_FINGERPRINT_ID (stanza source: '%s' #%d)",
-                    acc->source, i
-                );
-                clean_exit(opts, NO_FW_CLEANUP, EXIT_FAILURE);
-            }
-        }
-
-        if(acc->encryption_mode == FKO_ENC_MODE_UNKNOWN)
-            acc->encryption_mode = FKO_DEFAULT_ENC_MODE;
-
-        /* if we're using an HMAC key and the HMAC digest type was not
-         * set for HMAC_DIGEST_TYPE, then assume it's SHA256
-        */
-
-        if(acc->hmac_type == FKO_HMAC_UNKNOWN
-                && acc->hmac_key_len > 0 && acc->hmac_key != NULL)
-        {
-            acc->hmac_type = FKO_DEFAULT_HMAC_MODE;
-        }
-
-        acc = acc->next;
-        i++;
+		while(acc)
+		{
+			set_one_acc_defaults(acc);
+			acc = acc->next;
+		}
     }
+    else
+    {
+    	hash_table_traverse(opts->acc_stanza_hash_tbl, traverse_set_acc_defaults_cb);
+    }
+
+    access_opts_g = NULL;
     return;
 }
 
@@ -1353,6 +1570,7 @@ parse_access_file(fko_srv_options_t *opts)
     FILE           *file_ptr;
     char           *ndx;
     int             got_source = 0, is_err;
+    int             got_sdp_client_id=0;
     unsigned int    num_lines = 0;
 
     char            access_line_buf[MAX_LINE_LEN] = {0};
@@ -1455,6 +1673,42 @@ parse_access_file(fko_srv_options_t *opts)
         */
         if(CONF_VAR_IS(var, "SOURCE"))
         {
+        	if(opts->disable_sdp_mode)
+        	{
+				/* If this is not the first stanza, sanity check the previous
+				 * stanza for the minimum required data.
+				*/
+				if(curr_acc != NULL) {
+					if(!acc_data_is_valid(opts, user_pw, sudo_user_pw, curr_acc))
+					{
+						log_msg(LOG_ERR, "[*] Data error in access file: '%s'",
+							opts->config[CONF_ACCESS_FILE]);
+						fclose(file_ptr);
+						clean_exit(opts, NO_FW_CLEANUP, EXIT_FAILURE);
+					}
+				}
+
+				/* Start new stanza.
+				*/
+				curr_acc = acc_stanza_add(opts, NULL);
+        	}
+            else if (curr_acc == NULL)
+            {
+                /* The stanza must start with "SDP_CLIENT_ID" variable
+                 * in SDP mode
+                */
+                continue;
+            }
+
+            add_acc_string(&(curr_acc->source), val, file_ptr, opts);
+            got_source++;
+        }
+        else if(CONF_VAR_IS(var, "SDP_CLIENT_ID"))
+        {
+        	// Don't need this field in legacy mode, so ignore completely
+        	if(opts->disable_sdp_mode)
+        		continue;
+
             /* If this is not the first stanza, sanity check the previous
              * stanza for the minimum required data.
             */
@@ -1470,13 +1724,23 @@ parse_access_file(fko_srv_options_t *opts)
 
             /* Start new stanza.
             */
-            curr_acc = acc_stanza_add(opts);
-            add_acc_string(&(curr_acc->source), val, file_ptr, opts);
-            got_source++;
+            curr_acc = acc_stanza_add(opts, val);
+            curr_acc->sdp_client_id = (uint32_t)strtol_wrapper(val, 0,
+                                		UINT32_MAX, NO_EXIT_UPON_ERR, &is_err);
+			if(is_err != FKO_SUCCESS)
+			{
+				log_msg(LOG_ERR,
+					"[*] SDP_CLIENT_ID value not in range in access file: '%s'",
+                    opts->config[CONF_ACCESS_FILE] );
+				fclose(file_ptr);
+				clean_exit(opts, NO_FW_CLEANUP, EXIT_FAILURE);
+			}
+            got_sdp_client_id++;
         }
         else if (curr_acc == NULL)
         {
-            /* The stanza must start with the "SOURCE" variable
+            /* The stanza must start with "SOURCE" or "SDP_CLIENT_ID" variable
+             * depending on mode
             */
             continue;
         }
@@ -1987,105 +2251,120 @@ dump_access_list(const fko_srv_options_t *opts)
 
     fprintf(stdout, "Current fwknopd access settings:\n");
 
-    if(!acc)
+    if(! opts->disable_sdp_mode)
     {
-        fprintf(stderr, "\n    ** No Access Settings Defined **\n\n");
-        return;
+    	if(! opts->acc_stanza_hash_tbl)
+    	{
+    		fprintf(stderr, "\n    ** No Access Settings Defined **\n\n");
+    		return;
+    	}
+
+    	hash_table_traverse(opts->acc_stanza_hash_tbl, traverse_dump_hash_cb);
     }
+    else
+	{
+		if(!acc)
+		{
+			fprintf(stderr, "\n    ** No Access Settings Defined **\n\n");
+			return;
+		}
 
-    while(acc)
-    {
-        fprintf(stdout,
-            "SOURCE (%i):  %s\n"
-            "==============================================================\n"
-            "                DESTINATION:  %s\n"
-            "                 OPEN_PORTS:  %s\n"
-            "             RESTRICT_PORTS:  %s\n"
-            "                        KEY:  %s\n"
-            "                 KEY_BASE64:  %s\n"
-            "                    KEY_LEN:  %d\n"
-            "                   HMAC_KEY:  %s\n"
-            "            HMAC_KEY_BASE64:  %s\n"
-            "               HMAC_KEY_LEN:  %d\n"
-            "           HMAC_DIGEST_TYPE:  %d\n"
-            "          FW_ACCESS_TIMEOUT:  %i\n"
-            "            ENABLE_CMD_EXEC:  %s\n"
-            "       ENABLE_CMD_SUDO_EXEC:  %s\n"
-            "         CMD_SUDO_EXEC_USER:  %s\n"
-            "        CMD_SUDO_EXEC_GROUP:  %s\n"
-            "              CMD_EXEC_USER:  %s\n"
-            "             CMD_EXEC_GROUP:  %s\n"
-            "             CMD_CYCLE_OPEN:  %s\n"
-            "            CMD_CYCLE_CLOSE:  %s\n"
-            "            CMD_CYCLE_TIMER:  %i\n"
-            "           REQUIRE_USERNAME:  %s\n"
-            "     REQUIRE_SOURCE_ADDRESS:  %s\n"
-            "             FORCE_NAT (ip):  %s\n"
-            "          FORCE_NAT (proto):  %s\n"
-            "           FORCE_NAT (port):  %d\n"
-            "            FORCE_SNAT (ip):  %s\n"
-            "           FORCE_MASQUERADE:  %s\n"
-            "               DISABLE_DNAT:  %s\n"
-            "                FORWARD_ALL:  %s\n"
-            "              ACCESS_EXPIRE:  %s"  /* asctime() adds a newline */
-            "               GPG_HOME_DIR:  %s\n"
-            "                    GPG_EXE:  %s\n"
-            "             GPG_DECRYPT_ID:  %s\n"
-            "             GPG_DECRYPT_PW:  %s\n"
-            "            GPG_REQUIRE_SIG:  %s\n"
-            "GPG_IGNORE_SIG_VERIFY_ERROR:  %s\n"
-            "              GPG_REMOTE_ID:  %s\n"
-            "         GPG_FINGERPRINT_ID:  %s\n",
-            ++i,
-            acc->source,
-            (acc->destination == NULL) ? "<not set>" : acc->destination,
-            (acc->open_ports == NULL) ? "<not set>" : acc->open_ports,
-            (acc->restrict_ports == NULL) ? "<not set>" : acc->restrict_ports,
-            (acc->key == NULL) ? "<not set>" : "<see the access.conf file>",
-            (acc->key_base64 == NULL) ? "<not set>" : "<see the access.conf file>",
-            acc->key_len ? acc->key_len : 0,
-            (acc->hmac_key == NULL) ? "<not set>" : "<see the access.conf file>",
-            (acc->hmac_key_base64 == NULL) ? "<not set>" : "<see the access.conf file>",
-            acc->hmac_key_len ? acc->hmac_key_len : 0,
-            acc->hmac_type,
-            acc->fw_access_timeout,
-            acc->enable_cmd_exec ? "Yes" : "No",
-            acc->enable_cmd_sudo_exec ? "Yes" : "No",
-            (acc->cmd_sudo_exec_user == NULL) ? "<not set>" : acc->cmd_sudo_exec_user,
-            (acc->cmd_sudo_exec_group == NULL) ? "<not set>" : acc->cmd_sudo_exec_group,
-            (acc->cmd_exec_user == NULL) ? "<not set>" : acc->cmd_exec_user,
-            (acc->cmd_exec_group == NULL) ? "<not set>" : acc->cmd_exec_group,
-            (acc->cmd_cycle_open == NULL) ? "<not set>" : acc->cmd_cycle_open,
-            (acc->cmd_cycle_close == NULL) ? "<not set>" : acc->cmd_cycle_close,
-            acc->cmd_cycle_timer,
-            (acc->require_username == NULL) ? "<not set>" : acc->require_username,
-            acc->require_source_address ? "Yes" : "No",
-            acc->force_nat ? acc->force_nat_ip : "<not set>",
-            acc->force_nat && acc->force_nat_proto != NULL ? acc->force_nat_proto : "<not set>",
-            acc->force_nat ? acc->force_nat_port : 0,
-            acc->force_snat ? acc->force_snat_ip : "<not set>",
-            acc->force_masquerade ? "Yes" : "No",
-            acc->disable_dnat ? "Yes" : "No",
-            acc->forward_all ? "Yes" : "No",
-            (acc->access_expire_time > 0) ? asctime(localtime(&acc->access_expire_time)) : "<not set>\n",
-            (acc->gpg_home_dir == NULL) ? "<not set>" : acc->gpg_home_dir,
-            (acc->gpg_exe == NULL) ? "<not set>" : acc->gpg_exe,
-            (acc->gpg_decrypt_id == NULL) ? "<not set>" : acc->gpg_decrypt_id,
-            (acc->gpg_decrypt_pw == NULL) ? "<not set>" : "<see the access.conf file>",
-            acc->gpg_require_sig ? "Yes" : "No",
-            acc->gpg_ignore_sig_error  ? "Yes" : "No",
-            (acc->gpg_remote_id == NULL) ? "<not set>" : acc->gpg_remote_id,
-            (acc->gpg_remote_fpr == NULL) ? "<not set>" : acc->gpg_remote_fpr
-        );
+		while(acc)
+		{
+			fprintf(stdout,
+				"SOURCE (%i):  %s\n"
+				"==============================================================\n"
+				"                DESTINATION:  %s\n"
+				"                 OPEN_PORTS:  %s\n"
+				"             RESTRICT_PORTS:  %s\n"
+				"                        KEY:  %s\n"
+				"                 KEY_BASE64:  %s\n"
+				"                    KEY_LEN:  %d\n"
+				"                   HMAC_KEY:  %s\n"
+				"            HMAC_KEY_BASE64:  %s\n"
+				"               HMAC_KEY_LEN:  %d\n"
+				"           HMAC_DIGEST_TYPE:  %d\n"
+				"          FW_ACCESS_TIMEOUT:  %i\n"
+				"            ENABLE_CMD_EXEC:  %s\n"
+				"       ENABLE_CMD_SUDO_EXEC:  %s\n"
+				"         CMD_SUDO_EXEC_USER:  %s\n"
+				"        CMD_SUDO_EXEC_GROUP:  %s\n"
+				"              CMD_EXEC_USER:  %s\n"
+				"             CMD_EXEC_GROUP:  %s\n"
+				"             CMD_CYCLE_OPEN:  %s\n"
+				"            CMD_CYCLE_CLOSE:  %s\n"
+				"            CMD_CYCLE_TIMER:  %i\n"
+				"           REQUIRE_USERNAME:  %s\n"
+				"     REQUIRE_SOURCE_ADDRESS:  %s\n"
+				"             FORCE_NAT (ip):  %s\n"
+				"          FORCE_NAT (proto):  %s\n"
+				"           FORCE_NAT (port):  %d\n"
+				"            FORCE_SNAT (ip):  %s\n"
+				"           FORCE_MASQUERADE:  %s\n"
+				"               DISABLE_DNAT:  %s\n"
+				"                FORWARD_ALL:  %s\n"
+				"              ACCESS_EXPIRE:  %s"  /* asctime() adds a newline */
+				"               GPG_HOME_DIR:  %s\n"
+				"                    GPG_EXE:  %s\n"
+				"             GPG_DECRYPT_ID:  %s\n"
+				"             GPG_DECRYPT_PW:  %s\n"
+				"            GPG_REQUIRE_SIG:  %s\n"
+				"GPG_IGNORE_SIG_VERIFY_ERROR:  %s\n"
+				"              GPG_REMOTE_ID:  %s\n"
+				"         GPG_FINGERPRINT_ID:  %s\n",
+				++i,
+				acc->source,
+				(acc->destination == NULL) ? "<not set>" : acc->destination,
+				(acc->open_ports == NULL) ? "<not set>" : acc->open_ports,
+				(acc->restrict_ports == NULL) ? "<not set>" : acc->restrict_ports,
+				(acc->key == NULL) ? "<not set>" : "<see the access.conf file>",
+				(acc->key_base64 == NULL) ? "<not set>" : "<see the access.conf file>",
+				acc->key_len ? acc->key_len : 0,
+				(acc->hmac_key == NULL) ? "<not set>" : "<see the access.conf file>",
+				(acc->hmac_key_base64 == NULL) ? "<not set>" : "<see the access.conf file>",
+				acc->hmac_key_len ? acc->hmac_key_len : 0,
+				acc->hmac_type,
+				acc->fw_access_timeout,
+				acc->enable_cmd_exec ? "Yes" : "No",
+				acc->enable_cmd_sudo_exec ? "Yes" : "No",
+				(acc->cmd_sudo_exec_user == NULL) ? "<not set>" : acc->cmd_sudo_exec_user,
+				(acc->cmd_sudo_exec_group == NULL) ? "<not set>" : acc->cmd_sudo_exec_group,
+				(acc->cmd_exec_user == NULL) ? "<not set>" : acc->cmd_exec_user,
+				(acc->cmd_exec_group == NULL) ? "<not set>" : acc->cmd_exec_group,
+				(acc->cmd_cycle_open == NULL) ? "<not set>" : acc->cmd_cycle_open,
+				(acc->cmd_cycle_close == NULL) ? "<not set>" : acc->cmd_cycle_close,
+				acc->cmd_cycle_timer,
+				(acc->require_username == NULL) ? "<not set>" : acc->require_username,
+				acc->require_source_address ? "Yes" : "No",
+				acc->force_nat ? acc->force_nat_ip : "<not set>",
+				acc->force_nat && acc->force_nat_proto != NULL ? acc->force_nat_proto : "<not set>",
+				acc->force_nat ? acc->force_nat_port : 0,
+				acc->force_snat ? acc->force_snat_ip : "<not set>",
+				acc->force_masquerade ? "Yes" : "No",
+				acc->disable_dnat ? "Yes" : "No",
+				acc->forward_all ? "Yes" : "No",
+				(acc->access_expire_time > 0) ? asctime(localtime(&acc->access_expire_time)) : "<not set>\n",
+				(acc->gpg_home_dir == NULL) ? "<not set>" : acc->gpg_home_dir,
+				(acc->gpg_exe == NULL) ? "<not set>" : acc->gpg_exe,
+				(acc->gpg_decrypt_id == NULL) ? "<not set>" : acc->gpg_decrypt_id,
+				(acc->gpg_decrypt_pw == NULL) ? "<not set>" : "<see the access.conf file>",
+				acc->gpg_require_sig ? "Yes" : "No",
+				acc->gpg_ignore_sig_error  ? "Yes" : "No",
+				(acc->gpg_remote_id == NULL) ? "<not set>" : acc->gpg_remote_id,
+				(acc->gpg_remote_fpr == NULL) ? "<not set>" : acc->gpg_remote_fpr
+			);
 
-        fprintf(stdout, "\n");
+			fprintf(stdout, "\n");
 
-        acc = acc->next;
+			acc = acc->next;
+		}
     }
 
     fprintf(stdout, "\n");
     fflush(stdout);
-}
+
+}  // END dump_access_list
+
 #ifdef HAVE_C_UNIT_TESTS
 
 DECLARE_UTEST(compare_port_list, "check compare_port_list function")

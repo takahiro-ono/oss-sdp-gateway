@@ -38,6 +38,12 @@
 */
 #define ACCESS_BUF_LEN  33
 
+#define MIN_ACC_STANZA_HASH_TABLE_LENGTH  10
+#define MAX_ACC_STANZA_HASH_TABLE_LENGTH  10000
+#define DEF_HASH_TABLE_LENGTH             100
+#define DEF_HASH_TABLE_LENGTH_STR         "100"
+
+
 /* Function Prototypes
 */
 void parse_access_file(fko_srv_options_t *opts);

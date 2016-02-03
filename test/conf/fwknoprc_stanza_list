@@ -1,5 +1,4 @@
 [default]
-SDP_CLIENT_ID  333333
 KEY	testkey
 
 [stanza_1]

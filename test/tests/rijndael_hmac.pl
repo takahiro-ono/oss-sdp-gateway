@@ -40,6 +40,7 @@
         'category' => 'Rijndael+HMAC',
         'subcategory' => 'server',
         'detail'   => 'rc file HMAC+encryption keys not equal',
+        'skip_if_sdp' => 1,
         'function' => \&generic_exec,
         'cmdline' =>  "$fwknopdCmd $srv_sdp_options -c $cf{'def'} -a $cf{'hmac_equal_keys_access'} " .
             "-d $default_digest_file -p $default_pid_file $intf_str",
@@ -971,7 +972,7 @@
         'detail'   => 'client IP --resolve-url <def>',
         'function' => \&spa_cycle,
         'cmdline'  => "$client_ip_resolve_hmac_args " .
-            "--resolve-url https://www.cipherdyne.org/cgi-bin/myip",
+            "--resolve-url $resolve_url",
         'no_ip_check' => 1,
         'positive_output_matches' => [qr/wget/],
         'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options $default_server_hmac_conf_args $intf_str",
@@ -1353,7 +1354,7 @@
             "$cf{'rc_hmac_sha256_key'}",
         'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options -c $cf{'def'} -a $cf{'hmac_sha256_digest1_mismatch_access'} " .
             "-d $default_digest_file -p $default_pid_file $intf_str",
-        'server_positive_output_matches' => [qr/stanza #1\).*\sArgs\scontain\sinvalid\sdata/],
+        'server_positive_output_matches' => [qr/Args\scontain\sinvalid\sdata/],
         'fw_rule_created' => $REQUIRE_NO_NEW_RULE,
         'key_file' => $cf{'rc_hmac_sha256_key'},
     },
@@ -1366,7 +1367,7 @@
             "$cf{'rc_hmac_sha256_key'}",
         'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options -c $cf{'def'} -a $cf{'hmac_sha256_digest2_mismatch_access'} " .
             "-d $default_digest_file -p $default_pid_file $intf_str",
-        'server_positive_output_matches' => [qr/stanza #1\).*\sArgs\scontain\sinvalid\sdata/],
+        'server_positive_output_matches' => [qr/Args\scontain\sinvalid\sdata/],
         'fw_rule_created' => $REQUIRE_NO_NEW_RULE,
         'key_file' => $cf{'rc_hmac_sha256_key'},
     },
@@ -1379,7 +1380,7 @@
             "$cf{'rc_hmac_sha256_key'}",
         'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options -c $cf{'def'} -a $cf{'hmac_sha256_digest3_mismatch_access'} " .
             "-d $default_digest_file -p $default_pid_file $intf_str",
-        'server_positive_output_matches' => [qr/stanza #1\).*\sArgs\scontain\sinvalid\sdata/],
+        'server_positive_output_matches' => [qr/Args\scontain\sinvalid\sdata/],
         'fw_rule_created' => $REQUIRE_NO_NEW_RULE,
         'key_file' => $cf{'rc_hmac_sha256_key'},
     },
@@ -1392,7 +1393,7 @@
             "$cf{'rc_hmac_sha256_key'}",
         'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options -c $cf{'def'} -a $cf{'hmac_sha256_digest4_mismatch_access'} " .
             "-d $default_digest_file -p $default_pid_file $intf_str",
-        'server_positive_output_matches' => [qr/stanza #1\).*\sArgs\scontain\sinvalid\sdata/],
+        'server_positive_output_matches' => [qr/Args\scontain\sinvalid\sdata/],
         'fw_rule_created' => $REQUIRE_NO_NEW_RULE,
         'key_file' => $cf{'rc_hmac_sha256_key'},
     },
@@ -1402,13 +1403,18 @@
         'subcategory' => 'client+server',
         'detail'   => 'dual usage access key (tcp/80 http)',
         'function' => \&spa_cycle,
-        'cmdline' => "$fwknopCmd $client_sdp_options -A tcp/80 -a $fake_ip -D $loopback_ip --rc-file " .
+        'multi_cmds' => [
+        	"$fwknopCmd $client_sdp_options -A tcp/80 -a $fake_ip -D $loopback_ip --rc-file " .
             "$cf{'rc_hmac_b64_key'} $verbose_str",
+            
+            "$fwknopCmd $alt_client_sdp_options -A tcp/80 -a $fake_ip -D $loopback_ip --rc-file " .
+            "$cf{'rc_hmac_b64_key'} $verbose_str"
+        ],
         'fwknopd_cmdline' => "$fwknopdCmd $srv_sdp_options -c $cf{'def'} -a $cf{'hmac_dual_key_access'} " .
             "-d $default_digest_file -p $default_pid_file $intf_str",
         ### check for the first stanza that does not allow tcp/80 - the
         ### second stanza allows this
-        'server_positive_output_matches' => [qr/stanza #1\)\sOne\sor\smore\srequested\sprotocol\/ports\swas\sdenied/],
+        'server_positive_output_matches' => [qr/One\sor\smore\srequested\sprotocol\/ports\swas\sdenied/],
         'weak_server_receive_check' => $YES,
         'fw_rule_created' => $NEW_RULE_REQUIRED,
         'fw_rule_removed' => $NEW_RULE_REMOVED,

@@ -135,7 +135,8 @@ static char *config_map[NUMBER_OF_CONFIG_ENTRIES] = {
     "AFL_PKT_FILE",
 #endif
     "FAULT_INJECTION_TAG",
-	"DISABLE_SDP_MODE"
+	"DISABLE_SDP_MODE",
+	"ACC_STANZA_HASH_TABLE_LENGTH"
 };
 
 
@@ -163,6 +164,7 @@ enum {
     EXIT_AFTER_PARSE_CONFIG,
     FAULT_INJECTION_TAG,
     DISABLE_SDP_MODE,
+	ACC_STANZA_HASH_TABLE_LENGTH,
     NOOP /* Just to be a marker for the end */
 };
 
@@ -175,6 +177,7 @@ enum {
 static struct option cmd_opts[] =
 {
     {"access-file",          1, NULL, 'a'},
+	{"acc-hash-tbl-len",     1, NULL, ACC_STANZA_HASH_TABLE_LENGTH },
     {"afl-fuzzing",          0, NULL, 'A'},
     {"afl-pkt-file",         1, NULL, AFL_PKT_FILE },
     {"config-file",          1, NULL, 'c'},

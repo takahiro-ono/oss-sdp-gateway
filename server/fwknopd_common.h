@@ -32,6 +32,7 @@
 #define FWKNOPD_COMMON_H
 
 #include "common.h"
+#include "hash_table.h"
 
 #if PLATFORM_OPENBSD
   #include <netinet/in.h>
@@ -214,6 +215,7 @@
 #define MAX_SPA_PACKET_LEN      1500 /* --DSS check this? */
 #define MAX_HOSTNAME_LEN        64
 #define MAX_DECRYPTED_SPA_LEN   1024
+#define MAX_SDP_CLIENT_ID_STR_LEN 11
 
 /* The minimum possible valid SPA data size.
 */
@@ -326,6 +328,7 @@ enum {
 #endif
     CONF_FAULT_INJECTION_TAG,
 	CONF_DISABLE_SDP_MODE,
+	CONF_ACC_STANZA_HASH_TABLE_LENGTH,
 
     NUMBER_OF_CONFIG_ENTRIES  /* Marks the end and number of entries */
 };
@@ -582,6 +585,7 @@ typedef struct spa_pkt_info
     unsigned short  packet_src_port;
     unsigned short  packet_dst_port;
     uint32_t        sdp_client_id;
+    char            sdp_client_id_str[MAX_SDP_CLIENT_ID_STR_LEN];
     unsigned char   packet_data[MAX_SPA_PACKET_LEN+1];
 } spa_pkt_info_t;
 
@@ -673,7 +677,9 @@ typedef struct fko_srv_options
     */
     char           *config[NUMBER_OF_CONFIG_ENTRIES];
 
-    acc_stanza_t   *acc_stanzas;       /* List of access stanzas */
+    acc_stanza_t   *acc_stanzas;       /* List of access stanzas for legacy mode */
+    hash_table_t   *acc_stanza_hash_tbl;  /* List of access stanzas for sdp mode */
+    int             acc_stanza_hash_tbl_length;
 
     /* Firewall config info.
     */

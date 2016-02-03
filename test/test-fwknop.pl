@@ -75,8 +75,10 @@ our $gpg_server_large_key = '40051F51';
 our $run_broken_tests   = 0;  ### tests that generally fail even in legacy mode
 
 our $sdp_client_id      = 777777;
+our $alt_sdp_client_id  = 666666;
 our $sdp_disabled       = 0;
 our $client_sdp_options = "--sdp-id $sdp_client_id";
+our $alt_client_sdp_options = "--sdp-id $alt_sdp_client_id";
 our $srv_sdp_options    = '';
 
 our $gpg_client_subkey = '9CF38326'; ### last subkey in the keyring as shown above,
@@ -200,8 +202,10 @@ my $tarfile = 'test_fwknop.tar.gz';
 our $key_gen_file = "$output_dir/key_gen";
 our $verbose_str  = "--verbose --verbose";
 my $gdb_test_file = '';
-our $resolve_url = 'http://www.cipherdyne.org/cgi-bin/myip/';  ### with trailing slash for test coverage
-our $resolve_url_with_port = 'http://www.cipherdyne.org:80/cgi-bin/myip';
+#our $resolve_url = 'http://www.cipherdyne.org/cgi-bin/myip/';  ### with trailing slash for test coverage
+#our $resolve_url_with_port = 'http://www.cipherdyne.org:80/cgi-bin/myip';
+our $resolve_url = 'http://icanhazip.com/';  ### with trailing slash for test coverage
+our $resolve_url_with_port = 'http://icanhazip.com:80';
 my $fuzzing_pkts_file = '../perl/FKO/t/fuzzing_spa_packets';
 my $fuzzing_pkts_append = 0;
 my $fuzzing_key = 'testtest';
@@ -1032,7 +1036,10 @@ if ($enable_valgrind) {
 ### print a summary of how many test buckets will be run
 my $test_buckets = 0;
 for my $test_hr (@tests) {
-    next unless &process_include_exclude(&get_msg($test_hr));
+	my $msg = &get_msg($test_hr);
+    next unless &process_include_exclude($msg);
+    next if ($test_hr->{'broken_flag'} and !$run_broken_tests);
+    next if ($test_hr->{'skip_if_sdp'} and !$sdp_disabled);
     $test_buckets++;
     if ($test_limit > 0) {
         last if $test_buckets >= $test_limit;
@@ -1127,16 +1134,6 @@ exit 0;
 sub run_test() {
     my $test_hr = shift;
 
-	if ( $test_hr->{'skip_if_sdp'} )
-	{
-		return unless $sdp_disabled;
-	}
-	
-	if ( $test_hr->{'broken_flag'} )
-	{
-		return unless $run_broken_tests;
-	}
-	
     &validate_test_hash($test_hr);
 
     ### prepare for test run
@@ -1170,7 +1167,17 @@ sub run_test() {
     }
 
     return unless &process_include_exclude($msg);
-
+    
+    if ( $test_hr->{'skip_if_sdp'} )
+	{
+		return unless $sdp_disabled;
+	}
+	
+	if ( $test_hr->{'broken_flag'} )
+	{
+		return unless $run_broken_tests;
+	}
+	
     &dots_print($msg);
 
     $executed++;
@@ -1188,7 +1195,7 @@ sub run_test() {
     }
 
     my $rv = &{$test_hr->{'function'}}($test_hr);
-
+    
     ### if we're in valgrind mode, make sure there were no memory leaks
     if ($enable_valgrind) {
         for my $file ($curr_test_file, $server_test_file) {
@@ -1226,8 +1233,10 @@ sub run_test() {
         move "${default_digest_file}.mv", $default_digest_file;
     }
 
-    if ($enable_valgrind and &is_valgrind_running()) {
-        if ($pkill_path) {
+    if ($enable_valgrind and &is_valgrind_running()) 
+    {
+        if ($pkill_path) 
+        {
             for my $cmd ('memcheck', 'valgrind') {
                 system "$pkill_path -f $cmd";
             }
@@ -1236,7 +1245,6 @@ sub run_test() {
                 system "$killall_path -g -r $cmd > /dev/null 2>&1";
             }
         }
-
     }
 
     if ($enable_perl_module_fuzzing_spa_pkt_generation) {
@@ -2669,7 +2677,7 @@ sub _client_send_spa_packet() {
             } else {
                 $latest_rv = &file_find_num_matches(qr/Final\sSPA\sData/,
                     $NO_APPEND_RESULTS, $curr_test_file);
-                $rv = 0 unless $latest_rv == ($cycle_ctr+1);
+                $rv = 0 unless $latest_rv >= ($cycle_ctr+1);
             	&write_test_file("[.] _client_send_spa_packet() : " .
             		"file_find_num_matches() returned: $latest_rv (0=BAD)\n", $curr_test_file);
             }
@@ -5510,10 +5518,20 @@ sub altered_base64_spa_data() {
         &write_test_file("[+] new fw rule not created.\n", $curr_test_file);
     }
 
-    unless (&file_find_regex([qr/Error\screating\sfko\scontext/],
-            $MATCH_ALL, $APPEND_RESULTS, $server_test_file)) {
-        $rv = 0;
-    }
+	if ($sdp_disabled)
+	{
+	    unless (&file_find_regex([qr/Error\screating\sfko\scontext/],
+	            $MATCH_ALL, $APPEND_RESULTS, $server_test_file)) {
+	        $rv = 0;
+	    }
+	}
+	else
+	{
+	    unless (&file_find_regex([qr/Data\sis\snot\san\sSPA\smessage/],
+	            $MATCH_ALL, $APPEND_RESULTS, $server_test_file)) {
+	        $rv = 0;
+	    }
+	}
 
     return $rv;
 }
@@ -5564,10 +5582,20 @@ sub altered_hmac_spa_data() {
         &write_test_file("[+] new fw rule not created.\n", $curr_test_file);
     }
 
-    unless (&file_find_regex([qr/Error\screating\sfko\scontext/],
-            $MATCH_ALL, $APPEND_RESULTS, $server_test_file)) {
-        $rv = 0;
-    }
+	if ($sdp_disabled)
+	{
+	    unless (&file_find_regex([qr/Error\screating\sfko\scontext/],
+	            $MATCH_ALL, $APPEND_RESULTS, $server_test_file)) {
+	        $rv = 0;
+	    }
+	}
+	else
+	{
+	    unless (&file_find_regex([qr/Error\screating\sfko\scontext/],
+	            $MATCH_ALL, $APPEND_RESULTS, $server_test_file)) {
+	        $rv = 0;
+	    }
+	}
 
     return $rv;
 }
@@ -5618,10 +5646,20 @@ sub altered_pkt_hmac_spa_data() {
         &write_test_file("[+] new fw rule not created.\n", $curr_test_file);
     }
 
-    unless (&file_find_regex([qr/Error\screating\sfko\scontext/],
-            $MATCH_ALL, $APPEND_RESULTS, $server_test_file)) {
-        $rv = 0;
-    }
+	if ($sdp_disabled)
+	{
+	    unless (&file_find_regex([qr/Error\screating\sfko\scontext/],
+	            $MATCH_ALL, $APPEND_RESULTS, $server_test_file)) {
+	        $rv = 0;
+	    }
+	}
+	else
+	{
+	    unless (&file_find_regex([qr/Data\sis\snot\san\sSPA\smessage/],
+	            $MATCH_ALL, $APPEND_RESULTS, $server_test_file)) {
+	        $rv = 0;
+	    }
+	}
 
     return $rv;
 }
@@ -5671,10 +5709,20 @@ sub appended_spa_data() {
         &write_test_file("[+] new fw rule not created.\n", $curr_test_file);
     }
 
-    unless (&file_find_regex([qr/Error\screating\sfko\scontext/],
-            $MATCH_ALL, $APPEND_RESULTS, $server_test_file)) {
-        $rv = 0;
-    }
+	if ($sdp_disabled)
+	{
+	    unless (&file_find_regex([qr/Error\screating\sfko\scontext/],
+	            $MATCH_ALL, $APPEND_RESULTS, $server_test_file)) {
+	        $rv = 0;
+	    }
+	}
+	else
+	{
+	    unless (&file_find_regex([qr/Error\screating\sfko\scontext/],
+	            $MATCH_ALL, $APPEND_RESULTS, $server_test_file)) {
+	        $rv = 0;
+	    }
+	}
 
     return $rv;
 }
@@ -5724,10 +5772,20 @@ sub prepended_spa_data() {
         &write_test_file("[+] new fw rule not created.\n", $curr_test_file);
     }
 
-    unless (&file_find_regex([qr/Error\screating\sfko\scontext/],
-            $MATCH_ALL, $APPEND_RESULTS, $server_test_file)) {
-        $rv = 0;
-    }
+	if ($sdp_disabled)
+	{
+	    unless (&file_find_regex([qr/Error\screating\sfko\scontext/],
+	            $MATCH_ALL, $APPEND_RESULTS, $server_test_file)) {
+	        $rv = 0;
+	    }
+	}
+	else
+	{
+	    unless (&file_find_regex([qr/No\saccess\sdata\sfound\sfor\sSDP\sClient\sID/],
+	            $MATCH_ALL, $APPEND_RESULTS, $server_test_file)) {
+	        $rv = 0;
+	    }
+	}
 
     return $rv;
 }
@@ -5790,7 +5848,7 @@ sub server_ignore_small_packets() {
             'proto'  => 'udp',
             'port'   => $default_spa_port,
             'dst_ip' => $loopback_ip,
-            'data'   => 'A'x120,  ### < MIN_SPA_DATA_SIZE
+            'data'   => 'A'x60,  ### < MIN_SPA_DATA_SIZE
         },
     );
 
@@ -5904,6 +5962,8 @@ sub client_server_interaction() {
             ### pcap file mode, nothing to do
         }
 
+		&write_test_file("[.] before fw_check, rv=$rv.\n",
+            $curr_test_file);
         ### check to see if the SPA packet resulted in a new fw access rule
         ($rv, $fw_rule_created, $fw_rule_removed)
             = &fw_check($rv, $fw_rule_created, $fw_rule_removed, $test_hr);
@@ -7184,6 +7244,7 @@ sub init() {
     
     if ($sdp_disabled) { 
     	$client_sdp_options = '--disable-sdp'; 
+    	$alt_client_sdp_options = '--disable-sdp'; 
     	$srv_sdp_options = '--disable-sdp';
     }
     else {
@@ -7361,8 +7422,10 @@ sub init() {
 
     $sudo_path    = &find_command('sudo') unless $sudo_path;
     $killall_path = &find_command('killall') unless $killall_path;
+    &logr("[.] init() : killall_path set to: $killall_path\n");
     $pgrep_path   = &find_command('pgrep') unless $pgrep_path;
     $pkill_path   = &find_command('pkill') unless $pkill_path;
+    &logr("[.] init() : pkill_path set to: $pkill_path\n");
     $lib_view_cmd = &find_command('ldd') unless $lib_view_cmd;
     $git_path     = &find_command('git') unless $git_path;
     $prove_path   = &find_command('prove') unless $prove_path;
