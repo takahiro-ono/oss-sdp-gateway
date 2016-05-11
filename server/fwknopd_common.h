@@ -631,7 +631,6 @@ typedef struct fko_srv_options
 
     /* Operational flags
     */
-    unsigned char   disable_sdp_mode;   /* Flag to disable SDP Mode */
     unsigned char   test;               /* Test mode flag */
     unsigned char   afl_fuzzing;        /* SPA pkts from stdin for AFL fuzzing */
     unsigned char   verbose;            /* Verbose mode flag */
@@ -679,7 +678,6 @@ typedef struct fko_srv_options
 
     acc_stanza_t   *acc_stanzas;       /* List of access stanzas for legacy mode */
     hash_table_t   *acc_stanza_hash_tbl;  /* List of access stanzas for sdp mode */
-    int             acc_stanza_hash_tbl_length;
 
     /* Firewall config info.
     */

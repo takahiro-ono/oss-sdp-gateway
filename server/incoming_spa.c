@@ -1240,7 +1240,7 @@ incoming_spa(fko_srv_options_t *opts)
     if(! replay_check(opts, spa_pkt, &raw_digest))
     	goto cleanup;
 
-    if(opts->disable_sdp_mode)
+    if(strncasecmp(opts->config[CONF_DISABLE_SDP_MODE], "Y", 1) == 0)
     {
 		if(! src_check(opts, spa_pkt, &spadat))
 			goto cleanup;
@@ -1267,7 +1267,7 @@ incoming_spa(fko_srv_options_t *opts)
      * access
     */
 
-    if(opts->disable_sdp_mode)
+    if(strncasecmp(opts->config[CONF_DISABLE_SDP_MODE], "Y", 1) == 0)
     {
 		acc = opts->acc_stanzas;
 		/* Loop through all access stanzas looking for a match

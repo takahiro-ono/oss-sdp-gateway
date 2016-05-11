@@ -1023,7 +1023,7 @@ traverse_expand_hash_cb(hash_table_node_t *node)
 static void
 expand_acc_ent_lists(fko_srv_options_t *opts)
 {
-	if(opts->disable_sdp_mode)
+	if(strncasecmp(opts->config[CONF_DISABLE_SDP_MODE], "Y", 1) == 0)
 	{
 		acc_stanza_t   *acc = opts->acc_stanzas;
 
@@ -1200,6 +1200,8 @@ acc_stanza_add(fko_srv_options_t *opts, char *val)
     acc_stanza_t    *new_acc = calloc(1, sizeof(acc_stanza_t));
     acc_stanza_t    *last_acc;
     bstring          key     = NULL;
+    int              hash_table_len = 0;
+    int              is_err = 0;
 
     if(new_acc == NULL)
     {
@@ -1209,7 +1211,7 @@ acc_stanza_add(fko_srv_options_t *opts, char *val)
         clean_exit(opts, NO_FW_CLEANUP, EXIT_FAILURE);
     }
 
-    if(opts->disable_sdp_mode)
+    if(strncasecmp(opts->config[CONF_DISABLE_SDP_MODE], "Y", 1) == 0)
     {
 		/* If this is not the first acc entry, we walk our acc pointer to the
 		 * end of the existing list.
@@ -1232,7 +1234,23 @@ acc_stanza_add(fko_srv_options_t *opts, char *val)
     	if(opts->acc_stanza_hash_tbl == NULL)
     	{
     		//need to initialize hash table
-    		opts->acc_stanza_hash_tbl = hash_table_create(opts->acc_stanza_hash_tbl_length,
+    		hash_table_len = strtol_wrapper(opts->config[CONF_ACC_STANZA_HASH_TABLE_LENGTH],
+    		        			   MIN_ACC_STANZA_HASH_TABLE_LENGTH,
+    							   MAX_ACC_STANZA_HASH_TABLE_LENGTH,
+    							   NO_EXIT_UPON_ERR,
+    							   &is_err);
+
+			if(is_err != FKO_SUCCESS)
+			{
+				log_msg(LOG_ERR, "[*] var %s value '%s' not in the range %d-%d",
+						"ACC_STANZA_HASH_TABLE_LENGTH",
+						opts->config[CONF_ACC_STANZA_HASH_TABLE_LENGTH],
+						MIN_ACC_STANZA_HASH_TABLE_LENGTH,
+						MAX_ACC_STANZA_HASH_TABLE_LENGTH);
+				clean_exit(opts, NO_FW_CLEANUP, EXIT_FAILURE);
+			}
+
+    		opts->acc_stanza_hash_tbl = hash_table_create(hash_table_len,
     				NULL, NULL, destroy_hash_node_cb);
     		if(opts->acc_stanza_hash_tbl == NULL)
     		{
@@ -1367,7 +1385,7 @@ set_acc_defaults(fko_srv_options_t *opts)
     access_counter_g = 0;
     access_opts_g = opts;
 
-    if(opts->disable_sdp_mode)
+    if(strncasecmp(opts->config[CONF_DISABLE_SDP_MODE], "Y", 1) == 0)
     {
 		while(acc)
 		{
@@ -1673,7 +1691,7 @@ parse_access_file(fko_srv_options_t *opts)
         */
         if(CONF_VAR_IS(var, "SOURCE"))
         {
-        	if(opts->disable_sdp_mode)
+        	if(strncasecmp(opts->config[CONF_DISABLE_SDP_MODE], "Y", 1) == 0)
         	{
 				/* If this is not the first stanza, sanity check the previous
 				 * stanza for the minimum required data.
@@ -1706,7 +1724,7 @@ parse_access_file(fko_srv_options_t *opts)
         else if(CONF_VAR_IS(var, "SDP_CLIENT_ID"))
         {
         	// Don't need this field in legacy mode, so ignore completely
-        	if(opts->disable_sdp_mode)
+        	if(strncasecmp(opts->config[CONF_DISABLE_SDP_MODE], "Y", 1) == 0)
         		continue;
 
             /* If this is not the first stanza, sanity check the previous
@@ -2251,7 +2269,7 @@ dump_access_list(const fko_srv_options_t *opts)
 
     fprintf(stdout, "Current fwknopd access settings:\n");
 
-    if(! opts->disable_sdp_mode)
+    if(strncasecmp(opts->config[CONF_DISABLE_SDP_MODE], "N", 1) == 0)
     {
     	if(! opts->acc_stanza_hash_tbl)
     	{

@@ -159,6 +159,8 @@ validate_int_var_ranges(fko_srv_options_t *opts)
         1, RCHK_MAX_UDPSERV_PORT);
     range_check(opts, "UDPSERV_PORT", opts->config[CONF_UDPSERV_SELECT_TIMEOUT],
         1, RCHK_MAX_UDPSERV_SELECT_TIMEOUT);
+    range_check(opts, "ACC_STANZA_HASH_TABLE_LENGTH", opts->config[CONF_ACC_STANZA_HASH_TABLE_LENGTH],
+    	MIN_ACC_STANZA_HASH_TABLE_LENGTH, MAX_ACC_STANZA_HASH_TABLE_LENGTH);
 
 #if FIREWALL_IPFW
     range_check(opts, "IPFW_START_RULE_NUM", opts->config[CONF_IPFW_START_RULE_NUM],
@@ -941,17 +943,27 @@ validate_options(fko_srv_options_t *opts)
     */
     if(opts->config[CONF_DISABLE_SDP_MODE] == NULL)
     {
-    	opts->disable_sdp_mode = 0;
-        set_config_entry(opts, CONF_DISABLE_SDP_MODE, DEF_DISABLE_SDP_MODE);
+    	set_config_entry(opts, CONF_DISABLE_SDP_MODE, DEF_DISABLE_SDP_MODE);
+    }
+    else if(
+    		strncasecmp(opts->config[CONF_DISABLE_SDP_MODE], "N", 1) != 0  &&
+			strncasecmp(opts->config[CONF_DISABLE_SDP_MODE], "Y", 1) != 0
+		   )
+    {
+        log_msg(LOG_ERR, "[*] var DISABLE_SDP_MODE value '%s' not accepted, must be Y or N",
+        		opts->config[CONF_DISABLE_SDP_MODE],
+				MIN_ACC_STANZA_HASH_TABLE_LENGTH,
+				MAX_ACC_STANZA_HASH_TABLE_LENGTH);
+        clean_exit(opts, NO_FW_CLEANUP, EXIT_FAILURE);
     }
 
     /* Access Stanza Hash Table Length
      */
     if(opts->config[CONF_ACC_STANZA_HASH_TABLE_LENGTH] == NULL)
     {
-    	opts->acc_stanza_hash_tbl_length = DEF_HASH_TABLE_LENGTH;
     	set_config_entry(opts, CONF_ACC_STANZA_HASH_TABLE_LENGTH, DEF_HASH_TABLE_LENGTH_STR);
     }
+
     /* Validate integer variable ranges
     */
     validate_int_var_ranges(opts);
@@ -1219,16 +1231,6 @@ config_init(fko_srv_options_t *opts, int argc, char **argv)
                 set_config_entry(opts, CONF_ACCESS_FILE, optarg);
                 break;
             case ACC_STANZA_HASH_TABLE_LENGTH:
-            	opts->acc_stanza_hash_tbl_length = strtol_wrapper(optarg,
-            			MIN_ACC_STANZA_HASH_TABLE_LENGTH, MAX_ACC_STANZA_HASH_TABLE_LENGTH,
-						NO_EXIT_UPON_ERR, &is_err);
-                if(is_err != FKO_SUCCESS)
-                {
-                    log_msg(LOG_ERR,
-                        "[*] invalid ACC_STANZA_HASH_TABLE_LENGTH '%s'",
-                        optarg);
-                    clean_exit(opts, NO_FW_CLEANUP, EXIT_FAILURE);
-                }
                 set_config_entry(opts, CONF_ACC_STANZA_HASH_TABLE_LENGTH, optarg);
                 break;
             case 'c':
@@ -1256,7 +1258,6 @@ config_init(fko_srv_options_t *opts, int argc, char **argv)
                 opts->dump_config = 1;
                 break;
             case DISABLE_SDP_MODE:
-            	opts->disable_sdp_mode = 1;
             	set_config_entry(opts, CONF_DISABLE_SDP_MODE, "Y");
             	break;
             case DUMP_SERVER_ERR_CODES:

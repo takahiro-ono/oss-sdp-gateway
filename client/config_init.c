@@ -1702,7 +1702,11 @@ update_rc(fko_cli_options_t *options, fko_var_bitmask_t *bitmask)
          * first character.
         */
         if(IS_EMPTY_LINE(line[0]))
+        {
+            /* Add the line to the new rcfile */
+            fprintf(rc_update, "%s", line);
             continue;
+        }
 
         /* If we find a section... */
         if(is_rc_section(line, strlen(line), curr_stanza, sizeof(curr_stanza)) == 1)
