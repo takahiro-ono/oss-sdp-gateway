@@ -8,7 +8,10 @@ libfko_source_files = \
     fko.h fko_limits.h fko_timestamp.c fko_hmac.c hmac.c hmac.h \
     fko_user.c fko_user.h md5.c md5.h rijndael.c rijndael.h sha1.c \
     sha1.h sha2.c sha2.h fko_context.h fko_state.h \
-    gpgme_funcs.c gpgme_funcs.h dbg.h
+    gpgme_funcs.c gpgme_funcs.h dbg.h sdp_com.c sdp_com.h \
+    sdp_ctrl_client_config.c sdp_ctrl_client_config.h sdp_ctrl_client.c \
+    sdp_ctrl_client.h sdp_errors.h sdp_message.c sdp_message.h \
+    sdp_util.c sdp_util.h sdp_log_msg.c sdp_log_msg.h
 
 
 if WANT_C_UNIT_TESTS
@@ -18,13 +21,15 @@ fko_utests_SOURCES  = fko_utests.c $(libfko_source_files)
 fko_utests_CPPFLAGS = -I $(top_builddir)/lib -I $(top_builddir)/common $(GPGME_CFLAGS)
 fko_utests_LDADD    = $(top_builddir)/lib/libfko.la $(top_builddir)/common/libfko_util.a
 fko_utests_LDFLAGS  = -lcunit $(GPGME_LIBS)
-libfko_la_LDFLAGS   = -version-info 2:3:0 $(GPGME_LIBS) -export-symbols-regex '^fko_'
+libfko_la_LDFLAGS   = -version-info 2:3:0 $(GPGME_LIBS) -lssl -lcrypto -ljson \
+                      -export-symbols-regex '^(fko|sdp)_'
 else
 if APPLE_PLATFORM
-libfko_la_LDFLAGS   = -version-info 2:3:0 $(GPGME_LIBS) -export-symbols-regex '^fko_'
+libfko_la_LDFLAGS   = -version-info 2:3:0 $(GPGME_LIBS) -lssl -lcrypto -ljson \
+                      -export-symbols-regex '^(fko|sdp)_'
 else
-libfko_la_LDFLAGS   = -version-info 2:3:0 $(GPGME_LIBS) \
-                      -export-symbols-regex '^fko_' \
+libfko_la_LDFLAGS   = -version-info 2:3:0 $(GPGME_LIBS) -lssl -lcrypto -ljson \
+                      -export-symbols-regex '^(fko|sdp)_' \
                       -Wl,--whole-archive,$(top_builddir)/common/libfko_util.a,--no-whole-archive
 endif
 endif

@@ -137,6 +137,8 @@ enum
     FWKNOP_CLI_ARG_NO_SAVE_ARGS,
 	FWKNOP_CLI_ARG_DISABLE_SDP_MODE,
 	FWKNOP_CLI_ARG_SDP_CLIENT_ID,
+	FWKNOP_CLI_ARG_DISABLE_SDP_CTRL_CLIENT,
+	FWKNOP_CLI_ARG_SDP_CTRL_CLIENT_CONF,
     FWKNOP_CLI_LAST_ARG
 } fwknop_cli_arg_t;
 
@@ -187,7 +189,10 @@ static fko_var_t fko_var_array[FWKNOP_CLI_LAST_ARG] =
     { "WGET_CMD",              FWKNOP_CLI_ARG_WGET_CMD              },
     { "NO_SAVE_ARGS",          FWKNOP_CLI_ARG_NO_SAVE_ARGS          },
 	{ "DISABLE_SDP_MODE",      FWKNOP_CLI_ARG_DISABLE_SDP_MODE      },
-    { "SDP_CLIENT_ID", 		   FWKNOP_CLI_ARG_SDP_CLIENT_ID 		}
+    { "SDP_CLIENT_ID", 		   FWKNOP_CLI_ARG_SDP_CLIENT_ID 		},
+	{ "DISABLE_CTRL_CLIENT",   FWKNOP_CLI_ARG_DISABLE_SDP_CTRL_CLIENT},
+	{ "SDP_CTRL_CLIENT_CONF",  FWKNOP_CLI_ARG_SDP_CTRL_CLIENT_CONF  }
+
 };
 
 /* Array to define which conf. variables are critical and should not be
@@ -685,6 +690,9 @@ set_rc_file(char *rcfile, fko_cli_options_t *options)
 
         rcfile[rcf_offset] = PATH_SEP;
         strlcat(rcfile, ".fwknoprc", MAX_PATH_LEN);
+
+        // since the field is not set in options, copy it for later use
+        strlcpy(options->rc_file, rcfile, MAX_PATH_LEN);
     }
     else
     {
@@ -1314,6 +1322,20 @@ parse_rc_param(fko_cli_options_t *options, const char *var_name, char * val)
             options->sdp_client_id = (uint32_t)tmpint;
         else
             parse_error = -1;
+    }
+    /* SDP Ctrl Client Config File */
+    else if (var->pos == FWKNOP_CLI_ARG_SDP_CTRL_CLIENT_CONF)
+    {
+    	strlcpy(options->sdp_ctrl_client_config_file,
+    			val, sizeof(options->sdp_ctrl_client_config_file));
+    }
+    /* Disable SDP Ctrl Client */
+    else if (var->pos == FWKNOP_CLI_ARG_DISABLE_SDP_CTRL_CLIENT)
+    {
+        if (is_yes_str(val))
+            options->disable_sdp_ctrl_client = 1;
+        else
+        	options->disable_sdp_ctrl_client = 0;
     }
 
     /* The variable is not a configuration variable */
@@ -2104,6 +2126,9 @@ config_init(fko_cli_options_t *options, int argc, char **argv)
                 strlcpy(options->spa_server_str, optarg, sizeof(options->spa_server_str));
                 add_var_to_bitmask(FWKNOP_CLI_ARG_SPA_SERVER, &var_bitmask);
                 break;
+            case DISABLE_SDP_CTRL_CLIENT:
+            	options->disable_sdp_ctrl_client = 1;
+            	break;
             case DISABLE_SDP_MODE:
             	options->disable_sdp_mode = 1;
             	break;
@@ -2529,6 +2554,15 @@ usage(void)
       "                             of the configuration parameters.\n"
       "                             If more arguments are set through the command\n"
       "                             line, the configuration is updated accordingly.\n"
+      "     --sdp-id                Specify this 32 bit unsigned integer to \n"
+      "                             indicate this client's SDP client ID.\n"
+	  "     --disable-sdp           Turn off SDP mode to revert to the classic \n"
+	  "                             SPA packet format. Even with SDP mode disabled \n"
+	  "                             this client is not backwards compatible. \n"
+	  "     --disable-ctrl-client   Do not connect to SDP Controller during this \n"
+	  "                             run. This is effectively the same as not \n"
+	  "                             setting SDP_CTRL_CLIENT_CONF in the stanza \n"
+      "                             possibly being used. \n"
       " -A, --access                Provide a list of ports/protocols to open\n"
       "                             on the server (e.g. 'tcp/22').\n"
       " -a, --allow-ip              Specify IP address to allow within the SPA\n"

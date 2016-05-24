@@ -30,6 +30,8 @@
 #include "spa_comm.h"
 #include "utils.h"
 #include "getpasswd.h"
+#include "sdp_ctrl_client.h"
+
 
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -54,6 +56,7 @@ static int set_access_buf(fko_ctx_t ctx, fko_cli_options_t *options,
 static int get_rand_port(fko_ctx_t ctx);
 int resolve_ip_https(fko_cli_options_t *options);
 int resolve_ip_http(fko_cli_options_t *options);
+static pid_t run_sdp_ctrl_client(fko_cli_options_t *options);
 static void clean_exit(fko_ctx_t ctx, fko_cli_options_t *opts,
     char *key, int *key_len, char *hmac_key, int *hmac_key_len,
     unsigned int exit_status);
@@ -561,6 +564,21 @@ main(int argc, char **argv)
     }
 
     res = send_spa_packet(ctx, &options);
+
+    // before checking result of the packet send, start the SDP control
+    // client if configured to do so
+    if( !options.disable_sdp_ctrl_client
+    		&& options.sdp_ctrl_client_config_file != NULL
+			&& options.sdp_ctrl_client_config_file[0] != '\0')
+    {
+    	if(run_sdp_ctrl_client(&options) == 0)
+    	{
+    		// this is the child process, stop here
+            clean_exit(ctx, &options, key, &orig_key_len,
+                    hmac_key, &hmac_key_len, EXIT_SUCCESS);
+    	}
+    }
+
     if(res < 0)
     {
         log_msg(LOG_VERBOSITY_ERROR, "send_spa_packet: packet not sent.");
@@ -1397,6 +1415,71 @@ enable_fault_injections(fko_cli_options_t * const opts)
     return rv;
 }
 #endif
+
+/* Run the SDP Control Client
+ */
+static pid_t
+run_sdp_ctrl_client(fko_cli_options_t *options)
+{
+	pid_t child_pid = -1;
+	sdp_ctrl_client_t client = NULL;
+
+	int rv = sdp_ctrl_client_new(options->sdp_ctrl_client_config_file,
+				options->rc_file, &client);
+
+	if(rv != SDP_SUCCESS)
+	{
+		log_msg(LOG_VERBOSITY_ERROR, "sdp_ctrl_client_new failed, returned error code: %d\n", rv);
+		return child_pid;
+	}
+
+	sdp_ctrl_client_describe(client);
+
+	rv = sdp_ctrl_client_start(client, &child_pid);
+
+	if(client->foreground)
+	{
+		if(rv != SDP_SUCCESS)
+			log_msg(LOG_VERBOSITY_ERROR, "SDP ctrl client returned error code: %d", rv);
+		else
+			log_msg(LOG_VERBOSITY_INFO, "SDP ctrl client ran successfully");
+
+		sdp_ctrl_client_destroy(client);
+
+		// since running in foreground, this is the main
+		// fwknop process, so return to complete other tasks
+		return child_pid;
+	}
+
+	if(child_pid >= 0)
+	{
+		if(child_pid == 0)
+		{
+			// I'm a child, thus I'm the ctrl_client process
+			// If I've returned, I've exited my action loop
+			// Don't execute any further
+
+			log_msg(LOG_VERBOSITY_INFO, "SDP ctrl client child process loop has returned.");
+			log_msg(LOG_VERBOSITY_INFO, "SDP ctrl client child process return value: %d", rv);
+		}
+		else
+		{
+			// I'm the parent
+			log_msg(LOG_VERBOSITY_INFO, "Parent process returned from sdp_ctrl_client_start. \n");
+			log_msg(LOG_VERBOSITY_INFO, "SDP ctrl client return value: %d\n", rv);
+		}
+	}
+	else
+	{
+		// fork failed
+		log_msg(LOG_VERBOSITY_ERROR, "sdp_ctrl_client_start did not fork, returned error: %d", rv);
+	}
+
+	// parent or child, always free the context
+	sdp_ctrl_client_destroy(client);
+
+	return child_pid;
+}
 
 /* free up memory and exit
 */

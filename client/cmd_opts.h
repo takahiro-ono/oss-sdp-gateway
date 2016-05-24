@@ -67,6 +67,7 @@ enum {
     FAULT_INJECTION_TAG,
 	DISABLE_SDP_MODE,
 	SDP_CLIENT_ID,
+	DISABLE_SDP_CTRL_CLIENT,
 
     /* Put GPG-related items below the following line */
     GPG_ENCRYPTION      = 0x200,
@@ -100,6 +101,7 @@ static struct option cmd_opts[] =
     {"server-cmd",          1, NULL, 'C'},
     {"digest-type",         1, NULL, FKO_DIGEST_NAME},
     {"disable-sdp",         0, NULL, DISABLE_SDP_MODE},
+	{"disable-ctrl-client", 0, NULL, DISABLE_SDP_CTRL_CLIENT},
     {"destination",         1, NULL, 'D'},
     {"save-args-file",      1, NULL, 'E'},
     {"encryption-mode",     1, NULL, ENCRYPTION_MODE},
