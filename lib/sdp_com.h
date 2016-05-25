@@ -52,6 +52,7 @@ struct sdp_com{
 	SSL_CTX *ssl_ctx;
 	SSL *ssl;
 	int socket_descriptor;
+	struct timespec post_spa_delay;
 	struct timeval read_timeout;
 	struct timeval write_timeout;
 	unsigned int max_conn_attempts;

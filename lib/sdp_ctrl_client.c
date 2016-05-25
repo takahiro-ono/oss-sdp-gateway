@@ -1065,7 +1065,7 @@ int sdp_ctrl_client_get_running_pid(sdp_ctrl_client_t client, pid_t *r_pid)
         buf[PID_BUFLEN-1] = '\0';
         // max pid value is configurable on Linux
         pid = (pid_t) sdp_strtol_wrapper(buf, 0, (2 << 30),
-                NO_EXIT_UPON_ERR, &rv);
+                &rv);
 
         if(rv != SDP_SUCCESS)
             pid = 0;

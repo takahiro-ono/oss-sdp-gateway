@@ -16,7 +16,9 @@
 
 int  sdp_append_msg_to_buf(char *buf, size_t buf_size, const char* msg, ...);
 int  sdp_strtol_wrapper(const char * const str, const int min,
-            const int max, const int exit_upon_err, int *is_err);
+            const int max, int *is_err);
+long double sdp_strtold_wrapper(const char * const str, const int min,
+            const int max, int *is_err);
 int  sdp_move_file_to_backup(const char *file_path);
 int  sdp_save_to_file(const char *file_path, const char *data);
 int  sdp_restore_file(const char *file_path);

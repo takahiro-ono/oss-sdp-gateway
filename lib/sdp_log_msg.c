@@ -31,18 +31,8 @@ static char *log_name = "sdp_ctrl_client";
 /* The value of the default verbosity used by the log module */
 static int log_verbosity = LOG_DEFAULT_VERBOSITY;
 
-/*
-void
-free_logging(void)
-{
-    if(log_name != NULL)
-        free(log_name);
-}
-*/
 
 int init_logging(int foreground, int use_syslog, char *log_facility, int new_verbosity) {
-    // In case this is a re-init.
-    //free_logging();
 
     static_log_flag = LOG_SYSLOG_ONLY;
 

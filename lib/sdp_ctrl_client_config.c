@@ -31,6 +31,7 @@ const char *sdp_ctrl_client_config_map[SDP_CTRL_CLIENT_CONFIG_ENTRIES] = {
 	"SPA_ENCRYPTION_KEY",
 	"SPA_HMAC_KEY",
 	"MSG_Q_LEN",
+	"POST_SPA_DELAY",
 	"READ_TIMEOUT",
 	"WRITE_TIMEOUT",
 	"CREDENTIAL_UPDATE_INTERVAL",
@@ -47,6 +48,14 @@ const char *sdp_ctrl_client_config_map[SDP_CTRL_CLIENT_CONFIG_ENTRIES] = {
 static int is_conf_var(const char *map_var, const char *var)
 {
 	return (strncmp(map_var, var, SDP_MAX_LINE_LEN) == 0);
+}
+
+static void set_defaults(sdp_ctrl_client_t client)
+{
+	client->com->use_spa = DEFAULT_USE_SPA;
+	client->use_syslog = DEFAULT_USE_SYSLOG;
+	client->remain_connected = DEFAULT_REMAIN_CONNECTED;
+	client->foreground = DEFAULT_FOREGROUND;
 }
 
 
@@ -83,12 +92,19 @@ static int finalize_config(sdp_ctrl_client_t client)
 	if( !(client->message_queue_len))
 		client->message_queue_len = DEFAULT_MSG_Q_LEN;
 
+	if( !(client->com->post_spa_delay.tv_nsec) &&
+		!(client->com->post_spa_delay.tv_sec))
+	{
+		client->com->post_spa_delay.tv_nsec = DEFAULT_POST_SPA_DELAY_NANOSECONDS;
+		client->com->post_spa_delay.tv_sec  = DEFAULT_POST_SPA_DELAY_SECONDS;
+	}
+
 	if( !(client->com->read_timeout.tv_sec))
-		client->com->read_timeout.tv_sec = DEFAULT_READ_TIMOUT_MILLISECONDS;
+		client->com->read_timeout.tv_sec = DEFAULT_READ_TIMOUT_SECONDS;
 	client->com->read_timeout.tv_usec = 0;
 
 	if( !(client->com->write_timeout.tv_sec))
-		client->com->write_timeout.tv_sec = DEFAULT_WRITE_TIMOUT_MILLISECONDS;
+		client->com->write_timeout.tv_sec = DEFAULT_WRITE_TIMOUT_SECONDS;
 	client->com->write_timeout.tv_usec = 0;
 
 	if( !(client->com->initial_conn_attempt_interval))
@@ -154,6 +170,13 @@ int sdp_ctrl_client_config_init(sdp_ctrl_client_t client, const char *config_fil
 
     struct stat     st;
 
+    // Make sure the client object exists
+    if(client == NULL)
+    {
+    	log_msg(LOG_ERR, "sdp_ctrl_client_t client object is NULL.");
+    	return SDP_ERROR_CONFIG;
+    }
+
     // Make sure the config file exists.
     if(config_file == NULL ||
        fwknoprc_file == NULL)
@@ -195,6 +218,8 @@ int sdp_ctrl_client_config_init(sdp_ctrl_client_t client, const char *config_fil
 
     log_msg(LOG_DEBUG, "fwknop config file absolute path: %s", client->com->fwknoprc_file);
 
+    // set a few default values, not ALL though, before proceeding
+    set_defaults(client);
 
     if ((cfile_ptr = fopen(config_file, "r")) == NULL)
     {
@@ -270,6 +295,7 @@ static int yes_or_no(const char *val)
 int sdp_ctrl_client_set_config_entry(sdp_ctrl_client_t client, int var, const char *val)
 {
 	int rv = SDP_SUCCESS;
+	long double time_flt = 0;
 
     /* Sanity check the index value.
     */
@@ -282,7 +308,7 @@ int sdp_ctrl_client_set_config_entry(sdp_ctrl_client_t client, int var, const ch
 	switch(var) {
 		case SDP_CTRL_CLIENT_CONFIG_CTRL_PORT:
 			client->com->ctrl_port = sdp_strtol_wrapper(val, 0,
-            		UINT16_MAX, NO_EXIT_UPON_ERR, &rv);
+            		UINT16_MAX, &rv);
 			break;
 
 		case SDP_CTRL_CLIENT_CONFIG_CTRL_ADDR:
@@ -318,7 +344,7 @@ int sdp_ctrl_client_set_config_entry(sdp_ctrl_client_t client, int var, const ch
 			break;
 
 		case SDP_CTRL_CLIENT_CONFIG_VERBOSITY:
-			client->verbosity = sdp_strtol_wrapper(val, 0, 7, NO_EXIT_UPON_ERR, &rv);
+			client->verbosity = sdp_strtol_wrapper(val, 0, 7, &rv);
 			break;
 
 		case SDP_CTRL_CLIENT_CONFIG_KEY_FILE:
@@ -353,52 +379,63 @@ int sdp_ctrl_client_set_config_entry(sdp_ctrl_client_t client, int var, const ch
 
 		case SDP_CTRL_CLIENT_CONFIG_MSG_Q_LEN:
 			client->message_queue_len = sdp_strtol_wrapper(val, 1,
-					SDP_MAX_MSG_Q_LEN, NO_EXIT_UPON_ERR, &rv);
+					SDP_MAX_MSG_Q_LEN, &rv);
+			break;
+
+		case SDP_CTRL_CLIENT_CONFIG_POST_SPA_DELAY:
+			time_flt = sdp_strtold_wrapper(val, 0, SDP_MAX_POST_SPA_DELAY, &rv);
+			if(rv == SDP_SUCCESS)
+			{
+				// this assignment drops everything after the decimal
+				client->com->post_spa_delay.tv_sec = time_flt;
+				client->com->post_spa_delay.tv_nsec = NANOS_PER_SECOND *
+						(time_flt - client->com->post_spa_delay.tv_sec);
+			}
 			break;
 
 		case SDP_CTRL_CLIENT_CONFIG_READ_TIMEOUT:
 			client->com->read_timeout.tv_sec = sdp_strtol_wrapper(val, 0,
-            		INT32_MAX, NO_EXIT_UPON_ERR, &rv);
+            		INT32_MAX, &rv);
 			break;
 
 		case SDP_CTRL_CLIENT_CONFIG_WRITE_TIMEOUT:
 			client->com->write_timeout.tv_sec = sdp_strtol_wrapper(val, 0,
-            		INT32_MAX, NO_EXIT_UPON_ERR, &rv);
+            		INT32_MAX, &rv);
 			break;
 
 		case SDP_CTRL_CLIENT_CONFIG_CRED_UPDATE_INTERVAL:
 			client->cred_update_interval = sdp_strtol_wrapper(val, 0,
-            		INT32_MAX, NO_EXIT_UPON_ERR, &rv);
+            		INT32_MAX, &rv);
 			break;
 
 		case SDP_CTRL_CLIENT_CONFIG_ACCESS_UPDATE_INTERVAL:
 			client->access_update_interval = sdp_strtol_wrapper(val, 0,
-            		INT32_MAX, NO_EXIT_UPON_ERR, &rv);
+            		INT32_MAX, &rv);
 			break;
 
 		case SDP_CTRL_CLIENT_CONFIG_MAX_CONN_ATTEMPTS:
 			client->com->max_conn_attempts = sdp_strtol_wrapper(val, 0,
-            		INT32_MAX, NO_EXIT_UPON_ERR, &rv);
+            		INT32_MAX, &rv);
 			break;
 
 		case SDP_CTRL_CLIENT_CONFIG_INIT_CONN_RETRY_INTERVAL:
 			client->com->initial_conn_attempt_interval = sdp_strtol_wrapper(val, 0,
-            		INT32_MAX, NO_EXIT_UPON_ERR, &rv);
+            		INT32_MAX, &rv);
 			break;
 
 		case SDP_CTRL_CLIENT_CONFIG_KEEP_ALIVE_INTERVAL:
 			client->keep_alive_interval = sdp_strtol_wrapper(val, 0,
-            		INT32_MAX, NO_EXIT_UPON_ERR, &rv);
+            		INT32_MAX, &rv);
 			break;
 
 		case SDP_CTRL_CLIENT_CONFIG_MAX_REQUEST_ATTEMPTS:
 			client->max_req_attempts = sdp_strtol_wrapper(val, 0,
-            		INT32_MAX, NO_EXIT_UPON_ERR, &rv);
+            		INT32_MAX, &rv);
 			break;
 
 		case SDP_CTRL_CLIENT_CONFIG_INIT_REQUEST_RETRY_INTERVAL:
 			client->initial_req_retry_interval = sdp_strtol_wrapper(val, 0,
-            		INT32_MAX, NO_EXIT_UPON_ERR, &rv);
+            		INT32_MAX, &rv);
 			break;
 
 		case SDP_CTRL_CLIENT_CONFIG_PID_FILE:

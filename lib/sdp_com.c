@@ -163,6 +163,9 @@ static int sdp_com_default_send_spa(sdp_com_t com)
     	return SDP_ERROR_SPA;
     }
 
+    // delay X nanoseconds so gateway has chance to open the door
+    nanosleep(&(com->post_spa_delay), NULL);
+
 	return SDP_SUCCESS;
 }
 

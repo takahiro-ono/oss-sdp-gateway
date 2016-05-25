@@ -33,7 +33,6 @@ enum {
 
 
 int  init_logging(int foreground, int use_syslog, char *log_facility, int verbosity);
-void free_logging(void);
 void log_msg_final(int, char*, ...);
 void log_set_verbosity(int level);
 

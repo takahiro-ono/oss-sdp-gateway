@@ -56,7 +56,7 @@ int sdp_append_msg_to_buf(char *buf, size_t buf_size, const char* msg, ...)
 
 
 int sdp_strtol_wrapper(const char * const str, const int min,
-    const int max, const int exit_upon_err, int *is_err)
+    const int max, int *is_err)
 {
     int val;
 
@@ -68,22 +68,18 @@ int sdp_strtol_wrapper(const char * const str, const int min,
     if ((errno == ERANGE || (errno != 0 && val == 0)))
     {
     	*is_err = errno;
-        if(exit_upon_err == EXIT_UPON_ERR)
-        {
-            perror("strtol");
-            log_msg(LOG_ERR, "Value %d out of range [(%d)-(%d)]",
-                val, min, max);
-        }
+		perror("strtol");
+		log_msg(LOG_ERR, "Value %d out of range [(%d)-(%d)]",
+			val, min, max);
+		return 0;
     }
 
     if(val < min)
     {
     	*is_err = SDP_ERROR_STRTOL;
-        if(exit_upon_err == EXIT_UPON_ERR)
-        {
-            log_msg(LOG_ERR, "Value %d out of range [(%d)-(%d)]",
-                val, min, max);
-        }
+		log_msg(LOG_ERR, "Value %d out of range [(%d)-(%d)]",
+			val, min, max);
+		return 0;
     }
 
     /* allow max == -1 to be an exception where we don't care about the
@@ -92,11 +88,9 @@ int sdp_strtol_wrapper(const char * const str, const int min,
     if((max >= 0) && (val > max))
     {
     	*is_err = SDP_ERROR_STRTOL;
-        if(exit_upon_err == EXIT_UPON_ERR)
-        {
-            log_msg(LOG_ERR, "Value %d out of range [(%d)-(%d)]",
-                val, min, max);
-        }
+		log_msg(LOG_ERR, "Value %d out of range [(%d)-(%d)]",
+			val, min, max);
+		return 0;
     }
 
 #if HAVE_LIBFIU
@@ -104,6 +98,55 @@ int sdp_strtol_wrapper(const char * const str, const int min,
     		SDP_ERROR_STRTOL);
     fiu_return_on("strtol_wrapper_gt_max",
     		SDP_ERROR_STRTOL);
+#endif
+
+    return val;
+}
+
+
+long double sdp_strtold_wrapper(const char * const str, const int min,
+    const int max, int *is_err)
+{
+    long double val;
+
+    errno = 0;
+    *is_err = SDP_SUCCESS;
+
+    val = strtold(str, NULL);
+
+    if ((errno == ERANGE || (errno != 0 && val == 0)))
+    {
+    	*is_err = errno;
+		perror("strtold");
+		log_msg(LOG_ERR, "Value %s out of range [(%d)-(%d)]",
+			str, min, max);
+		return 0;
+    }
+
+    if(val < min)
+    {
+    	*is_err = SDP_ERROR_STRTOLD;
+		log_msg(LOG_ERR, "Value %Lf out of range [(%d)-(%d)]",
+			val, min, max);
+		return 0;
+    }
+
+    /* allow max == -1 to be an exception where we don't care about the
+     * maximum - note that the ERANGE check is still in place above
+    */
+    if((max >= 0) && (val > max))
+    {
+    	*is_err = SDP_ERROR_STRTOLD;
+		log_msg(LOG_ERR, "Value %Lf out of range [(%d)-(%d)]",
+			val, min, max);
+		return 0;
+    }
+
+#if HAVE_LIBFIU
+    fiu_return_on("strtold_wrapper_lt_min",
+    		SDP_ERROR_STRTOLD);
+    fiu_return_on("strtold_wrapper_gt_max",
+    		SDP_ERROR_STRTOLD);
 #endif
 
     return val;
