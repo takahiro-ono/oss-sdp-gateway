@@ -144,7 +144,6 @@ void hash_table_destroy(hash_table_t *tbl)
                 // deleting all nodes
                 while(node != NULL)
                 {
-                    debug("HASH_TABLE_DESTROY: NODE: %d", j);
                     debug("HASH_TABLE_DESTROY: KEY: %s", bdata((bstring)node->key));
                     if(node->next != NULL)
                         debug("HASH_TABLE_DESTROY: Next node is not null.");

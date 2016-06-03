@@ -38,6 +38,11 @@
 #include "replay_cache.h"
 #include "tcp_server.h"
 #include "udp_server.h"
+#include <json/json.h>
+#include "fwknopd_errors.h"
+#include "sdp_ctrl_client.h"
+#include "sdp_message.h"
+#include "dbg.h"
 
 #if USE_LIBPCAP
   #include "pcap_capture.h"
@@ -58,6 +63,7 @@ static void setup_pid(fko_srv_options_t *opts);
 static void init_digest_cache(fko_srv_options_t *opts);
 static void set_locale(fko_srv_options_t *opts);
 static pid_t get_running_pid(const fko_srv_options_t *opts);
+static void get_access_data_from_controller(fko_srv_options_t *opts);
 #if AFL_FUZZING
 static void afl_enc_pkt_from_file(fko_srv_options_t *opts);
 static void afl_pkt_from_stdin(fko_srv_options_t *opts);
@@ -79,6 +85,7 @@ main(int argc, char **argv)
 
     while(1)
     {
+
         /* Handle command line
         */
         config_init(&opts, argc, argv);
@@ -114,6 +121,7 @@ main(int argc, char **argv)
         /* Update the verbosity level for the log module */
         log_set_verbosity(LOG_DEFAULT_VERBOSITY + opts.verbose);
 
+
 #if HAVE_LOCALE_H
         /* Set the locale if specified.
         */
@@ -148,9 +156,21 @@ main(int argc, char **argv)
             clean_exit(&opts, FW_CLEANUP, EXIT_SUCCESS);
         }
 
-        /* Process the access.conf file.
-        */
-        parse_access_file(&opts);
+        if(strncasecmp(opts.config[CONF_DISABLE_SDP_MODE], "Y", 1) == 0 ||
+           strncasecmp(opts.config[CONF_DISABLE_SDP_CTRL_CLIENT], "Y", 1) == 0)
+        {
+			/* Process the access.conf file.
+			*/
+			parse_access_file(&opts);
+        }
+        else
+        {
+        	// connect to controller and get access list
+        	get_access_data_from_controller(&opts);
+
+        	// do this until threading is enabled
+        	sdp_ctrl_client_disconnect(opts.ctrl_client);
+        }
 
         /* Show config (including access.conf vars) and exit dump config was
          * wanted.
@@ -279,6 +299,47 @@ main(int argc, char **argv)
 
     return(EXIT_SUCCESS);  /* This never gets called */
 }
+
+
+
+static void get_access_data_from_controller(fko_srv_options_t *opts)
+{
+	int rv = FWKNOPD_SUCCESS;
+	int err = 0;
+	int wait_time = strtol_wrapper(opts->config[CONF_MAX_WAIT_ACC_DATA],
+			        1, RCHK_MAX_WAIT_ACC_DATA, NO_EXIT_UPON_ERR, &err);
+
+	json_object *jmsg = NULL;
+
+	if((rv = sdp_ctrl_client_new(opts->config[CONF_SDP_CTRL_CLIENT_CONF],
+			                     opts->config[CONF_FWKNOP_CLIENT_CONF],
+								 &(opts->ctrl_client))) != SDP_SUCCESS)
+    {
+    	log_msg(LOG_ERR, "Failed to create new SDP ctrl client");
+    	clean_exit(opts, FW_CLEANUP, EXIT_FAILURE);
+    }
+
+    if((rv = sdp_ctrl_client_listen(opts->ctrl_client, wait_time, (void**)&jmsg)) != SDP_SUCCESS)
+    {
+    	log_msg(LOG_ERR, "Failed to retrieve access data from controller");
+    	clean_exit(opts, FW_CLEANUP, EXIT_FAILURE);
+    }
+
+    if(process_access_msg(opts, jmsg) != FWKNOPD_SUCCESS)
+    {
+    	json_object_put(jmsg);
+    	log_msg(LOG_ERR, "Failed to get access data from controller. Aborting.");
+		sdp_ctrl_client_send_access_error(opts->ctrl_client);
+    	clean_exit(opts, FW_CLEANUP, EXIT_FAILURE);
+    }
+
+    json_object_put(jmsg);
+    log_msg(LOG_INFO, "Succeeded in retrieving and installing access configuration");
+	sdp_ctrl_client_send_access_ack(opts->ctrl_client);
+
+    return;
+}
+
 
 static void set_locale(fko_srv_options_t *opts)
 {

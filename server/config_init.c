@@ -161,6 +161,8 @@ validate_int_var_ranges(fko_srv_options_t *opts)
         1, RCHK_MAX_UDPSERV_SELECT_TIMEOUT);
     range_check(opts, "ACC_STANZA_HASH_TABLE_LENGTH", opts->config[CONF_ACC_STANZA_HASH_TABLE_LENGTH],
     	MIN_ACC_STANZA_HASH_TABLE_LENGTH, MAX_ACC_STANZA_HASH_TABLE_LENGTH);
+    range_check(opts, "MAX_WAIT_ACC_DATA", opts->config[CONF_MAX_WAIT_ACC_DATA],
+    	1, RCHK_MAX_WAIT_ACC_DATA);
 
 #if FIREWALL_IPFW
     range_check(opts, "IPFW_START_RULE_NUM", opts->config[CONF_IPFW_START_RULE_NUM],
@@ -964,6 +966,32 @@ validate_options(fko_srv_options_t *opts)
     	set_config_entry(opts, CONF_ACC_STANZA_HASH_TABLE_LENGTH, DEF_HASH_TABLE_LENGTH_STR);
     }
 
+    if(opts->config[CONF_DISABLE_SDP_CTRL_CLIENT] == NULL)
+    {
+    	set_config_entry(opts, CONF_DISABLE_SDP_CTRL_CLIENT, DEF_DISABLE_SDP_CTRL_CLIENT);
+    }
+
+    if(opts->config[CONF_MAX_WAIT_ACC_DATA] == NULL)
+    {
+    	set_config_entry(opts, CONF_MAX_WAIT_ACC_DATA, DEF_MAX_WAIT_ACC_DATA);
+    }
+
+    if(strncmp(opts->config[CONF_DISABLE_SDP_MODE], "N", 1) == 0 &&
+       strncmp(opts->config[CONF_DISABLE_SDP_CTRL_CLIENT], "N", 1) == 0)
+    {
+    	// config file paths must be set, no defaults
+    	if(opts->config[CONF_SDP_CTRL_CLIENT_CONF] == NULL ||
+    	   opts->config[CONF_FWKNOP_CLIENT_CONF] == NULL)
+    	{
+            log_msg(LOG_ERR,
+                "Invalid configuration: the file paths SDP_CTRL_CLIENT_CONF "
+            	"and CONF_FWKNOP_CLIENT_CONF must be defined when "
+            	"SDP mode and the SDP control client are enabled"
+            );
+            clean_exit(opts, NO_FW_CLEANUP, EXIT_FAILURE);
+    	}
+    }
+
     /* Validate integer variable ranges
     */
     validate_int_var_ranges(opts);
@@ -1259,6 +1287,15 @@ config_init(fko_srv_options_t *opts, int argc, char **argv)
                 break;
             case DISABLE_SDP_MODE:
             	set_config_entry(opts, CONF_DISABLE_SDP_MODE, "Y");
+            	break;
+            case MAX_WAIT_ACC_DATA:
+            	set_config_entry(opts, CONF_MAX_WAIT_ACC_DATA, optarg);
+            	break;
+            case SDP_CTRL_CLIENT_CONF:
+            	set_config_entry(opts, CONF_SDP_CTRL_CLIENT_CONF, optarg);
+            	break;
+            case FWKNOP_CLIENT_CONF:
+            	set_config_entry(opts, CONF_FWKNOP_CLIENT_CONF, optarg);
             	break;
             case DUMP_SERVER_ERR_CODES:
                 dump_server_errors();

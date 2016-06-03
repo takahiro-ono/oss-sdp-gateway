@@ -136,7 +136,12 @@ static char *config_map[NUMBER_OF_CONFIG_ENTRIES] = {
 #endif
     "FAULT_INJECTION_TAG",
 	"DISABLE_SDP_MODE",
-	"ACC_STANZA_HASH_TABLE_LENGTH"
+	"ACC_STANZA_HASH_TABLE_LENGTH",
+	"DISABLE_SDP_CTRL_CLIENT",
+	"MAX_WAIT_ACC_DATA",
+	"SDP_CTRL_CLIENT_CONF",
+	"FWKNOP_CLIENT_CONF"
+
 };
 
 
@@ -165,6 +170,10 @@ enum {
     FAULT_INJECTION_TAG,
     DISABLE_SDP_MODE,
 	ACC_STANZA_HASH_TABLE_LENGTH,
+	DISABLE_SDP_CTRL_CLIENT,
+	MAX_WAIT_ACC_DATA,
+	SDP_CTRL_CLIENT_CONF,
+	FWKNOP_CLIENT_CONF,
     NOOP /* Just to be a marker for the end */
 };
 
@@ -184,6 +193,10 @@ static struct option cmd_opts[] =
     {"packet-limit",         1, NULL, 'C'},
     {"digest-file",          1, NULL, 'd'},
     {"disable-sdp",          0, NULL, DISABLE_SDP_MODE},
+	{"disable-ctrl-client",  0, NULL, DISABLE_SDP_CTRL_CLIENT},
+	{"max-acc-wait",         1, NULL, MAX_WAIT_ACC_DATA},
+	{"ctrl-client-conf",     1, NULL, SDP_CTRL_CLIENT_CONF},
+	{"fwknop-client-conf",   1, NULL, FWKNOP_CLIENT_CONF},
     {"dump-config",          0, NULL, 'D'},
     {"dump-serv-err-codes",  0, NULL, DUMP_SERVER_ERR_CODES },
     {"exit-parse-config",    0, NULL, EXIT_AFTER_PARSE_CONFIG },

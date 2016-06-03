@@ -6,6 +6,7 @@
  *
  *****************************************************************************
 */
+#include "sdp_ctrl_client.h"
 #include "sdp_log_msg.h"
 #include "sdp_errors.h"
 #include <stdio.h>

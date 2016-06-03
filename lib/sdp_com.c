@@ -4,6 +4,7 @@
  *  Created on: Apr 12, 2016
  *      Author: Daniel Bailey
  */
+#include "sdp_ctrl_client.h"
 #include "sdp_com.h"
 #include "sdp_errors.h"
 #include "sdp_message.h"

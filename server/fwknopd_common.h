@@ -33,6 +33,7 @@
 
 #include "common.h"
 #include "hash_table.h"
+#include "sdp_ctrl_client.h"
 
 #if PLATFORM_OPENBSD
   #include <netinet/in.h>
@@ -120,6 +121,9 @@
 #define DEF_SYSLOG_FACILITY             "LOG_DAEMON"
 #define DEF_ENABLE_DESTINATION_RULE     "N"
 #define DEF_DISABLE_SDP_MODE            "N"
+#define DEF_DISABLE_SDP_CTRL_CLIENT     "N"
+#define DEF_MAX_WAIT_ACC_DATA           "30"
+
 
 #define DEF_FW_ACCESS_TIMEOUT           30
 
@@ -136,6 +140,7 @@
 #define RCHK_MAX_CMD_CYCLE_TIMER        (2 << 22) /* seconds */
 #define RCHK_MIN_CMD_CYCLE_TIMER        1
 #define RCHK_MAX_RULES_CHECK_THRESHOLD  ((2 << 16) - 1)
+#define RCHK_MAX_WAIT_ACC_DATA          60
 
 /* FirewallD-specific defines
 */
@@ -329,6 +334,10 @@ enum {
     CONF_FAULT_INJECTION_TAG,
 	CONF_DISABLE_SDP_MODE,
 	CONF_ACC_STANZA_HASH_TABLE_LENGTH,
+	CONF_DISABLE_SDP_CTRL_CLIENT,
+	CONF_MAX_WAIT_ACC_DATA,
+	CONF_SDP_CTRL_CLIENT_CONF,
+	CONF_FWKNOP_CLIENT_CONF,
 
     NUMBER_OF_CONFIG_ENTRIES  /* Marks the end and number of entries */
 };
@@ -678,6 +687,10 @@ typedef struct fko_srv_options
 
     acc_stanza_t   *acc_stanzas;       /* List of access stanzas for legacy mode */
     hash_table_t   *acc_stanza_hash_tbl;  /* List of access stanzas for sdp mode */
+
+    /* The SDP Control Client
+     */
+    sdp_ctrl_client_t ctrl_client;
 
     /* Firewall config info.
     */

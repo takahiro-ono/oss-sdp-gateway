@@ -217,6 +217,72 @@ int sdp_ctrl_client_start(sdp_ctrl_client_t client, pid_t *r_child_pid)
 
 
 /**
+ * @brief Listen for data from the controller
+ *
+ * This function starts an sdp ctrl client run loop. This function can be configured to
+ * listen indefinitely or for a max number of seconds. Whenever the controller sends
+ * access data, this function passes that data up to the caller as a json array object.
+ * The function also watches for credential updates meant for the calling process and
+ * handles these internally, i.e. storing the new credentials. The function also watches
+ * the clock to send keep-alive messages to the controller.
+ *
+ * @param client - sdp_ctrl_client_t object.
+ * @param max_time - return after max_time even if no access data was received. Zero
+ * 					 indicates to listen indefinitely.
+ * @param r_data - json data object containing access data
+ *
+ * @return SDP_SUCCESS or an error code.
+ */
+int sdp_ctrl_client_listen(sdp_ctrl_client_t client, int max_time, void **r_data)
+{
+	int rv = SDP_SUCCESS;
+	void *data = NULL;
+	time_t stop_time = time(NULL) + max_time;
+
+	if(client == NULL || !client->initialized)
+		return SDP_ERROR_UNINITIALIZED;
+
+	while(1)
+	{
+		// connect if necessary
+		if(client->com->conn_state == SDP_COM_DISCONNECTED)
+		{
+			if((rv = sdp_com_connect(client->com)) != SDP_SUCCESS)
+			{
+				break;
+			}
+			client->initial_conn_time = client->last_contact = time(NULL);
+		}
+
+		// check for incoming messages
+		if((rv = sdp_ctrl_client_check_inbox(client, &data)) != SDP_SUCCESS)
+			break;
+
+		// if data was returned, it must be passed up to the caller
+		if(data != NULL)
+		{
+			log_msg(LOG_DEBUG, "sdp_ctrl_client_check_inbox returned data, passing up to caller");
+			*r_data = data;
+			break;
+		}
+
+		// is a keep alive due
+		if((rv = sdp_ctrl_client_consider_keep_alive(client)) != SDP_SUCCESS)
+			break;
+
+		// watch the time
+		if( max_time && (time(NULL) > stop_time) )
+			break;
+
+		sleep(1);
+	}
+
+
+	return rv;
+}
+
+
+/**
  * @brief Stop the sdp ctrl client loop
  *
  * This function stops the sdp ctrl client run loop.
@@ -471,12 +537,12 @@ int sdp_ctrl_client_get_addr(sdp_ctrl_client_t client, char **r_addr)
 }
 
 
-int sdp_ctrl_client_check_inbox(sdp_ctrl_client_t client)
+int sdp_ctrl_client_check_inbox(sdp_ctrl_client_t client, void **r_data)
 {
 	int rv = SDP_SUCCESS;
 	int bytes, msg_cnt = 0;
 	char *msg = NULL;
-	void *data;
+	void *data = NULL;
 	ctrl_response_result_t result = BAD_RESULT;
 
 	while(msg_cnt < client->message_queue_len)
@@ -506,12 +572,12 @@ int sdp_ctrl_client_check_inbox(sdp_ctrl_client_t client)
 
 		switch(result)
 		{
-			case KEEP_ALIVE_FULFILLING:
+			case KEEP_ALIVE:
 				log_msg(LOG_INFO, "Keep-alive response received");
 				sdp_ctrl_client_process_keep_alive(client);
 				break;
 
-			case CREDS_FULFILLING:
+			case CREDS_UPDATE:
 				log_msg(LOG_INFO, "Credential update received");
 
 				// Process new credentials
@@ -521,6 +587,16 @@ int sdp_ctrl_client_check_inbox(sdp_ctrl_client_t client)
 					goto cleanup;
 				}
 				break;
+
+			case ACCESS_REFRESH:
+				log_msg(LOG_INFO, "Access data refresh received");
+				*r_data = data;
+				goto cleanup;
+
+			case ACCESS_UPDATE:
+				log_msg(LOG_INFO, "Access data update received");
+				*r_data = data;
+				goto cleanup;
 
 			default:
 				log_msg(LOG_ERR, "Unknown message processing result");
@@ -557,7 +633,7 @@ int sdp_ctrl_client_request_keep_alive(sdp_ctrl_client_t client)
 	}
 
 	// Make the proper message
-	if((rv = sdp_message_make(sdp_subj_keep_alive, NULL, &msg)) != SDP_SUCCESS)
+	if((rv = sdp_message_make(sdp_action_keep_alive, NULL, &msg)) != SDP_SUCCESS)
 	{
 		log_msg(LOG_ERR, "Failed to make keep alive message.");
 		goto cleanup;
@@ -616,7 +692,7 @@ int sdp_ctrl_client_request_cred_update(sdp_ctrl_client_t client)
 	}
 
 	// Make the proper message
-	if((rv = sdp_message_make(sdp_subj_cred_update, sdp_stage_requesting, &msg)) != SDP_SUCCESS)
+	if((rv = sdp_message_make(sdp_action_cred_update, sdp_stage_requesting, &msg)) != SDP_SUCCESS)
 	{
 		log_msg(LOG_ERR, "Failed to make credential request message.");
 		goto cleanup;
@@ -661,15 +737,15 @@ int sdp_ctrl_client_process_cred_update(sdp_ctrl_client_t client, void *credenti
 		sdp_ctrl_client_clear_state_vars(client);
 
 	// Make the 'Fulfilled' response message
-	if((rv = sdp_message_make(sdp_subj_cred_update, sdp_stage_fulfilled, &msg)) != SDP_SUCCESS)
+	if((rv = sdp_message_make(sdp_action_cred_ack, NULL, &msg)) != SDP_SUCCESS)
 	{
-		log_msg(LOG_ERR, "Failed to make credential request 'Fulfilled' message.");
+		log_msg(LOG_ERR, "Failed to make credential request 'ACK' message.");
 		goto cleanup;
 	}
 
 	if((rv = sdp_com_send_msg(client->com, msg)) != SDP_SUCCESS)
 	{
-		log_msg(LOG_ERR, "Failed to send credential request 'Fulfilled' message.");
+		log_msg(LOG_ERR, "Failed to send credential request 'ACK' message.");
 		goto cleanup;
 	}
 
@@ -680,6 +756,60 @@ cleanup:
     free(msg);
 	return rv;
 }
+
+
+int  sdp_ctrl_client_send_access_ack(sdp_ctrl_client_t client)
+{
+	int rv = SDP_SUCCESS;
+	char *msg = NULL;
+
+	// Make the ACK response message
+	if((rv = sdp_message_make(sdp_action_access_ack, NULL, &msg)) != SDP_SUCCESS)
+	{
+		log_msg(LOG_ERR, "Failed to make access data 'ACK' message.");
+		goto cleanup;
+	}
+
+	if((rv = sdp_com_send_msg(client->com, msg)) != SDP_SUCCESS)
+	{
+		log_msg(LOG_ERR, "Failed to send access data 'ACK' message.");
+		goto cleanup;
+	}
+
+cleanup:
+    log_msg(LOG_DEBUG, "Freeing memory before exiting function");
+
+    free(msg);
+	return rv;
+}
+
+
+int  sdp_ctrl_client_send_access_error(sdp_ctrl_client_t client)
+{
+	int rv = SDP_SUCCESS;
+	char *msg = NULL;
+
+	// Make the Error response message
+	// THIS NEEDS TO CHANGE DEPENDING ON HOW WE WANT TO MANAGE STATE ON BOTH SIDES
+	if((rv = sdp_message_make(sdp_action_bad_message, NULL, &msg)) != SDP_SUCCESS)
+	{
+		log_msg(LOG_ERR, "Failed to make access data 'ERROR' message.");
+		goto cleanup;
+	}
+
+	if((rv = sdp_com_send_msg(client->com, msg)) != SDP_SUCCESS)
+	{
+		log_msg(LOG_ERR, "Failed to send access data 'ERROR' message.");
+		goto cleanup;
+	}
+
+cleanup:
+    log_msg(LOG_DEBUG, "Freeing memory before exiting function");
+
+    free(msg);
+	return rv;
+}
+
 
 
 
@@ -1138,6 +1268,7 @@ int sdp_ctrl_client_verify_file_perms(const char *file)
 int sdp_ctrl_client_loop(sdp_ctrl_client_t client)
 {
 	int rv = SDP_ERROR;
+	void *data = NULL;
 
 	if(client == NULL || !client->initialized)
 		return SDP_ERROR_UNINITIALIZED;
@@ -1155,7 +1286,7 @@ int sdp_ctrl_client_loop(sdp_ctrl_client_t client)
 		}
 
 		// check for incoming messages
-		if((rv = sdp_ctrl_client_check_inbox(client)) != SDP_SUCCESS)
+		if((rv = sdp_ctrl_client_check_inbox(client, &data)) != SDP_SUCCESS)
 			break;
 
 		// if new connection or just time, update credentials
@@ -1370,8 +1501,8 @@ int  sdp_ctrl_client_save_credentials(sdp_ctrl_client_t client, sdp_creds_t cred
 	log_msg(LOG_DEBUG, "Storing SPA keys in fwknop config file");
 	if((rv = sdp_replace_spa_keys(
 			client->com->fwknoprc_file,
-			client->com->spa_encryption_key, creds->encryption_key, 2,
-			client->com->spa_hmac_key, creds->hmac_key, 2
+			client->com->spa_encryption_key, creds->encryption_key, 1,
+			client->com->spa_hmac_key, creds->hmac_key, 1
 			)) != SDP_SUCCESS)
 	{
 		log_msg(LOG_ERR, "Failed to store SPA keys in fwknop config file");

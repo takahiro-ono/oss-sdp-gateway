@@ -379,6 +379,9 @@ clean_exit(fko_srv_options_t *opts, unsigned int fw_cleanup_flag, unsigned int e
     free_replay_list(opts);
 #endif
 
+    if(opts->ctrl_client != NULL)
+    	sdp_ctrl_client_destroy(opts->ctrl_client);
+
     free_logging();
     free_cmd_cycle_list(opts);
     free_configs(opts);

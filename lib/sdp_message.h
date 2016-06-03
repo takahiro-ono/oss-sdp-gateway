@@ -11,13 +11,13 @@
 #include <json/json.h>
 
 typedef enum {
-	CTRL_SUBJ_NONE,
-	CTRL_SUBJ_KEEP_ALIVE,
-	CTRL_SUBJ_MEMBER_CREDENTIAL_UPDATE,
-	CTRL_SUBJ_GATE_FULL_UPDATE,
-	CTRL_SUBJ_GATE_SMALL_UPDATE,
-	CTRL_SUBJ_BAD_MESSAGE
-} ctrl_subject_t;
+	CTRL_ACTION_NONE,
+	CTRL_ACTION_KEEP_ALIVE,
+	CTRL_ACTION_CREDENTIAL_UPDATE,
+	CTRL_ACTION_ACCESS_REFRESH,
+	CTRL_ACTION_ACCESS_UPDATE,
+	CTRL_ACTION_BAD_MESSAGE
+} ctrl_action_t;
 
 typedef enum {
 	CTRL_STAGE_NONE,
@@ -27,13 +27,10 @@ typedef enum {
 
 typedef enum {
 	BAD_RESULT,
-	KEEP_ALIVE_FULFILLING,
-	CREDS_UNFULFILLING,
-	CREDS_FULFILLING,
-	ACCESS_UNFULFILLING,
-	ACCESS_FULFILLING,
-	SMALL_UPDATE_FULFILLING,
-	SMALL_UPDATE_UNFULFILLING,
+	KEEP_ALIVE,
+	CREDS_UPDATE,
+	ACCESS_REFRESH,
+	ACCESS_UPDATE,
 	ERROR_MESSAGE
 } ctrl_response_result_t;
 
@@ -56,15 +53,17 @@ struct sdp_creds{
 typedef struct sdp_creds *sdp_creds_t;
 
 // JSON message strings
-extern const char *sdp_key_subj;
+extern const char *sdp_key_action;
 extern const char *sdp_key_stage;
 extern const char *sdp_key_data;
 
-extern const char *sdp_subj_keep_alive;
-extern const char *sdp_subj_cred_update;
-extern const char *sdp_subj_gate_full_update;
-extern const char *sdp_subj_gate_small_update;
-extern const char *sdp_subj_bad_message;
+extern const char *sdp_action_keep_alive;
+extern const char *sdp_action_cred_update;
+extern const char *sdp_action_cred_ack;
+extern const char *sdp_action_access_refresh;
+extern const char *sdp_action_access_update;
+extern const char *sdp_action_access_ack;
+extern const char *sdp_action_bad_message;
 
 extern const char *sdp_stage_error;
 extern const char *sdp_stage_fulfilling;
@@ -77,7 +76,8 @@ extern const char *sdp_msg_cred_req;
 extern const char *sdp_msg_cred_fulfilled;
 extern const char *sdp_msg_cred_unfulfilled;
 
-
+int  sdp_get_json_string_field(const char *key, json_object *jdata, char **r_field);
+int  sdp_get_json_int_field(const char *key, json_object *jdata, int *r_field);
 int  sdp_message_make(const char *subject, const char *stage, char **r_out_msg);
 int  sdp_message_process(const char *msg, ctrl_response_result_t *r_result, void **r_data); //json_object **r_jdata);
 int  sdp_message_parse_cred_fields(json_object *jdata, void **r_creds);

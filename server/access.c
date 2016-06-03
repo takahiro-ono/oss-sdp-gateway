@@ -42,6 +42,10 @@
 #include "log_msg.h"
 #include "cmd_cycle.h"
 #include "bstrlib.h"
+#include <json/json.h>
+#include "fwknopd_errors.h"
+#include "sdp_ctrl_client.h"
+
 
 #define FATAL_ERR -1
 
@@ -57,6 +61,10 @@
 
 static fko_srv_options_t *access_opts_g = NULL;
 static int access_counter_g = 0;
+
+// JSON message strings
+const char *sdp_key_data_refresh        = "access_refresh";
+const char *sdp_key_data_update         = "access_update";
 
 /* Add an access string entry
 */
@@ -182,7 +190,7 @@ add_acc_bool(unsigned char *var, const char *val)
 /* Add expiration time - convert date to epoch seconds
 */
 static int
-add_acc_expire_time(fko_srv_options_t *opts, time_t *access_expire_time, const char *val)
+add_acc_expire_time(time_t *access_expire_time, const char *val)
 {
     struct tm tm;
 
@@ -195,7 +203,7 @@ add_acc_expire_time(fko_srv_options_t *opts, time_t *access_expire_time, const c
             "[*] Fatal: invalid date value '%s' (need MM/DD/YYYY) for access stanza expiration time",
             val
         );
-        return FATAL_ERR;
+        return FWKNOPD_ERROR_BAD_STANZA_DATA;
     }
 
     if(tm.tm_mon > 0)
@@ -211,14 +219,13 @@ add_acc_expire_time(fko_srv_options_t *opts, time_t *access_expire_time, const c
 
     *access_expire_time = mktime(&tm);
 
-    return 1;
+    return FWKNOPD_SUCCESS;
 }
 
 /* Add expiration time via epoch seconds defined in access.conf
 */
-static void
-add_acc_expire_time_epoch(fko_srv_options_t *opts,
-        time_t *access_expire_time, const char *val, FILE *file_ptr)
+static int
+add_acc_expire_time_epoch(time_t *access_expire_time, const char *val)
 {
     char *endptr;
     unsigned long expire_time = 0;
@@ -230,22 +237,20 @@ add_acc_expire_time_epoch(fko_srv_options_t *opts,
     if (errno == ERANGE || (errno != 0 && expire_time == 0))
     {
         log_msg(LOG_ERR,
-            "[*] Fatal: invalid epoch seconds value '%s' for access stanza expiration time",
+            "Fatal: invalid epoch seconds value '%s' for access stanza expiration time",
             val
         );
-        fclose(file_ptr);
-        clean_exit(opts, NO_FW_CLEANUP, EXIT_FAILURE);
+        return FWKNOPD_ERROR_BAD_STANZA_DATA;
     }
 
     *access_expire_time = (time_t) expire_time;
 
-    return;
+    return FWKNOPD_SUCCESS;
 }
 
 #if defined(FIREWALL_FIREWALLD) || defined(FIREWALL_IPTABLES)
-static void
-add_acc_force_nat(fko_srv_options_t *opts, acc_stanza_t *curr_acc,
-        const char *val, FILE *file_ptr)
+static int
+add_acc_force_nat(acc_stanza_t *curr_acc, const char *val)
 {
     char      ip_str[MAX_IPV4_STR_LEN] = {0};
 
@@ -255,38 +260,36 @@ add_acc_force_nat(fko_srv_options_t *opts, acc_stanza_t *curr_acc,
             "[*] Fatal: invalid FORCE_NAT arg '%s', need <IP> <PORT>",
             val
         );
-        if(file_ptr != NULL)
-            fclose(file_ptr);
-        clean_exit(opts, NO_FW_CLEANUP, EXIT_FAILURE);
+        return FWKNOPD_ERROR_BAD_STANZA_DATA;
     }
 
     if (curr_acc->force_nat_port > MAX_PORT)
     {
         log_msg(LOG_ERR,
             "[*] Fatal: invalid FORCE_NAT port '%d'", curr_acc->force_nat_port);
-        if(file_ptr != NULL)
-            fclose(file_ptr);
-        clean_exit(opts, NO_FW_CLEANUP, EXIT_FAILURE);
+        return FWKNOPD_ERROR_BAD_STANZA_DATA;
     }
 
     if(! is_valid_ipv4_addr(ip_str))
     {
         log_msg(LOG_ERR,
             "[*] Fatal: invalid FORCE_NAT IP '%s'", ip_str);
-        if(file_ptr != NULL)
-            fclose(file_ptr);
-        clean_exit(opts, NO_FW_CLEANUP, EXIT_FAILURE);
+        return FWKNOPD_ERROR_BAD_STANZA_DATA;
     }
 
     curr_acc->force_nat = 1;
 
-    add_acc_string(&(curr_acc->force_nat_ip), ip_str, file_ptr, opts);
-    return;
+    if(curr_acc->force_nat_ip != NULL)
+    	free(curr_acc->force_nat_ip );
+
+    if((curr_acc->force_nat_ip = strndup(ip_str, MAX_IPV4_STR_LEN)) == NULL)
+    	return FKO_ERROR_MEMORY_ALLOCATION;
+
+    return FWKNOPD_SUCCESS;
 }
 
-static void
-add_acc_force_snat(fko_srv_options_t *opts, acc_stanza_t *curr_acc,
-        const char *val, FILE *file_ptr)
+static int
+add_acc_force_snat(acc_stanza_t *curr_acc, const char *val)
 {
     char      ip_str[MAX_IPV4_STR_LEN] = {0};
 
@@ -294,24 +297,25 @@ add_acc_force_snat(fko_srv_options_t *opts, acc_stanza_t *curr_acc,
     {
         log_msg(LOG_ERR,
                 "[*] Fatal: invalid FORCE_SNAT arg '%s', need <IP>", val);
-        if(file_ptr != NULL)
-            fclose(file_ptr);
-        clean_exit(opts, NO_FW_CLEANUP, EXIT_FAILURE);
+        return FWKNOPD_ERROR_BAD_STANZA_DATA;
     }
 
     if(! is_valid_ipv4_addr(ip_str))
     {
         log_msg(LOG_ERR,
             "[*] Fatal: invalid FORCE_SNAT IP '%s'", ip_str);
-        if(file_ptr != NULL)
-            fclose(file_ptr);
-        clean_exit(opts, NO_FW_CLEANUP, EXIT_FAILURE);
+        return FWKNOPD_ERROR_BAD_STANZA_DATA;
     }
 
     curr_acc->force_snat = 1;
 
-    add_acc_string(&(curr_acc->force_snat_ip), ip_str, file_ptr, opts);
-    return;
+    if(curr_acc->force_snat_ip != NULL)
+    	free(curr_acc->force_snat_ip );
+
+    if((curr_acc->force_snat_ip = strndup(ip_str, MAX_IPV4_STR_LEN)) == NULL)
+    	return FKO_ERROR_MEMORY_ALLOCATION;
+
+    return FWKNOPD_SUCCESS;
 }
 
 #endif
@@ -1263,7 +1267,7 @@ acc_stanza_add(fko_srv_options_t *opts, char *val)
     		}
     	}
 
-    	if( val == NULL || (strnlen(val, 11) < 1))
+    	if( val == NULL || (strnlen(val, SDP_MAX_CLIENT_ID_STR_LEN) < 1))
     	{
     		log_msg(LOG_ERR,
 				"[*] Fatal error - SDP_CLIENT_ID string invalid"
@@ -1475,7 +1479,8 @@ acc_data_is_valid(fko_srv_options_t *opts,
     {
         if(acc->forward_all == 1)
         {
-            add_acc_force_nat(opts, acc, "0.0.0.0 0", NULL);
+            if(add_acc_force_nat(acc, "0.0.0.0 0") != FWKNOPD_SUCCESS)
+            	return(0);
         }
         else
         {
@@ -1579,6 +1584,612 @@ acc_data_is_valid(fko_srv_options_t *opts,
 
     return(1);
 }
+
+
+/* Take a json doc and make an acc stanza data struct from it
+ *
+ */
+static int
+make_acc_stanza_from_json(fko_srv_options_t *opts, json_object *jdata, acc_stanza_t **r_stanza)
+{
+	int rv = FWKNOPD_SUCCESS;
+	char *tmp;
+    struct passwd  *user_pw = NULL;
+    struct passwd  *sudo_user_pw = NULL;
+    struct passwd  *tmp_pw = NULL;
+	acc_stanza_t *stanza = calloc(1, sizeof(acc_stanza_t));
+
+	if((rv = sdp_get_json_int_field("sdp_client_id", jdata, (int*)&(stanza->sdp_client_id))) != SDP_SUCCESS)
+	{
+		log_msg(LOG_ERR, "Did not find SDP Client ID in access stanza, invalid stanza entry");
+		goto cleanup;
+	}
+
+	if((rv = sdp_get_json_string_field("source", jdata, &(stanza->source))) != SDP_SUCCESS)
+	{
+		log_msg(LOG_WARNING, "Did not find source in access stanza, setting to ANY");
+		if((stanza->source = strndup("ANY", 4)) == NULL)
+		{
+			rv = FKO_ERROR_MEMORY_ALLOCATION;
+			goto cleanup;
+		}
+	}
+
+	sdp_get_json_string_field("destination", jdata, &(stanza->destination));
+	sdp_get_json_string_field("open_ports", jdata, &(stanza->open_ports));
+	sdp_get_json_string_field("restrict_ports", jdata, &(stanza->restrict_ports));
+
+	if(sdp_get_json_string_field("key", jdata, &(stanza->key)) == SDP_SUCCESS)
+	{
+		if((stanza->key_len = strnlen(stanza->key, MAX_KEY_LEN + 1)) > MAX_KEY_LEN)
+		{
+			log_msg(LOG_ERR, "Key length exceeds max length of %d bytes", MAX_KEY_LEN);
+			rv = FWKNOPD_ERROR_BAD_STANZA_DATA;
+			goto cleanup;
+		}
+
+		add_acc_bool(&(stanza->use_rijndael), "Y");
+	}
+
+	if(sdp_get_json_string_field("key_base64", jdata, &(stanza->key_base64)) == SDP_SUCCESS)
+	{
+		if(strnlen(stanza->key_base64, MAX_B64_KEY_LEN + 1) > MAX_B64_KEY_LEN)
+		{
+			log_msg(LOG_ERR, "B64 key length exceeds max length %d bytes", MAX_B64_KEY_LEN);
+			rv = FWKNOPD_ERROR_BAD_STANZA_DATA;
+			goto cleanup;
+		}
+		// make space for decoded version of the key
+		// decode function does not watch for buffer overwrite, so oversize the buffer
+		if((stanza->key = calloc(1, MAX_B64_KEY_LEN)) == NULL)
+		{
+			rv = SDP_ERROR_MEMORY_ALLOCATION;
+			goto cleanup;
+		}
+		// perform decode and get key len
+		if((stanza->key_len = fko_base64_decode(stanza->key_base64, (unsigned char*)stanza->key)) < 0)
+		{
+			log_msg(LOG_ERR, "Failed to decode base64 key");
+			rv = FWKNOPD_ERROR_BAD_STANZA_DATA;
+			goto cleanup;
+		}
+
+		if(stanza->key_len > MAX_KEY_LEN)
+		{
+			log_msg(LOG_ERR, "Decoded key length is %d bytes, exceeds max length %d bytes", stanza->key_len, MAX_KEY_LEN);
+			rv = FWKNOPD_ERROR_BAD_STANZA_DATA;
+			goto cleanup;
+		}
+
+		add_acc_bool(&(stanza->use_rijndael), "Y");
+	}
+
+	if(sdp_get_json_string_field("hmac_type", jdata, &tmp) == SDP_SUCCESS)
+	{
+		if((stanza->hmac_type = hmac_digest_strtoint(tmp)) < 0)
+		{
+            log_msg(LOG_ERR,
+                "HMAC_DIGEST_TYPE argument '%s' must be one of {md5,sha1,sha256,sha384,sha512}",
+				tmp);
+			free(tmp);
+			goto cleanup;
+		}
+		free(tmp);
+	}
+
+	if(sdp_get_json_string_field("hmac_key", jdata, &(stanza->hmac_key)) == SDP_SUCCESS)
+	{
+		if((stanza->hmac_key_len = strnlen(stanza->key, MAX_KEY_LEN + 1)) > MAX_KEY_LEN)
+		{
+			log_msg(LOG_ERR, "Key length exceeds max length of %d bytes", MAX_KEY_LEN);
+			rv = FWKNOPD_ERROR_BAD_STANZA_DATA;
+			goto cleanup;
+		}
+	}
+
+	if(sdp_get_json_string_field("hmac_key_base64", jdata, &(stanza->hmac_key_base64)) == SDP_SUCCESS)
+	{
+		if(strnlen(stanza->hmac_key_base64, MAX_B64_KEY_LEN + 1) > MAX_B64_KEY_LEN)
+		{
+			log_msg(LOG_ERR, "B64 key length exceeds max length %d bytes", MAX_B64_KEY_LEN);
+			rv = FWKNOPD_ERROR_BAD_STANZA_DATA;
+			goto cleanup;
+		}
+		// make space for decoded version of the key
+		// decode function does not watch for buffer overwrite, so oversize the buffer
+		if((stanza->hmac_key = calloc(1, MAX_B64_KEY_LEN)) == NULL)
+		{
+			rv = SDP_ERROR_MEMORY_ALLOCATION;
+			goto cleanup;
+		}
+		// perform decode and get key len
+		if((stanza->hmac_key_len = fko_base64_decode(stanza->hmac_key_base64, (unsigned char*)stanza->hmac_key)) < 0)
+		{
+			log_msg(LOG_ERR, "Failed to decode base64 key");
+			rv = FWKNOPD_ERROR_BAD_STANZA_DATA;
+			goto cleanup;
+		}
+
+		if(stanza->hmac_key_len > MAX_KEY_LEN)
+		{
+			log_msg(LOG_ERR, "Decoded key length is %d bytes, exceeds max length %d bytes", stanza->hmac_key_len, MAX_KEY_LEN);
+			rv = FWKNOPD_ERROR_BAD_STANZA_DATA;
+			goto cleanup;
+		}
+	}
+
+	if(sdp_get_json_int_field("fw_access_timeout", jdata, &(stanza->fw_access_timeout)) == SDP_SUCCESS)
+	{
+		if(stanza->fw_access_timeout < 0 || stanza->fw_access_timeout > RCHK_MAX_FW_TIMEOUT)
+		{
+            log_msg(LOG_ERR,
+                "fw_access_timeout value %d not in range [0 - %d].",
+				stanza->fw_access_timeout, RCHK_MAX_FW_TIMEOUT);
+            rv = FWKNOPD_ERROR_BAD_STANZA_DATA;
+            goto cleanup;
+		}
+	}
+
+	if(sdp_get_json_string_field("encryption_mode", jdata, &tmp) == SDP_SUCCESS)
+	{
+		if((stanza->encryption_mode = enc_mode_strtoint(tmp)) < 0)
+		{
+            log_msg(LOG_ERR,
+                "Unrecognized encryption_mode '%s', use {CBC,CTR,legacy,Asymmetric}",
+                tmp);
+            free(tmp);
+            goto cleanup;
+		}
+		free(tmp);
+	}
+
+	if(sdp_get_json_string_field("enable_cmd_exec", jdata, &tmp) == SDP_SUCCESS)
+	{
+		add_acc_bool(&(stanza->enable_cmd_exec), tmp);
+		free(tmp);
+	}
+
+	if(sdp_get_json_string_field("enable_cmd_sudo_exec", jdata, &tmp) == SDP_SUCCESS)
+	{
+		add_acc_bool(&(stanza->enable_cmd_sudo_exec), tmp);
+		free(tmp);
+	}
+
+	if(sdp_get_json_string_field("cmd_sudo_exec_user", jdata, &(stanza->cmd_sudo_exec_user)) == SDP_SUCCESS)
+	{
+        errno = 0;
+        sudo_user_pw = getpwnam(stanza->cmd_sudo_exec_user);
+
+        if(sudo_user_pw == NULL)
+        {
+            log_msg(LOG_ERR, "Unable to determine UID for %s: %s.",
+            		stanza->cmd_sudo_exec_user,
+					errno ? strerror(errno) : "Not a user on this system");
+            goto cleanup;
+        }
+
+        stanza->cmd_sudo_exec_uid = sudo_user_pw->pw_uid;
+	}
+
+	if(sdp_get_json_string_field("cmd_exec_user", jdata, &(stanza->cmd_exec_user)) == SDP_SUCCESS)
+	{
+        errno = 0;
+        user_pw = getpwnam(stanza->cmd_exec_user);
+
+        if(user_pw == NULL)
+        {
+            log_msg(LOG_ERR, "Unable to determine UID for %s: %s.",
+            		stanza->cmd_exec_user,
+					errno ? strerror(errno) : "Not a user on this system");
+            goto cleanup;
+        }
+
+        stanza->cmd_exec_uid = user_pw->pw_uid;
+	}
+
+	if(sdp_get_json_string_field("cmd_sudo_exec_group", jdata, &(stanza->cmd_sudo_exec_group)) == SDP_SUCCESS)
+	{
+        errno = 0;
+        tmp_pw = getpwnam(stanza->cmd_sudo_exec_group);
+
+        if(tmp_pw == NULL)
+        {
+            log_msg(LOG_ERR, "Unable to determine GID for %s: %s.",
+            		stanza->cmd_sudo_exec_group,
+					errno ? strerror(errno) : "Not a group on this system");
+            goto cleanup;
+        }
+
+        stanza->cmd_sudo_exec_gid = tmp_pw->pw_gid;
+	}
+
+	if(sdp_get_json_string_field("cmd_exec_group", jdata, &(stanza->cmd_exec_group)) == SDP_SUCCESS)
+	{
+        errno = 0;
+        tmp_pw = getpwnam(stanza->cmd_exec_group);
+
+        if(tmp_pw == NULL)
+        {
+            log_msg(LOG_ERR, "Unable to determine GID for %s: %s.",
+            		stanza->cmd_exec_group,
+					errno ? strerror(errno) : "Not a group on this system");
+            goto cleanup;
+        }
+
+        stanza->cmd_exec_gid = tmp_pw->pw_gid;
+	}
+
+	if(sdp_get_json_string_field("cmd_cycle_open", jdata, &(stanza->cmd_cycle_open)) == SDP_SUCCESS)
+	{
+		stanza->cmd_cycle_do_close = 1;
+	}
+
+	sdp_get_json_string_field("cmd_cycle_close", jdata, &(stanza->cmd_cycle_close));
+	sdp_get_json_int_field("cmd_cycle_timer", jdata, &(stanza->cmd_cycle_timer));
+	sdp_get_json_string_field("require_username", jdata, &(stanza->require_username));
+
+	if(sdp_get_json_string_field("require_source_address", jdata, &tmp) == SDP_SUCCESS)
+	{
+		add_acc_bool(&(stanza->require_source_address), tmp);
+		free(tmp);
+	}
+
+	if(sdp_get_json_string_field("require_source", jdata, &tmp) == SDP_SUCCESS)
+	{
+		add_acc_bool(&(stanza->require_source_address), tmp);
+		free(tmp);
+	}
+
+	if(sdp_get_json_string_field("gpg_home_dir", jdata, &(stanza->gpg_home_dir)) == SDP_SUCCESS)
+	{
+		if(!is_valid_dir(stanza->gpg_home_dir))
+		{
+            log_msg(LOG_ERR,
+                "GPG_HOME_DIR directory '%s' stat()/existence problem in stanza source '%s'",
+				stanza->gpg_home_dir, stanza->source);
+            rv = FWKNOPD_ERROR_BAD_STANZA_DATA;
+            goto cleanup;
+		}
+	}
+
+	sdp_get_json_string_field("gpg_exe", jdata, &(stanza->gpg_exe));
+	sdp_get_json_string_field("gpg_decrypt_id", jdata, &(stanza->gpg_decrypt_id));
+
+	if((sdp_get_json_string_field("gpg_decrypt_pw", jdata, &(stanza->gpg_decrypt_pw))) == SDP_SUCCESS)
+	{
+		add_acc_bool(&(stanza->use_gpg), "Y");
+	}
+
+	if(sdp_get_json_string_field("gpg_allow_no_pw", jdata, &tmp) == SDP_SUCCESS)
+	{
+		add_acc_bool(&(stanza->gpg_allow_no_pw), tmp);
+		free(tmp);
+		if(stanza->gpg_allow_no_pw == 1)
+		{
+			add_acc_bool(&(stanza->use_gpg), "Y");
+			if((stanza->gpg_decrypt_pw = strndup("", 1)) == NULL)
+			{
+				rv = FKO_ERROR_MEMORY_ALLOCATION;
+				goto cleanup;
+			}
+		}
+	}
+
+	if(sdp_get_json_string_field("gpg_require_sig", jdata, &tmp) == SDP_SUCCESS)
+	{
+		add_acc_bool(&(stanza->gpg_require_sig), tmp);
+		free(tmp);
+	}
+
+	if(sdp_get_json_string_field("gpg_disable_sig", jdata, &tmp) == SDP_SUCCESS)
+	{
+		add_acc_bool(&(stanza->gpg_disable_sig), tmp);
+		free(tmp);
+	}
+
+	if(sdp_get_json_string_field("gpg_ignore_sig_error", jdata, &tmp) == SDP_SUCCESS)
+	{
+		add_acc_bool(&(stanza->gpg_ignore_sig_error), tmp);
+		free(tmp);
+	}
+
+	sdp_get_json_string_field("gpg_remote_id", jdata, &(stanza->gpg_remote_id));
+	sdp_get_json_string_field("gpg_remote_fpr", jdata, &(stanza->gpg_remote_fpr));
+
+	if(sdp_get_json_string_field("access_expire_time", jdata, &tmp) == SDP_SUCCESS)
+	{
+        if((rv = add_acc_expire_time(&(stanza->access_expire_time), tmp)) != FWKNOPD_SUCCESS)
+        {
+        	free(tmp);
+            goto cleanup;
+        }
+		free(tmp);
+	}
+
+	if(sdp_get_json_string_field("access_expire_epoch", jdata, &tmp) == SDP_SUCCESS)
+	{
+        if((rv = add_acc_expire_time_epoch(&(stanza->access_expire_time), tmp)) != FWKNOPD_SUCCESS)
+        {
+        	free(tmp);
+            goto cleanup;
+        }
+		free(tmp);
+	}
+
+	if(sdp_get_json_string_field("force_nat", jdata, &tmp) == SDP_SUCCESS)
+	{
+#if FIREWALL_FIREWALLD
+		if(strncasecmp(opts->config[CONF_ENABLE_FIREWD_FORWARDING], "Y", 1) !=0
+			&& (strncasecmp(opts->config[CONF_ENABLE_FIREWD_LOCAL_NAT], "Y", 1) !=0 ))
+		{
+			log_msg(LOG_ERR,
+				"[*] FORCE_NAT requires either ENABLE_FIREWD_FORWARDING or ENABLE_FIREWD_LOCAL_NAT in fwknopd.conf");
+            free(tmp);
+			rv = FWKNOPD_ERROR_BAD_STANZA_DATA;
+			goto cleanup;
+		}
+#elif FIREWALL_IPTABLES
+		if(strncasecmp(opts->config[CONF_ENABLE_IPT_FORWARDING], "Y", 1) !=0
+			&& (strncasecmp(opts->config[CONF_ENABLE_IPT_LOCAL_NAT], "Y", 1) !=0 ))
+		{
+			log_msg(LOG_ERR,
+				"[*] FORCE_NAT requires ENABLE_IPT_FORWARDING ENABLE_IPT_LOCAL_NAT in fwknopd.conf");
+            free(tmp);
+			rv = FWKNOPD_ERROR_BAD_STANZA_DATA;
+			goto cleanup;
+		}
+#else
+        log_msg(LOG_ERR,
+            "[*] FORCE_NAT not supported.");
+        free(tmp);
+		rv = FWKNOPD_ERROR_BAD_STANZA_DATA;
+		goto cleanup;
+#endif
+        if((rv = add_acc_force_nat(stanza, tmp)) != FWKNOPD_SUCCESS)
+        {
+            free(tmp);
+            goto cleanup;
+        }
+        free(tmp);
+	}
+
+	if(sdp_get_json_string_field("force_snat", jdata, &tmp) == SDP_SUCCESS)
+	{
+#if FIREWALL_FIREWALLD
+		if(strncasecmp(opts->config[CONF_ENABLE_FIREWD_FORWARDING], "Y", 1) !=0
+			&& (strncasecmp(opts->config[CONF_ENABLE_FIREWD_LOCAL_NAT], "Y", 1) !=0 ))
+		{
+			log_msg(LOG_ERR,
+				"[*] FORCE_SNAT requires either ENABLE_FIREWD_FORWARDING or ENABLE_FIREWD_LOCAL_NAT in fwknopd.conf");
+            free(tmp);
+			rv = FWKNOPD_ERROR_BAD_STANZA_DATA;
+			goto cleanup;
+		}
+#elif FIREWALL_IPTABLES
+		if(strncasecmp(opts->config[CONF_ENABLE_IPT_FORWARDING], "Y", 1) !=0
+			&& (strncasecmp(opts->config[CONF_ENABLE_IPT_LOCAL_NAT], "Y", 1) !=0 ))
+		{
+			log_msg(LOG_ERR,
+				"[*] FORCE_SNAT requires ENABLE_IPT_FORWARDING ENABLE_IPT_LOCAL_NAT in fwknopd.conf");
+            free(tmp);
+			rv = FWKNOPD_ERROR_BAD_STANZA_DATA;
+			goto cleanup;
+		}
+#else
+        log_msg(LOG_ERR,
+            "[*] FORCE_SNAT not supported.");
+        free(tmp);
+		rv = FWKNOPD_ERROR_BAD_STANZA_DATA;
+		goto cleanup;
+#endif
+        if((rv = add_acc_force_snat(stanza, tmp)) != FWKNOPD_SUCCESS)
+        {
+            free(tmp);
+            goto cleanup;
+        }
+        free(tmp);
+	}
+
+	if(sdp_get_json_string_field("force_masquerade", jdata, &tmp) == SDP_SUCCESS)
+	{
+		add_acc_bool(&(stanza->force_masquerade), tmp);
+		add_acc_bool(&(stanza->force_snat), tmp);
+		free(tmp);
+	}
+
+	if(sdp_get_json_string_field("disable_dnat", jdata, &tmp) == SDP_SUCCESS)
+	{
+		add_acc_bool(&(stanza->disable_dnat), tmp);
+		free(tmp);
+	}
+
+	if(sdp_get_json_string_field("forward_all", jdata, &tmp) == SDP_SUCCESS)
+	{
+		add_acc_bool(&(stanza->forward_all), tmp);
+		free(tmp);
+	}
+
+	// do sanity check on data
+	if(!acc_data_is_valid(opts, user_pw, sudo_user_pw, stanza))
+	{
+		log_msg(LOG_ERR, "[*] Validation failed on stanza for SDP ID %d", stanza->sdp_client_id);
+		rv = FWKNOPD_ERROR_BAD_STANZA_DATA;
+	}
+
+	if(expand_one_acc_ent_list(stanza) != SUCCESS)
+	{
+		log_msg(LOG_ERR, "[*] Access list expansion failed on stanza for SDP ID %d", stanza->sdp_client_id);
+		rv = FWKNOPD_ERROR_BAD_STANZA_DATA;
+	}
+
+	set_one_acc_defaults(stanza);
+
+cleanup:
+	if(rv != FWKNOPD_SUCCESS)
+	{
+		free_acc_stanza_data(stanza);
+		free(stanza);
+		*r_stanza = NULL;
+	}
+	else
+	{
+		*r_stanza = stanza;
+	}
+	return rv;
+}
+
+
+/* Take a json data array from a controller message
+ * Walk the array, making stanzas and plugging into the hash table
+ */
+int
+process_access_msg(fko_srv_options_t *opts, json_object *jmsg)
+{
+	int rv = FWKNOPD_SUCCESS;
+	acc_stanza_t *new_acc = NULL;
+	int hash_table_len = 0;
+	int access_array_len = 0;
+	int idx = 0;
+	int is_err = 0;
+	int nodes = 0;
+	char *action = NULL;
+	json_object *jarray = NULL;
+	json_object *jstanza = NULL;
+	bstring key = NULL;
+	char id[SDP_MAX_CLIENT_ID_STR_LEN + 1] = {0};
+
+	// TODO lock the table
+
+	// get the action string from the message
+	if((rv = sdp_get_json_string_field(sdp_key_action, jmsg, &action)) != SDP_SUCCESS)
+	{
+        log_msg(LOG_ERR, "message action field was not found");
+		return FWKNOPD_ERROR_BAD_MSG;
+	}
+
+	// if this is an access data refresh, destroy the hash table
+	if(strncmp(action, sdp_action_access_refresh, strlen(sdp_action_access_refresh)) == 0)
+	{
+		if(opts->acc_stanza_hash_tbl != NULL)
+		{
+			// destroy the table
+			hash_table_destroy(opts->acc_stanza_hash_tbl);
+			opts->acc_stanza_hash_tbl = NULL;
+		}
+	}
+	else if(strncmp(action, sdp_action_access_update, strlen(sdp_action_access_update)) != 0)
+	{
+		free(action);
+		// TODO release lock on the table
+
+		// did not receive valid message
+        log_msg(LOG_ERR, "message action field was not one of %s or %s", sdp_action_access_refresh, sdp_action_access_update);
+		return FWKNOPD_ERROR_BAD_MSG;
+	}
+
+	free(action);
+
+	if( !json_object_object_get_ex(jmsg, sdp_key_data, &jarray))
+	{
+		// did not receive valid access data
+        log_msg(LOG_ERR, "message data field was not found");
+		return FWKNOPD_ERROR_BAD_MSG;
+	}
+
+	// verify the data is an array
+	if(json_object_get_type(jarray) != json_type_array)
+	{
+		// TODO release lock on the table
+
+        log_msg(LOG_ERR, "jarray object was not json_type_array as expected");
+		return FWKNOPD_ERROR_BAD_MSG;
+	}
+
+
+	// create the hash table if necessary
+	if(opts->acc_stanza_hash_tbl == NULL)
+	{
+		//need to initialize hash table
+		hash_table_len = strtol_wrapper(opts->config[CONF_ACC_STANZA_HASH_TABLE_LENGTH],
+		        			   MIN_ACC_STANZA_HASH_TABLE_LENGTH,
+							   MAX_ACC_STANZA_HASH_TABLE_LENGTH,
+							   NO_EXIT_UPON_ERR,
+							   &is_err);
+
+		if(is_err != FKO_SUCCESS)
+		{
+			log_msg(LOG_ERR, "[*] var %s value '%s' not in the range %d-%d",
+					"ACC_STANZA_HASH_TABLE_LENGTH",
+					opts->config[CONF_ACC_STANZA_HASH_TABLE_LENGTH],
+					MIN_ACC_STANZA_HASH_TABLE_LENGTH,
+					MAX_ACC_STANZA_HASH_TABLE_LENGTH);
+			clean_exit(opts, NO_FW_CLEANUP, EXIT_FAILURE);
+		}
+
+		opts->acc_stanza_hash_tbl = hash_table_create(hash_table_len,
+				NULL, NULL, destroy_hash_node_cb);
+		if(opts->acc_stanza_hash_tbl == NULL)
+		{
+	        log_msg(LOG_ERR,
+	            "[*] Fatal memory allocation error creating access stanza hash table"
+	        );
+	        return FKO_ERROR_MEMORY_ALLOCATION;
+		}
+	}
+
+	access_array_len = json_object_array_length(jarray);
+	log_msg(LOG_DEBUG, "jarray contains %d stanzas", access_array_len);
+
+	// walk through the access array
+	for(idx = 0; idx < access_array_len; idx++)
+	{
+		jstanza = json_object_array_get_idx(jarray, idx);
+		if((rv = make_acc_stanza_from_json(opts, jstanza, &new_acc)) != FWKNOPD_SUCCESS)
+		{
+			if(rv == FKO_ERROR_MEMORY_ALLOCATION)
+			{
+				log_msg(LOG_ERR, "Memory allocation error while parsing json data, time to die");
+				return FKO_ERROR_MEMORY_ALLOCATION;
+			}
+
+			log_msg(LOG_ERR, "Failed to parse json stanza, attempting to carry on");
+			continue;
+		}
+
+		// insert in hash table
+		snprintf(id, SDP_MAX_CLIENT_ID_STR_LEN, "%d", new_acc->sdp_client_id);
+    	key = bfromcstr(id);
+
+    	if( hash_table_set(opts->acc_stanza_hash_tbl, key, new_acc) != FKO_SUCCESS )
+		{
+	        log_msg(LOG_ERR,
+	            "Fatal error creating access stanza hash table node"
+	        );
+	        bdestroy(key);
+	        free_acc_stanza_data(new_acc);
+	        free(new_acc);
+	        return FKO_ERROR_MEMORY_ALLOCATION;
+		}
+
+    	log_msg(LOG_INFO, "Added access entry for SDP ID %d", new_acc->sdp_client_id);
+    	nodes++;
+	}
+
+	// TODO release lock on the table
+
+	if(nodes > 0)
+	{
+		log_msg(LOG_INFO, "Created %d hash table nodes from %d json stanzas", nodes, access_array_len);
+		rv = FWKNOPD_SUCCESS;
+	}
+	else
+		log_msg(LOG_WARNING, "Failed to create any hash table nodes from %d json stanzas", access_array_len);
+
+	return rv;
+
+}
+
+
 
 /* Read and parse the access file, popluating the access data as we go.
 */
@@ -1986,15 +2597,20 @@ parse_access_file(fko_srv_options_t *opts)
             add_acc_string(&(curr_acc->gpg_remote_fpr), val, file_ptr, opts);
         else if(CONF_VAR_IS(var, "ACCESS_EXPIRE"))
         {
-            if (add_acc_expire_time(opts, &(curr_acc->access_expire_time), val) != 1)
+            if (add_acc_expire_time(&(curr_acc->access_expire_time), val) != FWKNOPD_SUCCESS)
             {
                 fclose(file_ptr);
                 clean_exit(opts, NO_FW_CLEANUP, EXIT_FAILURE);
             }
         }
         else if(CONF_VAR_IS(var, "ACCESS_EXPIRE_EPOCH"))
-            add_acc_expire_time_epoch(opts,
-                    &(curr_acc->access_expire_time), val, file_ptr);
+        {
+            if (add_acc_expire_time_epoch(&(curr_acc->access_expire_time), val) != FWKNOPD_SUCCESS)
+            {
+                fclose(file_ptr);
+                clean_exit(opts, NO_FW_CLEANUP, EXIT_FAILURE);
+            }
+        }
         else if(CONF_VAR_IS(var, "FORCE_NAT"))
         {
 #if FIREWALL_FIREWALLD
@@ -2006,7 +2622,6 @@ parse_access_file(fko_srv_options_t *opts)
                 fclose(file_ptr);
                 clean_exit(opts, NO_FW_CLEANUP, EXIT_FAILURE);
             }
-            add_acc_force_nat(opts, curr_acc, val, file_ptr);
 #elif FIREWALL_IPTABLES
             if(strncasecmp(opts->config[CONF_ENABLE_IPT_FORWARDING], "Y", 1) !=0
                 && (strncasecmp(opts->config[CONF_ENABLE_IPT_LOCAL_NAT], "Y", 1) !=0 ))
@@ -2016,13 +2631,17 @@ parse_access_file(fko_srv_options_t *opts)
                 fclose(file_ptr);
                 clean_exit(opts, NO_FW_CLEANUP, EXIT_FAILURE);
             }
-            add_acc_force_nat(opts, curr_acc, val, file_ptr);
 #else
             log_msg(LOG_ERR,
                 "[*] FORCE_NAT not supported.");
             fclose(file_ptr);
             clean_exit(opts, NO_FW_CLEANUP, EXIT_FAILURE);
 #endif
+            if(add_acc_force_nat(curr_acc, val) != FWKNOPD_SUCCESS)
+            {
+                fclose(file_ptr);
+                clean_exit(opts, NO_FW_CLEANUP, EXIT_FAILURE);
+            }
         }
         else if(CONF_VAR_IS(var, "FORCE_SNAT"))
         {
@@ -2035,7 +2654,6 @@ parse_access_file(fko_srv_options_t *opts)
                 fclose(file_ptr);
                 clean_exit(opts, NO_FW_CLEANUP, EXIT_FAILURE);
             }
-            add_acc_force_snat(opts, curr_acc, val, file_ptr);
 #elif FIREWALL_IPTABLES
             if(strncasecmp(opts->config[CONF_ENABLE_IPT_FORWARDING], "Y", 1) !=0
                 && (strncasecmp(opts->config[CONF_ENABLE_IPT_LOCAL_NAT], "Y", 1) !=0 ))
@@ -2045,13 +2663,17 @@ parse_access_file(fko_srv_options_t *opts)
                 fclose(file_ptr);
                 clean_exit(opts, NO_FW_CLEANUP, EXIT_FAILURE);
             }
-            add_acc_force_snat(opts, curr_acc, val, file_ptr);
 #else
             log_msg(LOG_ERR,
                 "[*] FORCE_SNAT not supported.");
             fclose(file_ptr);
             clean_exit(opts, NO_FW_CLEANUP, EXIT_FAILURE);
 #endif
+            if(add_acc_force_snat(curr_acc, val) != FWKNOPD_SUCCESS)
+            {
+                fclose(file_ptr);
+                clean_exit(opts, NO_FW_CLEANUP, EXIT_FAILURE);
+            }
         }
         else if(CONF_VAR_IS(var, "FORCE_MASQUERADE"))
         {

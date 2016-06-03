@@ -60,12 +60,22 @@ enum {
     FW_RULE_UNKNOWN_ERROR
 };
 
+/* Config and Access errors
+ */
+enum {
+	FWKNOPD_SUCCESS = 0,
+	FWKNOPD_ERROR_BAD_MSG = 0x3000,
+	FWKNOPD_ERROR_BAD_STANZA_DATA,
+	FWKNOPD_ERROR
+};
+
 /* Macro for determining if an error code is a spa_msg handler error
  * and/or a firewall rule processing error.
 */
 #define IS_SPA_MSG_ERROR(x) (x & 0x1000)
 #define IS_FW_RULE_ERROR(x) (x & 0x2000)
-#define IS_FWKNOPD_ERROR(x) (IS_SPA_MSG_ERROR(x) | IS_FW_RULE_ERROR(x))
+#define IS_CONFIG_ERROR(x)  (x & 0x3000)
+#define IS_FWKNOPD_ERROR(x) (IS_SPA_MSG_ERROR(x) | IS_FW_RULE_ERROR(x) | IS_CONFIG_ERROR(x))
 
 /* Function prototypes
 */
