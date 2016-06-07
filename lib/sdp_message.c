@@ -282,19 +282,19 @@ int sdp_message_parse_cred_fields(json_object *jdata, void **r_creds)
 		return (SDP_ERROR_MEMORY_ALLOCATION);
 
 	// extract encryption key
-	if((rv = sdp_get_required_json_string_field("encryptionKey", jdata, &(creds->encryption_key))) != SDP_SUCCESS)
+	if((rv = sdp_get_required_json_string_field("encryption_key", jdata, &(creds->encryption_key))) != SDP_SUCCESS)
 		goto error;
 
 	// extract hmac key
-	if((rv = sdp_get_required_json_string_field("hmacKey", jdata, &(creds->hmac_key))) != SDP_SUCCESS)
+	if((rv = sdp_get_required_json_string_field("hmac_key", jdata, &(creds->hmac_key))) != SDP_SUCCESS)
 		goto error;
 
 	// extract tls client cert
-	if((rv = sdp_get_required_json_string_field("tlsClientCert", jdata, &(creds->tls_client_cert))) != SDP_SUCCESS)
+	if((rv = sdp_get_required_json_string_field("tls_client_cert", jdata, &(creds->tls_client_cert))) != SDP_SUCCESS)
 		goto error;
 
 	// extract tls client key
-	if((rv = sdp_get_required_json_string_field("tlsClientKey", jdata, &(creds->tls_client_key))) != SDP_SUCCESS)
+	if((rv = sdp_get_required_json_string_field("tls_client_key", jdata, &(creds->tls_client_key))) != SDP_SUCCESS)
 		goto error;
 
 	// if we got here, all is good
