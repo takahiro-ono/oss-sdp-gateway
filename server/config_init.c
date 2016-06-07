@@ -35,6 +35,7 @@
 #include "cmd_opts.h"
 #include "utils.h"
 #include "log_msg.h"
+#include <pthread.h>
 
 #if FIREWALL_FIREWALLD
   #include "fw_util_firewalld.h"
@@ -131,7 +132,20 @@ free_configs(fko_srv_options_t *opts)
 
     free_acc_stanzas(opts);
 
-    hash_table_destroy(opts->acc_stanza_hash_tbl);
+    if(opts->acc_stanza_hash_tbl != NULL)
+    {
+    	// lock the hash table mutex
+        if(pthread_mutex_lock(&(opts->acc_hash_tbl_mutex)))
+        {
+        	log_msg(LOG_ERR, "Mutex lock error.");
+        }
+        else
+        {
+        	hash_table_destroy(opts->acc_stanza_hash_tbl);
+        	pthread_mutex_unlock(&(opts->acc_hash_tbl_mutex));
+        	pthread_mutex_destroy(&(opts->acc_hash_tbl_mutex));
+        }
+    }
 
     for(i=0; i<NUMBER_OF_CONFIG_ENTRIES; i++)
         if(opts->config[i] != NULL)
@@ -966,18 +980,34 @@ validate_options(fko_srv_options_t *opts)
     	set_config_entry(opts, CONF_ACC_STANZA_HASH_TABLE_LENGTH, DEF_HASH_TABLE_LENGTH_STR);
     }
 
+    if(strncmp(opts->config[CONF_DISABLE_SDP_MODE], "N", 1) == 0)
+    {
+		// initialize the hash table mutex
+		pthread_mutex_init(&(opts->acc_hash_tbl_mutex), NULL);
+    }
+
     if(opts->config[CONF_DISABLE_SDP_CTRL_CLIENT] == NULL)
     {
-    	set_config_entry(opts, CONF_DISABLE_SDP_CTRL_CLIENT, DEF_DISABLE_SDP_CTRL_CLIENT);
+    	if(strncmp(opts->config[CONF_DISABLE_SDP_MODE], "N", 1) == 0)
+    	{
+    		set_config_entry(opts, CONF_DISABLE_SDP_CTRL_CLIENT, DEF_DISABLE_SDP_CTRL_CLIENT);
+    	}
+    	else
+    	{
+    		set_config_entry(opts, CONF_DISABLE_SDP_CTRL_CLIENT, "Y");
+    	}
     }
+    else if(strncmp(opts->config[CONF_DISABLE_SDP_MODE], "Y", 1) == 0)
+	{
+		set_config_entry(opts, CONF_DISABLE_SDP_CTRL_CLIENT, "Y");
+	}
 
     if(opts->config[CONF_MAX_WAIT_ACC_DATA] == NULL)
     {
     	set_config_entry(opts, CONF_MAX_WAIT_ACC_DATA, DEF_MAX_WAIT_ACC_DATA);
     }
 
-    if(strncmp(opts->config[CONF_DISABLE_SDP_MODE], "N", 1) == 0 &&
-       strncmp(opts->config[CONF_DISABLE_SDP_CTRL_CLIENT], "N", 1) == 0)
+    if(strncmp(opts->config[CONF_DISABLE_SDP_CTRL_CLIENT], "N", 1) == 0)
     {
     	// config file paths must be set, no defaults
     	if(opts->config[CONF_SDP_CTRL_CLIENT_CONF] == NULL ||

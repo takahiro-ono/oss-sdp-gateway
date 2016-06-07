@@ -34,6 +34,7 @@
 #include "common.h"
 #include "hash_table.h"
 #include "sdp_ctrl_client.h"
+#include <pthread.h>
 
 #if PLATFORM_OPENBSD
   #include <netinet/in.h>
@@ -687,10 +688,12 @@ typedef struct fko_srv_options
 
     acc_stanza_t   *acc_stanzas;       /* List of access stanzas for legacy mode */
     hash_table_t   *acc_stanza_hash_tbl;  /* List of access stanzas for sdp mode */
+    pthread_mutex_t acc_hash_tbl_mutex;
 
     /* The SDP Control Client
      */
     sdp_ctrl_client_t ctrl_client;
+    pthread_t ctrl_client_thread;
 
     /* Firewall config info.
     */

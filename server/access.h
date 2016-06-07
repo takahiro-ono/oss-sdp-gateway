@@ -52,7 +52,7 @@ int process_access_msg(fko_srv_options_t *opts, json_object *jdata);
 void parse_access_file(fko_srv_options_t *opts);
 int compare_addr_list(acc_int_list_t *source_list, const uint32_t ip);
 int acc_check_port_access(acc_stanza_t *acc, char *port_str);
-void dump_access_list(const fko_srv_options_t *opts);
+void dump_access_list(fko_srv_options_t *opts);
 int expand_acc_port_list(acc_port_list_t **plist, char *plist_str);
 void free_acc_stanzas(fko_srv_options_t *opts);
 void free_acc_port_list(acc_port_list_t *plist);

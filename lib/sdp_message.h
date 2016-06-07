@@ -37,7 +37,7 @@ typedef enum {
 
 
 enum {
-	SDP_MSG_MIN_LEN = 26,
+	SDP_MSG_MIN_LEN = 22,
 	SDP_MSG_FIELD_MAX_LEN = 65536,
 	SDP_MSG_MAX_LEN = 65536
 };

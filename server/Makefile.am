@@ -16,8 +16,8 @@ BASE_SOURCE_FILES   = fwknopd.h config_init.c config_init.h \
                       dbg.h bstrlib.c bstrlib.h hash_table.c hash_table.h
 
 fwknopd_SOURCES   = fwknopd.c $(BASE_SOURCE_FILES)
-
-fwknopd_LDADD     = $(top_builddir)/lib/libfko.la $(top_builddir)/common/libfko_util.a -ljson 
+fwknopd_LDFLAGS   = -pthread
+fwknopd_LDADD     = $(top_builddir)/lib/libfko.la $(top_builddir)/common/libfko_util.a -ljson
 
 if WANT_C_UNIT_TESTS
     noinst_PROGRAMS         = fwknopd_utests

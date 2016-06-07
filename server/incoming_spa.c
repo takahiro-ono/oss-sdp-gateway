@@ -412,7 +412,16 @@ sdp_client_id_check(fko_srv_options_t *opts, spa_pkt_info_t *spa_pkt, acc_stanza
 		return 0;
 	}
 
+	// lock the hash table mutex
+    if(pthread_mutex_lock(&(opts->acc_hash_tbl_mutex)))
+    {
+    	log_msg(LOG_ERR, "Mutex lock error.");
+    	return 0;
+    }
+
 	*acc = hash_table_get(opts->acc_stanza_hash_tbl, sdp_client_id);
+	pthread_mutex_unlock(&(opts->acc_hash_tbl_mutex));
+
 	bdestroy(sdp_client_id);
 	if(*acc)
 		return 1;  //found what we were looking for

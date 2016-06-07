@@ -2058,14 +2058,19 @@ process_access_msg(fko_srv_options_t *opts, json_object *jmsg)
 	bstring key = NULL;
 	char id[SDP_MAX_CLIENT_ID_STR_LEN + 1] = {0};
 
-	// TODO lock the table
-
 	// get the action string from the message
 	if((rv = sdp_get_json_string_field(sdp_key_action, jmsg, &action)) != SDP_SUCCESS)
 	{
         log_msg(LOG_ERR, "message action field was not found");
 		return FWKNOPD_ERROR_BAD_MSG;
 	}
+
+	// lock the hash table mutex
+    if(pthread_mutex_lock(&(opts->acc_hash_tbl_mutex)))
+    {
+    	log_msg(LOG_ERR, "Mutex lock error.");
+        return FWKNOPD_ERROR_MUTEX;
+    }
 
 	// if this is an access data refresh, destroy the hash table
 	if(strncmp(action, sdp_action_access_refresh, strlen(sdp_action_access_refresh)) == 0)
@@ -2079,8 +2084,12 @@ process_access_msg(fko_srv_options_t *opts, json_object *jmsg)
 	}
 	else if(strncmp(action, sdp_action_access_update, strlen(sdp_action_access_update)) != 0)
 	{
+		// unrecognized action, exiting function
+
 		free(action);
-		// TODO release lock on the table
+
+		// release lock on the table
+	    pthread_mutex_unlock(&(opts->acc_hash_tbl_mutex));
 
 		// did not receive valid message
         log_msg(LOG_ERR, "message action field was not one of %s or %s", sdp_action_access_refresh, sdp_action_access_update);
@@ -2091,6 +2100,9 @@ process_access_msg(fko_srv_options_t *opts, json_object *jmsg)
 
 	if( !json_object_object_get_ex(jmsg, sdp_key_data, &jarray))
 	{
+		// release lock on the table
+	    pthread_mutex_unlock(&(opts->acc_hash_tbl_mutex));
+
 		// did not receive valid access data
         log_msg(LOG_ERR, "message data field was not found");
 		return FWKNOPD_ERROR_BAD_MSG;
@@ -2099,7 +2111,8 @@ process_access_msg(fko_srv_options_t *opts, json_object *jmsg)
 	// verify the data is an array
 	if(json_object_get_type(jarray) != json_type_array)
 	{
-		// TODO release lock on the table
+		// release lock on the table
+	    pthread_mutex_unlock(&(opts->acc_hash_tbl_mutex));
 
         log_msg(LOG_ERR, "jarray object was not json_type_array as expected");
 		return FWKNOPD_ERROR_BAD_MSG;
@@ -2118,19 +2131,27 @@ process_access_msg(fko_srv_options_t *opts, json_object *jmsg)
 
 		if(is_err != FKO_SUCCESS)
 		{
+			// this error should be impossible because the config variable
+			// is checked at startup
+
+		    pthread_mutex_unlock(&(opts->acc_hash_tbl_mutex));
+
 			log_msg(LOG_ERR, "[*] var %s value '%s' not in the range %d-%d",
 					"ACC_STANZA_HASH_TABLE_LENGTH",
 					opts->config[CONF_ACC_STANZA_HASH_TABLE_LENGTH],
 					MIN_ACC_STANZA_HASH_TABLE_LENGTH,
 					MAX_ACC_STANZA_HASH_TABLE_LENGTH);
-			clean_exit(opts, NO_FW_CLEANUP, EXIT_FAILURE);
+
+	        return FWKNOPD_ERROR_BAD_CONFIG;
 		}
 
 		opts->acc_stanza_hash_tbl = hash_table_create(hash_table_len,
 				NULL, NULL, destroy_hash_node_cb);
 		if(opts->acc_stanza_hash_tbl == NULL)
 		{
-	        log_msg(LOG_ERR,
+		    pthread_mutex_unlock(&(opts->acc_hash_tbl_mutex));
+
+		    log_msg(LOG_ERR,
 	            "[*] Fatal memory allocation error creating access stanza hash table"
 	        );
 	        return FKO_ERROR_MEMORY_ALLOCATION;
@@ -2148,6 +2169,7 @@ process_access_msg(fko_srv_options_t *opts, json_object *jmsg)
 		{
 			if(rv == FKO_ERROR_MEMORY_ALLOCATION)
 			{
+			    pthread_mutex_unlock(&(opts->acc_hash_tbl_mutex));
 				log_msg(LOG_ERR, "Memory allocation error while parsing json data, time to die");
 				return FKO_ERROR_MEMORY_ALLOCATION;
 			}
@@ -2165,6 +2187,7 @@ process_access_msg(fko_srv_options_t *opts, json_object *jmsg)
 	        log_msg(LOG_ERR,
 	            "Fatal error creating access stanza hash table node"
 	        );
+		    pthread_mutex_unlock(&(opts->acc_hash_tbl_mutex));
 	        bdestroy(key);
 	        free_acc_stanza_data(new_acc);
 	        free(new_acc);
@@ -2175,7 +2198,8 @@ process_access_msg(fko_srv_options_t *opts, json_object *jmsg)
     	nodes++;
 	}
 
-	// TODO release lock on the table
+	// release lock on the table
+    pthread_mutex_unlock(&(opts->acc_hash_tbl_mutex));
 
 	if(nodes > 0)
 	{
@@ -2247,6 +2271,19 @@ parse_access_file(fko_srv_options_t *opts)
         perror(NULL);
 
         clean_exit(opts, NO_FW_CLEANUP, EXIT_FAILURE);
+    }
+
+    // probably don't need the mutex in this scenario because
+    // we likely are not dynamically updating the access data
+    // but just in case some future scenario pops up
+	// lock the hash table mutex
+    if(strncmp(opts->config[CONF_DISABLE_SDP_MODE], "N", 1) == 0)
+    {
+		if(pthread_mutex_lock(&(opts->acc_hash_tbl_mutex)))
+		{
+			log_msg(LOG_ERR, "Mutex lock error.");
+			clean_exit(opts, NO_FW_CLEANUP, EXIT_FAILURE);
+		}
     }
 
     /* Initialize the access list.
@@ -2729,6 +2766,11 @@ parse_access_file(fko_srv_options_t *opts)
     */
     set_acc_defaults(opts);
 
+    if(strncmp(opts->config[CONF_DISABLE_SDP_MODE], "N", 1) == 0)
+    {
+		pthread_mutex_lock(&(opts->acc_hash_tbl_mutex));
+    }
+
     return;
 }
 
@@ -2883,7 +2925,7 @@ cleanup_and_bail:
 /* Dump the configuration
 */
 void
-dump_access_list(const fko_srv_options_t *opts)
+dump_access_list(fko_srv_options_t *opts)
 {
     int             i = 0;
 
@@ -2899,7 +2941,16 @@ dump_access_list(const fko_srv_options_t *opts)
     		return;
     	}
 
+    	// lock the hash table mutex
+        if(pthread_mutex_lock(&(opts->acc_hash_tbl_mutex)))
+        {
+        	log_msg(LOG_ERR, "Mutex lock error.");
+            return;
+        }
+
     	hash_table_traverse(opts->acc_stanza_hash_tbl, traverse_dump_hash_cb);
+
+    	pthread_mutex_unlock(&(opts->acc_hash_tbl_mutex));
     }
     else
 	{

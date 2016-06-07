@@ -170,15 +170,51 @@ static int sdp_com_default_send_spa(sdp_com_t com)
 	return SDP_SUCCESS;
 }
 
+static int sdp_com_get_ssl_error(SSL *ssl, int rv, char *r_ssl_error)
+{
+	char *ssl_error = NULL;
+	int value = SSL_get_error(ssl, rv);
+
+	switch(value){
+		case SSL_ERROR_ZERO_RETURN:
+			ssl_error = "SSL_ERROR_ZERO_RETURN";
+			break;
+		case SSL_ERROR_WANT_READ:
+			ssl_error = "SSL_ERROR_WANT_READ";
+			break;
+		case SSL_ERROR_WANT_WRITE:
+			ssl_error = "SSL_ERROR_WANT_WRITE";
+			break;
+		case SSL_ERROR_WANT_CONNECT:
+			ssl_error = "SSL_ERROR_WANT_CONNECT";
+			break;
+		case SSL_ERROR_WANT_ACCEPT:
+			ssl_error = "SSL_ERROR_WANT_ACCEPT";
+			break;
+		case SSL_ERROR_WANT_X509_LOOKUP:
+			ssl_error = "SSL_ERROR_WANT_X509_LOOKUP";
+			break;
+		case SSL_ERROR_SYSCALL:
+			ssl_error = "SSL_ERROR_SYSCALL";
+			break;
+		case SSL_ERROR_SSL:
+			ssl_error = "SSL_ERROR_SSL";
+			break;
+		default:
+			ssl_error = "Unknown SSL error value";
+	}
+
+	strncpy(r_ssl_error, ssl_error, SDP_MAX_LINE_LEN);
+	return value;
+}
+
 
 static int sdp_com_socket_connect(sdp_com_t com)
 {
 	int rv = SDP_SUCCESS;
-	unsigned long err_code = 0;
-	char err_str[1024];
-	size_t err_str_len = 1024;
+	char ssl_error_string[SDP_MAX_LINE_LEN];
+	int ssl_error = 0;
 	int sd, true, conn_success = 0;
-    //struct hostent *host;
     struct sockaddr_in addr;
     struct addrinfo *server_info=NULL, *rp, hints;
     char   port[SDP_COM_MAX_PORT_STRING_BUFFER_LEN] = {0};
@@ -228,14 +264,6 @@ static int sdp_com_socket_connect(sdp_com_t com)
     	return SDP_ERROR_GETADDRINFO;
     }
 
-
-    /*
-    if ( (host = gethostbyname(com->ctrl_addr)) == NULL )
-    {
-        perror(com->ctrl_addr);
-        return SDP_ERROR_GET_HOST;
-    }
-	*/
 
    	if((sd = socket(PF_INET, SOCK_STREAM, 0)) < 1)
    	{
@@ -315,49 +343,12 @@ static int sdp_com_socket_connect(sdp_com_t com)
     // perform SSL handshake
     if((rv = SSL_connect(com->ssl)) != SDP_COM_SSL_CONNECT_SUCCESS )
     {
-    	log_msg(LOG_DEBUG, "SSL_connect returned value: %d", rv);
-
-    	rv = SSL_get_error(com->ssl, rv);
-    	log_msg(LOG_DEBUG, "SSL_get_error returned value: %d", rv);
-
-    	switch(rv){
-			case SSL_ERROR_ZERO_RETURN:
-				log_msg(LOG_ERR, "SSL_ERROR_ZERO_RETURN");
-				break;
-			case SSL_ERROR_WANT_READ:
-				log_msg(LOG_ERR, "SSL_ERROR_WANT_READ");
-				break;
-			case SSL_ERROR_WANT_WRITE:
-				log_msg(LOG_ERR, "SSL_ERROR_WANT_WRITE");
-				break;
-			case SSL_ERROR_WANT_CONNECT:
-				log_msg(LOG_ERR, "SSL_ERROR_WANT_CONNECT");
-				break;
-			case SSL_ERROR_WANT_ACCEPT:
-				log_msg(LOG_ERR, "SSL_ERROR_WANT_ACCEPT");
-				break;
-			case SSL_ERROR_WANT_X509_LOOKUP:
-				log_msg(LOG_ERR, "SSL_ERROR_WANT_X509_LOOKUP");
-				break;
-			case SSL_ERROR_SYSCALL:
-				log_msg(LOG_ERR, "SSL_ERROR_SYSCALL");
-				break;
-			case SSL_ERROR_SSL:
-				log_msg(LOG_ERR, "SSL_ERROR_SSL");
-				break;
-			default:
-				log_msg(LOG_ERR, "Unknown SSL error value");
-				break;
-    	}
-
-    	while((err_code = ERR_get_error()) > 0)
-    	{
-    		ERR_error_string_n(err_code, err_str, err_str_len);
-    		log_msg(LOG_ERR, "ERR_get_error: %s", err_str);
-    	}
-
-    	ERR_print_errors_fp(stderr);
     	log_msg(LOG_ERR, "SSL handshake failed");
+
+    	ssl_error = sdp_com_get_ssl_error(com->ssl, rv, ssl_error_string);
+
+		log_msg(LOG_ERR, "Error from SSL_connect: %d - %s", ssl_error, ssl_error_string);
+
     	sdp_com_disconnect(com);
     	return SDP_ERROR_SSL_HANDSHAKE;
 	}
@@ -457,6 +448,9 @@ int sdp_com_init(sdp_com_t com)
 
 	if((rv = sdp_com_load_certs(com->ssl_ctx, com->cert_file, com->key_file)) != SDP_SUCCESS)
 		return rv;
+
+	// disable the SIGPIPE signal and handle dropped connections as needed
+	signal(SIGPIPE, SIG_IGN);
 
 	com->initialized = 1;
 
@@ -674,6 +668,19 @@ int sdp_com_send_msg(sdp_com_t com, const char *msg)
 {
 	int msg_len = 0;
 	int bytes_sent = 0;
+	char ssl_error_string[SDP_MAX_LINE_LEN];
+	int ssl_error = 0;
+
+	log_msg(LOG_DEBUG, "Entered sdp_com_send_msg");
+
+	if(com == NULL || !com->initialized)
+		return SDP_ERROR_UNINITIALIZED;
+
+	if(com->conn_state == SDP_COM_DISCONNECTED || com->ssl == NULL)
+	{
+		log_msg(LOG_ERR, "Failed to send message. Not connected.");
+		return SDP_ERROR_CONN_DOWN;
+	}
 
 	// this should never be an issue, but safety first
 	if(msg == NULL)
@@ -690,8 +697,25 @@ int sdp_com_send_msg(sdp_com_t com, const char *msg)
 
 	// encrypt and send
 	if((bytes_sent = SSL_write(com->ssl, msg, msg_len)) != msg_len)
-		return SDP_ERROR_SOCKET_WRITE;
+	{
+		ssl_error = sdp_com_get_ssl_error(com->ssl, bytes_sent, ssl_error_string);
 
+		log_msg(LOG_ERR, "Error from SSL_write: %s", ssl_error_string);
+
+		if(ssl_error == SSL_ERROR_WANT_READ || ssl_error == SSL_ERROR_WANT_WRITE)
+		{
+			// retry one time
+			if((bytes_sent = SSL_write(com->ssl, msg, msg_len)) == msg_len)
+			{
+				log_msg(LOG_ERR, "SSL_write succeeded on second attempt");
+				return SDP_SUCCESS;
+			}
+		}
+
+		// All other cases, tear down and start again
+		sdp_com_disconnect(com);
+		return SDP_ERROR_SOCKET_WRITE;
+	}
 	// if we got here, all is well
 	return SDP_SUCCESS;
 }

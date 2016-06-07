@@ -20,6 +20,7 @@
 #include <sys/wait.h>
 #include <fcntl.h>
 #include <json/json.h>
+#include <pthread.h>
 
 #ifndef HAVE_STAT
 #define HAVE_STAT 1
@@ -722,6 +723,12 @@ int sdp_ctrl_client_process_cred_update(sdp_ctrl_client_t client, void *credenti
 	int rv = SDP_ERROR_CRED_REQ;
 	char *msg = NULL;
 
+	// critical section, disable thread cancellation
+	// apparently many, many C functions are considered cancellation points
+	// and could cause the thread to exit at a very inopportune time, so
+	// disable cancellation while in this function
+	pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
+
 	// Store new credentials
 	if((rv = sdp_ctrl_client_save_credentials(client, (sdp_creds_t)credentials)) != SDP_SUCCESS)
 	{
@@ -750,7 +757,8 @@ int sdp_ctrl_client_process_cred_update(sdp_ctrl_client_t client, void *credenti
 	}
 
 cleanup:
-    log_msg(LOG_DEBUG, "Freeing memory before exiting function");
+	pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
+	pthread_testcancel();
 
     sdp_message_destroy_creds(credentials);
     free(msg);
@@ -1337,7 +1345,9 @@ int sdp_ctrl_client_consider_keep_alive(sdp_ctrl_client_t client)
 	if(client->client_state == SDP_CTRL_CLIENT_STATE_READY)
 	{
 		if( (ts = time(NULL)) >= (client->last_contact + client->keep_alive_interval) )
+		{
 			rv = sdp_ctrl_client_request_keep_alive(client);
+		}
 		else
 		{
 			//log_msg(LOG_DEBUG, "Not time for keep alive request.");
@@ -1375,6 +1385,12 @@ int sdp_ctrl_client_consider_keep_alive(sdp_ctrl_client_t client)
 		//log_msg(LOG_DEBUG, "Control Client not in proper state to make keep alive request.");
 		return SDP_SUCCESS;
 	}
+
+
+	// arriving here means we attempted to send the message
+	// the only error we want to pass up the chain at this point is the fatal memory allocation error
+	if(rv != SDP_ERROR_MEMORY_ALLOCATION)
+		rv = SDP_SUCCESS;
 
 	log_msg(LOG_DEBUG, "Exiting function sdp_ctrl_client_consider_keep_alive");
 	return rv;
