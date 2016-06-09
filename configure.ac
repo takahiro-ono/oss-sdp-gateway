@@ -526,6 +526,36 @@ AS_IF([test "x$WGET_EXE" != x],
   ], [ wget_exe="(not found)"]
 )
 
+dnl Check for ssl
+dnl
+AC_SEARCH_LIBS([SSL_library_init], [ssl],
+  ,
+  [ AC_MSG_ERROR([libfko needs ssl])]
+)
+
+dnl Check for crypto
+dnl
+AC_SEARCH_LIBS([X509_get_subject_name], [crypto],
+  ,
+  [ AC_MSG_ERROR([libfko needs crypto])]
+)
+
+dnl Check for json
+dnl
+AC_SEARCH_LIBS([json_tokener_parse], [json],
+  ,
+  [ AC_MSG_ERROR([libfko and fwknopd need libjson0 and libjson0-dev])]
+)
+
+dnl THIS NEEDS FIXING TO HANDLE WINDOWS
+dnl Check for pthread
+dnl
+AC_SEARCH_LIBS([pthread_create], [pthread], 
+  ,
+  [ AC_MSG_ERROR([libfko and fwknopd need pthread]) ]
+)
+  
+
 dnl Check for libpcap, gdbm (or ndbm) if we are building the server component
 dnl
 AS_IF([test "$want_server" = yes], [
