@@ -1318,6 +1318,9 @@ config_init(fko_srv_options_t *opts, int argc, char **argv)
             case DISABLE_SDP_MODE:
             	set_config_entry(opts, CONF_DISABLE_SDP_MODE, "Y");
             	break;
+            case DISABLE_SDP_CTRL_CLIENT:
+            	set_config_entry(opts, CONF_DISABLE_SDP_CTRL_CLIENT, "Y");
+            	break;
             case MAX_WAIT_ACC_DATA:
             	set_config_entry(opts, CONF_MAX_WAIT_ACC_DATA, optarg);
             	break;

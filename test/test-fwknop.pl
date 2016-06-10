@@ -77,9 +77,10 @@ our $run_broken_tests   = 0;  ### tests that generally fail even in legacy mode
 our $sdp_client_id      = 777777;
 our $alt_sdp_client_id  = 666666;
 our $sdp_disabled       = 0;
+our $sdp_ctrl_client_disabled = 1;
 our $client_sdp_options = "--sdp-id $sdp_client_id";
 our $alt_client_sdp_options = "--sdp-id $alt_sdp_client_id";
-our $srv_sdp_options    = '';
+our $srv_sdp_options    = "--disable-ctrl-client";
 
 our $gpg_client_subkey = '9CF38326'; ### last subkey in the keyring as shown above,
                                      ### and GPG_REMOTE_ID must match in access.conf

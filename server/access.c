@@ -2768,7 +2768,7 @@ parse_access_file(fko_srv_options_t *opts)
 
     if(strncmp(opts->config[CONF_DISABLE_SDP_MODE], "N", 1) == 0)
     {
-		pthread_mutex_lock(&(opts->acc_hash_tbl_mutex));
+		pthread_mutex_unlock(&(opts->acc_hash_tbl_mutex));
     }
 
     return;
