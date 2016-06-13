@@ -78,8 +78,8 @@ our $sdp_client_id      = 777777;
 our $alt_sdp_client_id  = 666666;
 our $sdp_disabled       = 0;
 our $sdp_ctrl_client_disabled = 1;
-our $client_sdp_options = "--sdp-id $sdp_client_id";
-our $alt_client_sdp_options = "--sdp-id $alt_sdp_client_id";
+our $client_sdp_options = "--sdp-id $sdp_client_id --disable-ctrl-client";
+our $alt_client_sdp_options = "--sdp-id $alt_sdp_client_id --disable-ctrl-client";
 our $srv_sdp_options    = "--disable-ctrl-client";
 
 our $gpg_client_subkey = '9CF38326'; ### last subkey in the keyring as shown above,
@@ -7993,7 +7993,7 @@ sub is_fw_rule_active() {
     }
 
     if ($test_hr->{'no_ip_check'}) {
-        &run_cmd("$lib_view_str $fwknopdCmd " .
+        &run_cmd("$lib_view_str $fwknopdCmd $srv_sdp_options " .
                 qq{$conf_args --fw-list | grep -v "# DISABLED" },
                 $cmd_out_tmp, $curr_test_file);
         unless (&file_find_regex([qr/_exp_/],
@@ -8001,7 +8001,7 @@ sub is_fw_rule_active() {
             $rv = 0;
         }
     } else {
-        &run_cmd("$lib_view_str $fwknopdCmd " .
+        &run_cmd("$lib_view_str $fwknopdCmd $srv_sdp_options " .
                 qq{$conf_args --fw-list | grep -v "# DISABLED" },
                 $cmd_out_tmp, $curr_test_file);
         if ($test_hr->{'insert_duplicate_rule_while_running'}) {

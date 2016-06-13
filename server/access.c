@@ -2273,19 +2273,6 @@ parse_access_file(fko_srv_options_t *opts)
         clean_exit(opts, NO_FW_CLEANUP, EXIT_FAILURE);
     }
 
-    // probably don't need the mutex in this scenario because
-    // we likely are not dynamically updating the access data
-    // but just in case some future scenario pops up
-	// lock the hash table mutex
-    if(strncmp(opts->config[CONF_DISABLE_SDP_MODE], "N", 1) == 0)
-    {
-		if(pthread_mutex_lock(&(opts->acc_hash_tbl_mutex)))
-		{
-			log_msg(LOG_ERR, "Mutex lock error.");
-			clean_exit(opts, NO_FW_CLEANUP, EXIT_FAILURE);
-		}
-    }
-
     /* Initialize the access list.
     */
     acc_stanza_init(opts);
@@ -2765,11 +2752,6 @@ parse_access_file(fko_srv_options_t *opts)
     /* Make sure default values are set where needed.
     */
     set_acc_defaults(opts);
-
-    if(strncmp(opts->config[CONF_DISABLE_SDP_MODE], "N", 1) == 0)
-    {
-		pthread_mutex_unlock(&(opts->acc_hash_tbl_mutex));
-    }
 
     return;
 }
