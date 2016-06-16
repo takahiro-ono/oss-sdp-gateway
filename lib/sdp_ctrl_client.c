@@ -267,6 +267,18 @@ int sdp_ctrl_client_listen(sdp_ctrl_client_t client, int max_time, void **r_data
 			break;
 		}
 
+		// do not begin sending requests until controller is ready
+		if( !(client->controller_ready) )
+			continue;
+
+		// if new connection or just time, update credentials
+		if((rv = sdp_ctrl_client_consider_cred_update(client)) != SDP_SUCCESS)
+			break;
+
+		// if built for remote gateway, handle access updates
+		if((rv = sdp_ctrl_client_consider_access_refresh(client)) != SDP_SUCCESS)
+			break;
+
 		// is a keep alive due
 		if((rv = sdp_ctrl_client_consider_keep_alive(client)) != SDP_SUCCESS)
 			break;
@@ -277,7 +289,6 @@ int sdp_ctrl_client_listen(sdp_ctrl_client_t client, int max_time, void **r_data
 
 		sleep(1);
 	}
-
 
 	return rv;
 }
@@ -497,9 +508,9 @@ void sdp_ctrl_client_describe(sdp_ctrl_client_t client)
 	cp += sdp_append_msg_to_buf(dump_buf+cp, buf_len-cp, "                       Run in foreground: %s\n", YES_OR_NO(client->foreground) );
 	cp += sdp_append_msg_to_buf(dump_buf+cp, buf_len-cp, "                               Connected: %s\n", YES_OR_NO((int)client->com->conn_state) );
 	cp += sdp_append_msg_to_buf(dump_buf+cp, buf_len-cp, "                  Last credential update: %s",   ctime( &(client->last_cred_update) ) );
-	cp += sdp_append_msg_to_buf(dump_buf+cp, buf_len-cp, "                 Last full access update: %s",   ctime( &(client->last_access_update) ) );
+	cp += sdp_append_msg_to_buf(dump_buf+cp, buf_len-cp, "                 Last full access update: %s",   ctime( &(client->last_access_refresh) ) );
 	cp += sdp_append_msg_to_buf(dump_buf+cp, buf_len-cp, "              Credential update interval: %d seconds\n", client->cred_update_interval);
-	cp += sdp_append_msg_to_buf(dump_buf+cp, buf_len-cp, "                  Access update interval: %d seconds\n", client->access_update_interval);
+	cp += sdp_append_msg_to_buf(dump_buf+cp, buf_len-cp, "                  Access update interval: %d seconds\n", client->access_refresh_interval);
 	cp += sdp_append_msg_to_buf(dump_buf+cp, buf_len-cp, "                     Keep alive interval: %d seconds\n", client->keep_alive_interval);
 	cp += sdp_append_msg_to_buf(dump_buf+cp, buf_len-cp, "                 Max connection attempts: %d\n", client->com->max_conn_attempts);
 	cp += sdp_append_msg_to_buf(dump_buf+cp, buf_len-cp, "   Connection attempts during last cycle: %d\n", client->com->conn_attempts);
@@ -573,6 +584,11 @@ int sdp_ctrl_client_check_inbox(sdp_ctrl_client_t client, void **r_data)
 
 		switch(result)
 		{
+			case CREDENTIALS_GOOD:
+				log_msg(LOG_INFO, "Credentials-good message received");
+				client->controller_ready = 1;
+				break;
+
 			case KEEP_ALIVE:
 				log_msg(LOG_INFO, "Keep-alive response received");
 				sdp_ctrl_client_process_keep_alive(client);
@@ -580,6 +596,7 @@ int sdp_ctrl_client_check_inbox(sdp_ctrl_client_t client, void **r_data)
 
 			case CREDS_UPDATE:
 				log_msg(LOG_INFO, "Credential update received");
+				client->controller_ready = 1;
 
 				// Process new credentials
 				if((rv = sdp_ctrl_client_process_cred_update(client, data)) != SDP_SUCCESS)
@@ -670,10 +687,7 @@ void sdp_ctrl_client_process_keep_alive(sdp_ctrl_client_t client)
 int sdp_ctrl_client_request_cred_update(sdp_ctrl_client_t client)
 {
 	int rv = SDP_ERROR_CRED_REQ;
-	//ctrl_response_result_t result = BAD_RESULT;
-	//int bytes = 0;
 	char *msg = NULL;
-	//sdp_creds_t credentials = NULL;
 
 	// Is the client context properly initialized
 	if(client == NULL || !client->initialized)
@@ -693,7 +707,7 @@ int sdp_ctrl_client_request_cred_update(sdp_ctrl_client_t client)
 	}
 
 	// Make the proper message
-	if((rv = sdp_message_make(sdp_action_cred_update, sdp_stage_requesting, &msg)) != SDP_SUCCESS)
+	if((rv = sdp_message_make(sdp_action_cred_update_request, NULL, &msg)) != SDP_SUCCESS)
 	{
 		log_msg(LOG_ERR, "Failed to make credential request message.");
 		goto cleanup;
@@ -713,10 +727,58 @@ int sdp_ctrl_client_request_cred_update(sdp_ctrl_client_t client)
 cleanup:
     log_msg(LOG_DEBUG, "Freeing memory before exiting function");
 
-    //sdp_message_destroy_creds(credentials);
     free(msg);
 	return rv;
 }
+
+int sdp_ctrl_client_request_access_refresh(sdp_ctrl_client_t client)
+{
+	int rv = SDP_ERROR_CRED_REQ;
+	char *msg = NULL;
+
+	// Is the client context properly initialized
+	if(client == NULL || !client->initialized)
+		return SDP_ERROR_UNINITIALIZED;
+
+	// Is the client currently connected
+	if(client->com->conn_state == SDP_COM_DISCONNECTED)
+		return SDP_ERROR_CONN_DOWN;
+
+	// Is the client in the right state
+	if(client->client_state != SDP_CTRL_CLIENT_STATE_READY &&
+	   client->client_state != SDP_CTRL_CLIENT_STATE_ACCESS_REFRESH_REQUESTING &&
+	   client->client_state != SDP_CTRL_CLIENT_STATE_ACCESS_REFRESH_UNFULFILLED)
+	{
+		log_msg(LOG_DEBUG, "Control Client not in proper state to request access data refresh.");
+		return SDP_ERROR_STATE;
+	}
+
+	// Make the proper message
+	if((rv = sdp_message_make(sdp_action_access_refresh_request, NULL, &msg)) != SDP_SUCCESS)
+	{
+		log_msg(LOG_ERR, "Failed to make access refresh request message.");
+		goto cleanup;
+	}
+
+	// Send it off
+	if((rv = sdp_com_send_msg(client->com, msg)) != SDP_SUCCESS)
+	{
+		log_msg(LOG_ERR, "Failed to send access refresh request message.");
+		goto cleanup;
+	}
+
+	// Set state accordingly
+	sdp_ctrl_client_set_request_vars(client, SDP_CTRL_CLIENT_STATE_ACCESS_REFRESH_REQUESTING);
+
+
+cleanup:
+    log_msg(LOG_DEBUG, "Freeing memory before exiting function");
+
+    free(msg);
+	return rv;
+}
+
+
 
 int sdp_ctrl_client_process_cred_update(sdp_ctrl_client_t client, void *credentials)
 {
@@ -1291,21 +1353,22 @@ int sdp_ctrl_client_loop(sdp_ctrl_client_t client)
 				break;
 			}
 			client->initial_conn_time = client->last_contact = time(NULL);
+
+			// reset to wait for first message from controller
+			client->controller_ready = 0;
 		}
 
 		// check for incoming messages
 		if((rv = sdp_ctrl_client_check_inbox(client, &data)) != SDP_SUCCESS)
 			break;
 
+		// do not begin sending requests until controller is ready
+		if( !(client->controller_ready) )
+			continue;
+
 		// if new connection or just time, update credentials
 		if((rv = sdp_ctrl_client_consider_cred_update(client)) != SDP_SUCCESS)
 			break;
-
-#ifdef FIND_SERVER_COMPILE_FLAG
-		// if built for remote gateway, handle access updates
-		if((rv = ctrl_client_consider_access_update(client)) != SDP_SUCCESS)
-			break;
-#endif
 
 		// if configured to disconnect after update, do so
 		if(!client->remain_connected && client->last_cred_update > 0)
@@ -1455,6 +1518,69 @@ int sdp_ctrl_client_consider_cred_update(sdp_ctrl_client_t client)
 	}
 
 	log_msg(LOG_DEBUG, "Exiting function ctrl_client_consider_cred_update");
+	return rv;
+}
+
+
+int sdp_ctrl_client_consider_access_refresh(sdp_ctrl_client_t client)
+{
+	time_t ts;
+	int rv = SDP_SUCCESS;
+
+	// This should never happen, but just to be safe
+	if(client == NULL || !client->initialized)
+		return SDP_ERROR_UNINITIALIZED;
+
+	// This is not a failure, but we do halt consideration
+	if(client->com->conn_state == SDP_COM_DISCONNECTED)
+		return SDP_SUCCESS;
+
+	if(client->client_state == SDP_CTRL_CLIENT_STATE_READY)
+	{
+		if( (ts = time(NULL)) >= (client->last_access_refresh + client->access_refresh_interval) )
+		{
+			log_msg(LOG_DEBUG, "It is time for an access data refresh request.");
+			rv = sdp_ctrl_client_request_access_refresh(client);
+		}
+		else
+		{
+			//log_msg(LOG_DEBUG, "Not time for access data refresh request.");
+			return SDP_SUCCESS;
+		}
+	}
+	else if(client->client_state == SDP_CTRL_CLIENT_STATE_ACCESS_REFRESH_REQUESTING ||
+			client->client_state == SDP_CTRL_CLIENT_STATE_ACCESS_REFRESH_UNFULFILLED)
+	{
+		if( (ts = time(NULL)) >= (client->last_req_time + client->req_retry_interval) )
+		{
+			if(client->req_attempts >= client->max_req_attempts)
+			{
+				log_msg(LOG_ERR, "Too many failed access refresh requests. Exiting.");
+				sdp_com_disconnect(client->com);
+				client->client_state = SDP_CTRL_CLIENT_STATE_TIME_TO_QUIT;
+				return SDP_ERROR_MANY_FAILED_REQS;
+			}
+			else
+			{
+				client->client_state = SDP_CTRL_CLIENT_STATE_ACCESS_REFRESH_UNFULFILLED;
+				client->req_retry_interval *= 2;
+				log_msg(LOG_DEBUG, "It is time to retry an unfulfilled access data refresh request.");
+				rv = sdp_ctrl_client_request_access_refresh(client);
+			}
+		}
+		else
+		{
+			//log_msg(LOG_DEBUG, "Not time to retry access data refresh request.");
+			return SDP_SUCCESS;
+		}
+	}
+	else
+	{
+		//log_msg(LOG_DEBUG, "Control Client not in proper state to request access data refresh.");
+		return SDP_SUCCESS;
+	}
+
+	log_msg(LOG_DEBUG, "Exiting function sdp_ctrl_client_consider_access_refresh");
 	return rv;
 }
 

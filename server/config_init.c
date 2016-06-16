@@ -1015,7 +1015,7 @@ validate_options(fko_srv_options_t *opts)
     	{
             log_msg(LOG_ERR,
                 "Invalid configuration: the file paths SDP_CTRL_CLIENT_CONF "
-            	"and CONF_FWKNOP_CLIENT_CONF must be defined when "
+            	"and FWKNOP_CLIENT_CONF must be defined when "
             	"SDP mode and the SDP control client are enabled"
             );
             clean_exit(opts, NO_FW_CLEANUP, EXIT_FAILURE);

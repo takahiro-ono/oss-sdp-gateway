@@ -93,9 +93,9 @@ typedef enum {
 	SDP_CTRL_CLIENT_STATE_CRED_REQUESTING,
 	SDP_CTRL_CLIENT_STATE_CRED_FULFILLED,
 	SDP_CTRL_CLIENT_STATE_CRED_UNFULFILLED,
-	SDP_CTRL_CLIENT_STATE_FULL_UPDATE_REQUESTING,
-	SDP_CTRL_CLIENT_STATE_FULL_UPDATE_FULFILLED,
-	SDP_CTRL_CLIENT_STATE_FULL_UPDATE_UNFULFILLED,
+	SDP_CTRL_CLIENT_STATE_ACCESS_REFRESH_REQUESTING,
+	SDP_CTRL_CLIENT_STATE_ACCESS_REFRESH_FULFILLED,
+	SDP_CTRL_CLIENT_STATE_ACCESS_REFRESH_UNFULFILLED,
 	SDP_CTRL_CLIENT_STATE_NEED_RECONNECT,
 	SDP_CTRL_CLIENT_STATE_TIME_TO_QUIT,
 } sdp_ctrl_client_state_t;
@@ -104,6 +104,7 @@ typedef enum {
 struct sdp_ctrl_client{
 	char *config_file;
 	int   initialized;
+	int   controller_ready;
 	sdp_com_t com;
 	int   remain_connected;
 	int   foreground;
@@ -117,11 +118,11 @@ struct sdp_ctrl_client{
 	time_t initial_conn_time;
 	time_t last_contact;
 	time_t last_cred_update;
-	time_t last_access_update;
+	time_t last_access_refresh;
 	time_t last_req_time;
 	time_t last_failed_req_time;
 	int cred_update_interval;
-	int access_update_interval;
+	int access_refresh_interval;
 	int max_req_attempts;
 	int req_attempts;
 	int initial_req_retry_interval;
@@ -150,9 +151,11 @@ int  sdp_ctrl_client_check_inbox(sdp_ctrl_client_t client, void **r_data);
 int  sdp_ctrl_client_request_keep_alive(sdp_ctrl_client_t client);
 void sdp_ctrl_client_process_keep_alive(sdp_ctrl_client_t client);
 int  sdp_ctrl_client_request_cred_update(sdp_ctrl_client_t client);
+int  sdp_ctrl_client_request_access_refresh(sdp_ctrl_client_t client);
 int  sdp_ctrl_client_process_cred_update(sdp_ctrl_client_t client, void *credentials);
 int  sdp_ctrl_client_consider_keep_alive(sdp_ctrl_client_t client);
 int  sdp_ctrl_client_consider_cred_update(sdp_ctrl_client_t client);
+int  sdp_ctrl_client_consider_access_refresh(sdp_ctrl_client_t client);
 int  sdp_ctrl_client_send_access_ack(sdp_ctrl_client_t client);
 int  sdp_ctrl_client_send_access_error(sdp_ctrl_client_t client);
 

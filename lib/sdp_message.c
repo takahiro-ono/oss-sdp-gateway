@@ -14,23 +14,26 @@
 #include "sdp_log_msg.h"
 
 // JSON message strings
-const char *sdp_key_action              = "action";
-const char *sdp_key_stage               = "stage";
-const char *sdp_key_data                = "data";
+const char *sdp_key_action                    = "action";
+const char *sdp_key_stage                     = "stage";
+const char *sdp_key_data                      = "data";
 
-const char *sdp_action_keep_alive       = "keep_alive";
-const char *sdp_action_cred_update      = "credential_update";
-const char *sdp_action_cred_ack         = "credential_update_ack";
-const char *sdp_action_access_refresh   = "access_refresh";
-const char *sdp_action_access_update    = "access_update";
-const char *sdp_action_access_ack       = "access_ack";
-const char *sdp_action_bad_message      = "bad_message";
+const char *sdp_action_credentials_good       = "credentials_good";
+const char *sdp_action_keep_alive             = "keep_alive";
+const char *sdp_action_cred_update            = "credential_update";
+const char *sdp_action_cred_update_request    = "credential_update_request";
+const char *sdp_action_cred_ack               = "credential_update_ack";
+const char *sdp_action_access_refresh         = "access_refresh";
+const char *sdp_action_access_refresh_request = "access_refresh_request";
+const char *sdp_action_access_update          = "access_update";
+const char *sdp_action_access_ack             = "access_ack";
+const char *sdp_action_bad_message            = "bad_message";
 
-const char *sdp_stage_error             = "error";
-const char *sdp_stage_fulfilling        = "fulfilling";
-const char *sdp_stage_requesting        = "requesting";
-const char *sdp_stage_fulfilled         = "fulfilled";
-const char *sdp_stage_unfulfilled       = "unfulfilled";
+const char *sdp_stage_error                   = "error";
+const char *sdp_stage_fulfilling              = "fulfilling";
+const char *sdp_stage_requesting              = "requesting";
+const char *sdp_stage_fulfilled               = "fulfilled";
+const char *sdp_stage_unfulfilled             = "unfulfilled";
 
 
 
@@ -128,7 +131,10 @@ static int sdp_get_message_action(json_object *jmsg, ctrl_action_t *r_action)
 	if((rv = sdp_get_required_json_string_field(sdp_key_action, jmsg, &action_str)) != SDP_SUCCESS)
 		return rv;
 
-	if(strncmp(action_str, sdp_action_keep_alive, strlen(sdp_action_keep_alive)) == 0)
+	if(strncmp(action_str, sdp_action_credentials_good, strlen(sdp_action_credentials_good)) == 0)
+		action = CTRL_ACTION_CREDENTIALS_GOOD;
+
+	else if(strncmp(action_str, sdp_action_keep_alive, strlen(sdp_action_keep_alive)) == 0)
 		action = CTRL_ACTION_KEEP_ALIVE;
 
 	else if(strncmp(action_str, sdp_action_cred_update, strlen(sdp_action_cred_update)) == 0)
@@ -194,6 +200,13 @@ int sdp_message_process(const char *msg, ctrl_response_result_t *r_result, void 
 	// find and interpret the message action
 	if(sdp_get_message_action(jmsg, &action) != SDP_SUCCESS)
 		goto cleanup;
+
+	// if it's 'credentials good', nothing else to parse
+	if(action == CTRL_ACTION_CREDENTIALS_GOOD)
+	{
+		result = CREDENTIALS_GOOD;
+		goto cleanup;
+	}
 
 	// if it's keep alive, nothing else to parse
 	if(action == CTRL_ACTION_KEEP_ALIVE)

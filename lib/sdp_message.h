@@ -12,6 +12,7 @@
 
 typedef enum {
 	CTRL_ACTION_NONE,
+	CTRL_ACTION_CREDENTIALS_GOOD,
 	CTRL_ACTION_KEEP_ALIVE,
 	CTRL_ACTION_CREDENTIAL_UPDATE,
 	CTRL_ACTION_ACCESS_REFRESH,
@@ -27,6 +28,7 @@ typedef enum {
 
 typedef enum {
 	BAD_RESULT,
+	CREDENTIALS_GOOD,
 	KEEP_ALIVE,
 	CREDS_UPDATE,
 	ACCESS_REFRESH,
@@ -57,10 +59,13 @@ extern const char *sdp_key_action;
 extern const char *sdp_key_stage;
 extern const char *sdp_key_data;
 
+extern const char *sdp_action_credentials_good;
 extern const char *sdp_action_keep_alive;
 extern const char *sdp_action_cred_update;
+extern const char *sdp_action_cred_update_request;
 extern const char *sdp_action_cred_ack;
 extern const char *sdp_action_access_refresh;
+extern const char *sdp_action_access_refresh_request;
 extern const char *sdp_action_access_update;
 extern const char *sdp_action_access_ack;
 extern const char *sdp_action_bad_message;
