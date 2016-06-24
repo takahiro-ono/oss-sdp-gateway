@@ -608,6 +608,7 @@ int sdp_ctrl_client_check_inbox(sdp_ctrl_client_t client, void **r_data)
 
 			case ACCESS_REFRESH:
 				log_msg(LOG_INFO, "Access data refresh received");
+				client->last_access_refresh = time(NULL);
 				*r_data = data;
 				goto cleanup;
 
@@ -832,6 +833,13 @@ int  sdp_ctrl_client_send_access_ack(sdp_ctrl_client_t client)
 {
 	int rv = SDP_SUCCESS;
 	char *msg = NULL;
+
+	if(client->client_state == SDP_CTRL_CLIENT_STATE_ACCESS_REFRESH_REQUESTING ||
+	   client->client_state == SDP_CTRL_CLIENT_STATE_ACCESS_REFRESH_UNFULFILLED ||
+	   client->client_state == SDP_CTRL_CLIENT_STATE_ACCESS_UPDATE_REQUESTING ||
+	   client->client_state == SDP_CTRL_CLIENT_STATE_ACCESS_UPDATE_UNFULFILLED)
+		sdp_ctrl_client_clear_state_vars(client);
+
 
 	// Make the ACK response message
 	if((rv = sdp_message_make(sdp_action_access_ack, NULL, &msg)) != SDP_SUCCESS)

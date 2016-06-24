@@ -171,18 +171,6 @@ main(int argc, char **argv)
         	// connect to controller and get access list
         	get_access_data_from_controller(&opts);
 
-        	// arriving here means the server received access data
-        	// from the controller, they are still connected so go
-        	// ahead and start the thread to continue listening
-        	if(pthread_create( &(opts.ctrl_client_thread), NULL, control_client_thread_func, (void*)&opts))
-        	{
-        		log_msg(LOG_ERR, "Failed to start SDP Control Client Thread. Aborting.");
-        		clean_exit(&opts, FW_CLEANUP, EXIT_FAILURE);
-        	}
-        	else
-        	{
-        		log_msg(LOG_INFO, "Successfully started SDP Control Client Thread.");
-        	}
         }
 
         /* Show config (including access.conf vars) and exit dump config was
@@ -200,7 +188,20 @@ main(int argc, char **argv)
         */
         setup_pid(&opts);
 
-        if(opts.verbose > 1 && opts.foreground)
+    	// arriving here means the server received access data
+    	// from the controller, they are still connected so go
+    	// ahead and start the thread to continue listening
+    	if(pthread_create( &(opts.ctrl_client_thread), NULL, control_client_thread_func, (void*)&opts))
+    	{
+    		log_msg(LOG_ERR, "Failed to start SDP Control Client Thread. Aborting.");
+    		clean_exit(&opts, FW_CLEANUP, EXIT_FAILURE);
+    	}
+    	else
+    	{
+    		log_msg(LOG_INFO, "Successfully started SDP Control Client Thread.");
+    	}
+
+    	if(opts.verbose > 1 && opts.foreground)
         {
             dump_config(&opts);
             dump_access_list(&opts);
