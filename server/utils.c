@@ -387,7 +387,7 @@ clean_exit(fko_srv_options_t *opts, unsigned int fw_cleanup_flag, unsigned int e
     		log_msg(LOG_DEBUG, "pthread_cancel returned success");
 
 		if(pthread_join(opts->ctrl_client_thread, NULL))
-			log_msg(LOG_WARNING, "Call to pthread_join (wait for SDP Control Client thread) returned error.");
+			log_msg(LOG_DEBUG, "Call to pthread_join (wait for SDP Control Client thread) returned error.");
 		else
 			log_msg(LOG_DEBUG, "pthread_join returned success");
 

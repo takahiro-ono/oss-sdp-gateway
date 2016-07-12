@@ -30,23 +30,23 @@
 
 #ifdef WIN32
   #include <io.h>
-  #define strcasecmp	_stricmp
-  #define strncasecmp	_strnicmp
-  #define snprintf		_snprintf
-  #define unlink		_unlink
-  #define open			_open
+  #define strcasecmp    _stricmp
+  #define strncasecmp    _strnicmp
+  #define snprintf        _snprintf
+  #define unlink        _unlink
+  #define open            _open
   #define fdopen        _fdopen
-  #define close			_close
-  #define write			_write
-  #define popen			_popen
-  #define pclose		_pclose
-  #define O_WRONLY		_O_WRONLY
-  #define O_RDONLY		_O_RDONLY
-  #define O_RDWR		_O_RDWR
-  #define O_CREAT		_O_CREAT
-  #define O_EXCL		_O_EXCL
-  #define S_IRUSR		_S_IREAD
-  #define S_IWUSR		_S_IWRITE
+  #define close            _close
+  #define write            _write
+  #define popen            _popen
+  #define pclose        _pclose
+  #define O_WRONLY        _O_WRONLY
+  #define O_RDONLY        _O_RDONLY
+  #define O_RDWR        _O_RDWR
+  #define O_CREAT        _O_CREAT
+  #define O_EXCL        _O_EXCL
+  #define S_IRUSR        _S_IREAD
+  #define S_IWUSR        _S_IWRITE
   #define PATH_SEP      '\\'
   // --DSS needed for VS versions before 2010
   typedef __int8 int8_t;
@@ -126,24 +126,24 @@ static int  sdp_ctrl_client_restart_myself(sdp_ctrl_client_t client);
  */
 int sdp_ctrl_client_new(const char *config_file, const char *fwknoprc_file, sdp_ctrl_client_t *r_client)
 {
-	sdp_ctrl_client_t client = NULL;
-	int rv = SDP_SUCCESS;
+    sdp_ctrl_client_t client = NULL;
+    int rv = SDP_SUCCESS;
 
-	//
-	// allocate memory
-	if((client = calloc(1, sizeof *client)) == NULL)
-		return (SDP_ERROR_MEMORY_ALLOCATION);
+    //
+    // allocate memory
+    if((client = calloc(1, sizeof *client)) == NULL)
+        return (SDP_ERROR_MEMORY_ALLOCATION);
 
-	// create the com object
-	if((rv = sdp_com_new(&(client->com))) != SDP_SUCCESS)
-		return sdp_ctrl_client_clean_exit(client, rv);
+    // create the com object
+    if((rv = sdp_com_new(&(client->com))) != SDP_SUCCESS)
+        return sdp_ctrl_client_clean_exit(client, rv);
 
 
-	if((rv = sdp_ctrl_client_config_init(client, config_file, fwknoprc_file)) != SDP_SUCCESS)
-		return sdp_ctrl_client_clean_exit(client, rv);
+    if((rv = sdp_ctrl_client_config_init(client, config_file, fwknoprc_file)) != SDP_SUCCESS)
+        return sdp_ctrl_client_clean_exit(client, rv);
 
-	*r_client = client;
-	return rv;
+    *r_client = client;
+    return rv;
 }
 
 
@@ -156,12 +156,12 @@ int sdp_ctrl_client_new(const char *config_file, const char *fwknoprc_file, sdp_
  */
 void sdp_ctrl_client_destroy(sdp_ctrl_client_t client)
 {
-	if(client == NULL)
-		return;
+    if(client == NULL)
+        return;
 
-	sdp_ctrl_client_destroy_internals(client);
+    sdp_ctrl_client_destroy_internals(client);
 
-	free(client);
+    free(client);
 }
 
 
@@ -187,33 +187,33 @@ void sdp_ctrl_client_destroy(sdp_ctrl_client_t client)
  */
 int sdp_ctrl_client_start(sdp_ctrl_client_t client, pid_t *r_child_pid)
 {
-	int rv = SDP_SUCCESS;
-	pid_t child_pid = -1;
-	*r_child_pid = -1;
+    int rv = SDP_SUCCESS;
+    pid_t child_pid = -1;
+    *r_child_pid = -1;
 
-	if(client == NULL || !client->initialized)
-		return SDP_ERROR_UNINITIALIZED;
+    if(client == NULL || !client->initialized)
+        return SDP_ERROR_UNINITIALIZED;
 
-	if(!client->foreground)
-	{
-		if((rv = sdp_ctrl_client_setup_pid(client, &child_pid)) != SDP_SUCCESS)
-		{
-			return rv;
-		}
+    if(!client->foreground)
+    {
+        if((rv = sdp_ctrl_client_setup_pid(client, &child_pid)) != SDP_SUCCESS)
+        {
+            return rv;
+        }
 
-		*r_child_pid = child_pid;
+        *r_child_pid = child_pid;
 
-		if(child_pid > 0)
-		{
-			// I'm the parent, just return
-			return SDP_SUCCESS;
-		}
-	}
+        if(child_pid > 0)
+        {
+            // I'm the parent, just return
+            return SDP_SUCCESS;
+        }
+    }
 
-	// I'm the client process, time to run free
-	rv = sdp_ctrl_client_loop(client);
+    // I'm the client process, time to run free
+    rv = sdp_ctrl_client_loop(client);
 
-	return rv;
+    return rv;
 }
 
 
@@ -229,68 +229,68 @@ int sdp_ctrl_client_start(sdp_ctrl_client_t client, pid_t *r_child_pid)
  *
  * @param client - sdp_ctrl_client_t object.
  * @param max_time - return after max_time even if no access data was received. Zero
- * 					 indicates to listen indefinitely.
+ *                      indicates to listen indefinitely.
  * @param r_data - json data object containing access data
  *
  * @return SDP_SUCCESS or an error code.
  */
 int sdp_ctrl_client_listen(sdp_ctrl_client_t client, int max_time, void **r_data)
 {
-	int rv = SDP_SUCCESS;
-	void *data = NULL;
-	time_t stop_time = time(NULL) + max_time;
+    int rv = SDP_SUCCESS;
+    void *data = NULL;
+    time_t stop_time = time(NULL) + max_time;
 
-	if(client == NULL || !client->initialized)
-		return SDP_ERROR_UNINITIALIZED;
+    if(client == NULL || !client->initialized)
+        return SDP_ERROR_UNINITIALIZED;
 
-	while(1)
-	{
-		// connect if necessary
-		if(client->com->conn_state == SDP_COM_DISCONNECTED)
-		{
-			if((rv = sdp_com_connect(client->com)) != SDP_SUCCESS)
-			{
-				break;
-			}
-			client->initial_conn_time = client->last_contact = time(NULL);
-		}
+    while(1)
+    {
+        // connect if necessary
+        if(client->com->conn_state == SDP_COM_DISCONNECTED)
+        {
+            if((rv = sdp_com_connect(client->com)) != SDP_SUCCESS)
+            {
+                break;
+            }
+            client->initial_conn_time = client->last_contact = time(NULL);
+        }
 
-		// check for incoming messages
-		if((rv = sdp_ctrl_client_check_inbox(client, &data)) != SDP_SUCCESS)
-			break;
+        // check for incoming messages
+        if((rv = sdp_ctrl_client_check_inbox(client, &data)) != SDP_SUCCESS)
+            break;
 
-		// if data was returned, it must be passed up to the caller
-		if(data != NULL)
-		{
-			log_msg(LOG_DEBUG, "sdp_ctrl_client_check_inbox returned data, passing up to caller");
-			*r_data = data;
-			break;
-		}
+        // if data was returned, it must be passed up to the caller
+        if(data != NULL)
+        {
+            log_msg(LOG_DEBUG, "sdp_ctrl_client_check_inbox returned data, passing up to caller");
+            *r_data = data;
+            break;
+        }
 
-		// do not begin sending requests until controller is ready
-		if( !(client->controller_ready) )
-			continue;
+        // do not begin sending requests until controller is ready
+        if( !(client->controller_ready) )
+            continue;
 
-		// if new connection or just time, update credentials
-		if((rv = sdp_ctrl_client_consider_cred_update(client)) != SDP_SUCCESS)
-			break;
+        // if new connection or just time, update credentials
+        if((rv = sdp_ctrl_client_consider_cred_update(client)) != SDP_SUCCESS)
+            break;
 
-		// if built for remote gateway, handle access updates
-		if((rv = sdp_ctrl_client_consider_access_refresh(client)) != SDP_SUCCESS)
-			break;
+        // if built for remote gateway, handle access updates
+        if((rv = sdp_ctrl_client_consider_access_refresh(client)) != SDP_SUCCESS)
+            break;
 
-		// is a keep alive due
-		if((rv = sdp_ctrl_client_consider_keep_alive(client)) != SDP_SUCCESS)
-			break;
+        // is a keep alive due
+        if((rv = sdp_ctrl_client_consider_keep_alive(client)) != SDP_SUCCESS)
+            break;
 
-		// watch the time
-		if( max_time && (time(NULL) > stop_time) )
-			break;
+        // watch the time
+        if( max_time && (time(NULL) > stop_time) )
+            break;
 
-		sleep(1);
-	}
+        sleep(1);
+    }
 
-	return rv;
+    return rv;
 }
 
 
@@ -308,8 +308,8 @@ int sdp_ctrl_client_stop(sdp_ctrl_client_t client)
     int      res = 0, is_err = 0;
     pid_t    old_pid = 0;
 
-	if(client == NULL || !client->initialized)
-		return SDP_ERROR_UNINITIALIZED;
+    if(client == NULL || !client->initialized)
+        return SDP_ERROR_UNINITIALIZED;
 
     res = sdp_ctrl_client_get_running_pid(client, &old_pid);
 
@@ -387,8 +387,8 @@ int sdp_ctrl_client_restart(sdp_ctrl_client_t client)
     int      res = 0;
     pid_t    old_pid = 0;
 
-	if(client == NULL || !client->initialized)
-		return SDP_ERROR_UNINITIALIZED;
+    if(client == NULL || !client->initialized)
+        return SDP_ERROR_UNINITIALIZED;
 
     res = sdp_ctrl_client_get_running_pid(client, &old_pid);
 
@@ -422,10 +422,10 @@ int sdp_ctrl_client_restart(sdp_ctrl_client_t client)
  */
 int sdp_ctrl_client_connect(sdp_ctrl_client_t client)
 {
-	if(client == NULL || !client->initialized)
-		return SDP_ERROR_UNINITIALIZED;
+    if(client == NULL || !client->initialized)
+        return SDP_ERROR_UNINITIALIZED;
 
-	return sdp_com_connect(client->com);
+    return sdp_com_connect(client->com);
 }
 
 
@@ -438,10 +438,10 @@ int sdp_ctrl_client_connect(sdp_ctrl_client_t client)
  */
 int sdp_ctrl_client_disconnect(sdp_ctrl_client_t client)
 {
-	if(client == NULL || !client->initialized)
-		return SDP_ERROR_UNINITIALIZED;
+    if(client == NULL || !client->initialized)
+        return SDP_ERROR_UNINITIALIZED;
 
-	return sdp_com_disconnect(client->com);
+    return sdp_com_disconnect(client->com);
 }
 
 
@@ -457,13 +457,13 @@ int sdp_ctrl_client_status(sdp_ctrl_client_t client)
     pid_t    old_pid = 0;
     int rv = SDP_ERROR;
 
-	if(client == NULL || !client->initialized)
-		return SDP_ERROR_UNINITIALIZED;
+    if(client == NULL || !client->initialized)
+        return SDP_ERROR_UNINITIALIZED;
 
-	// call this function because it ensures that a running
-	// process actually has a lock on the file
-	if((rv = sdp_ctrl_client_write_pid_file(client, &old_pid)) != SDP_SUCCESS)
-		return rv;
+    // call this function because it ensures that a running
+    // process actually has a lock on the file
+    if((rv = sdp_ctrl_client_write_pid_file(client, &old_pid)) != SDP_SUCCESS)
+        return rv;
 
     if(old_pid > 0)
     {
@@ -484,408 +484,408 @@ int sdp_ctrl_client_status(sdp_ctrl_client_t client)
  */
 void sdp_ctrl_client_describe(sdp_ctrl_client_t client)
 {
-	int buf_len = CTRL_CLIENT_CTX_DUMP_BUFSIZE;
-	char dump_buf[buf_len];
-	int cp = 0;
+    int buf_len = CTRL_CLIENT_CTX_DUMP_BUFSIZE;
+    char dump_buf[buf_len];
+    int cp = 0;
 
-	if(client == NULL || !client->initialized)
-	{
-		log_msg(LOG_ERR, "SDP Control Client not initialized. Cannot print details.");
-		return;
-	}
+    if(client == NULL || !client->initialized)
+    {
+        log_msg(LOG_ERR, "SDP Control Client not initialized. Cannot print details.");
+        return;
+    }
 
-	memset(dump_buf, 0, buf_len);
+    memset(dump_buf, 0, buf_len);
 
     // dump context values
     cp  = sdp_append_msg_to_buf(dump_buf,    buf_len,    "Control Client Context Values:\n");
-	cp += sdp_append_msg_to_buf(dump_buf+cp, buf_len-cp, "========================================================================\n");
-	cp += sdp_append_msg_to_buf(dump_buf+cp, buf_len-cp, "                      Configuration File: %s\n", client->config_file);
-	cp += sdp_append_msg_to_buf(dump_buf+cp, buf_len-cp, "                             Initialized: %s\n", YES_OR_NO(client->initialized) );
-	cp += sdp_append_msg_to_buf(dump_buf+cp, buf_len-cp, "                         Controller port: %d\n", client->com->ctrl_port);
-	cp += sdp_append_msg_to_buf(dump_buf+cp, buf_len-cp, "                      Controller address: %s\n", client->com->ctrl_addr);
-	cp += sdp_append_msg_to_buf(dump_buf+cp, buf_len-cp, "                                 Use SPA: %s\n", YES_OR_NO(client->com->use_spa) );
-	cp += sdp_append_msg_to_buf(dump_buf+cp, buf_len-cp, "           Remain connected after update: %s\n", YES_OR_NO(client->remain_connected) );
-	cp += sdp_append_msg_to_buf(dump_buf+cp, buf_len-cp, "                       Run in foreground: %s\n", YES_OR_NO(client->foreground) );
-	cp += sdp_append_msg_to_buf(dump_buf+cp, buf_len-cp, "                               Connected: %s\n", YES_OR_NO((int)client->com->conn_state) );
-	cp += sdp_append_msg_to_buf(dump_buf+cp, buf_len-cp, "                  Last credential update: %s",   ctime( &(client->last_cred_update) ) );
-	cp += sdp_append_msg_to_buf(dump_buf+cp, buf_len-cp, "                 Last full access update: %s",   ctime( &(client->last_access_refresh) ) );
-	cp += sdp_append_msg_to_buf(dump_buf+cp, buf_len-cp, "              Credential update interval: %d seconds\n", client->cred_update_interval);
-	cp += sdp_append_msg_to_buf(dump_buf+cp, buf_len-cp, "                  Access update interval: %d seconds\n", client->access_refresh_interval);
-	cp += sdp_append_msg_to_buf(dump_buf+cp, buf_len-cp, "                     Keep alive interval: %d seconds\n", client->keep_alive_interval);
-	cp += sdp_append_msg_to_buf(dump_buf+cp, buf_len-cp, "                 Max connection attempts: %d\n", client->com->max_conn_attempts);
-	cp += sdp_append_msg_to_buf(dump_buf+cp, buf_len-cp, "   Connection attempts during last cycle: %d\n", client->com->conn_attempts);
-	cp += sdp_append_msg_to_buf(dump_buf+cp, buf_len-cp, "       Initial connection retry interval: %d seconds\n", client->com->initial_conn_attempt_interval);
-	cp += sdp_append_msg_to_buf(dump_buf+cp, buf_len-cp, "                                PID file: %s\n", client->pid_file);
-	cp += sdp_append_msg_to_buf(dump_buf+cp, buf_len-cp, "                           fwknoprc file: %s\n", client->com->fwknoprc_file);
-	cp += sdp_append_msg_to_buf(dump_buf+cp, buf_len-cp, "                            TLS key file: %s\n", client->com->key_file);
-	cp += sdp_append_msg_to_buf(dump_buf+cp, buf_len-cp, "                           TLS cert file: %s\n", client->com->cert_file);
-	cp += sdp_append_msg_to_buf(dump_buf+cp, buf_len-cp, "                PID lock file descriptor: %d\n", client->pid_lock_fd);
+    cp += sdp_append_msg_to_buf(dump_buf+cp, buf_len-cp, "========================================================================\n");
+    cp += sdp_append_msg_to_buf(dump_buf+cp, buf_len-cp, "                      Configuration File: %s\n", client->config_file);
+    cp += sdp_append_msg_to_buf(dump_buf+cp, buf_len-cp, "                             Initialized: %s\n", YES_OR_NO(client->initialized) );
+    cp += sdp_append_msg_to_buf(dump_buf+cp, buf_len-cp, "                         Controller port: %d\n", client->com->ctrl_port);
+    cp += sdp_append_msg_to_buf(dump_buf+cp, buf_len-cp, "                      Controller address: %s\n", client->com->ctrl_addr);
+    cp += sdp_append_msg_to_buf(dump_buf+cp, buf_len-cp, "                                 Use SPA: %s\n", YES_OR_NO(client->com->use_spa) );
+    cp += sdp_append_msg_to_buf(dump_buf+cp, buf_len-cp, "           Remain connected after update: %s\n", YES_OR_NO(client->remain_connected) );
+    cp += sdp_append_msg_to_buf(dump_buf+cp, buf_len-cp, "                       Run in foreground: %s\n", YES_OR_NO(client->foreground) );
+    cp += sdp_append_msg_to_buf(dump_buf+cp, buf_len-cp, "                               Connected: %s\n", YES_OR_NO((int)client->com->conn_state) );
+    cp += sdp_append_msg_to_buf(dump_buf+cp, buf_len-cp, "                  Last credential update: %s",   ctime( &(client->last_cred_update) ) );
+    cp += sdp_append_msg_to_buf(dump_buf+cp, buf_len-cp, "                 Last full access update: %s",   ctime( &(client->last_access_refresh) ) );
+    cp += sdp_append_msg_to_buf(dump_buf+cp, buf_len-cp, "              Credential update interval: %d seconds\n", client->cred_update_interval);
+    cp += sdp_append_msg_to_buf(dump_buf+cp, buf_len-cp, "                  Access update interval: %d seconds\n", client->access_refresh_interval);
+    cp += sdp_append_msg_to_buf(dump_buf+cp, buf_len-cp, "                     Keep alive interval: %d seconds\n", client->keep_alive_interval);
+    cp += sdp_append_msg_to_buf(dump_buf+cp, buf_len-cp, "                 Max connection attempts: %d\n", client->com->max_conn_attempts);
+    cp += sdp_append_msg_to_buf(dump_buf+cp, buf_len-cp, "   Connection attempts during last cycle: %d\n", client->com->conn_attempts);
+    cp += sdp_append_msg_to_buf(dump_buf+cp, buf_len-cp, "       Initial connection retry interval: %d seconds\n", client->com->initial_conn_attempt_interval);
+    cp += sdp_append_msg_to_buf(dump_buf+cp, buf_len-cp, "                                PID file: %s\n", client->pid_file);
+    cp += sdp_append_msg_to_buf(dump_buf+cp, buf_len-cp, "                           fwknoprc file: %s\n", client->com->fwknoprc_file);
+    cp += sdp_append_msg_to_buf(dump_buf+cp, buf_len-cp, "                            TLS key file: %s\n", client->com->key_file);
+    cp += sdp_append_msg_to_buf(dump_buf+cp, buf_len-cp, "                           TLS cert file: %s\n", client->com->cert_file);
+    cp += sdp_append_msg_to_buf(dump_buf+cp, buf_len-cp, "                PID lock file descriptor: %d\n", client->pid_lock_fd);
 
-	log_msg(LOG_DEBUG, "\n%s\n", dump_buf);
+    log_msg(LOG_DEBUG, "\n%s\n", dump_buf);
 }
 
 int sdp_ctrl_client_get_port(sdp_ctrl_client_t client, int *r_port)
 {
-	if(client == NULL || !client->initialized)
-		return SDP_ERROR_UNINITIALIZED;
+    if(client == NULL || !client->initialized)
+        return SDP_ERROR_UNINITIALIZED;
 
-	*r_port = client->com->ctrl_port;
-	return SDP_SUCCESS;
+    *r_port = client->com->ctrl_port;
+    return SDP_SUCCESS;
 }
 
 int sdp_ctrl_client_get_addr(sdp_ctrl_client_t client, char **r_addr)
 {
-	char *addr = NULL;
+    char *addr = NULL;
 
-	if(client == NULL || !client->initialized)
-		return SDP_ERROR_UNINITIALIZED;
+    if(client == NULL || !client->initialized)
+        return SDP_ERROR_UNINITIALIZED;
 
-	addr = strndup(client->com->ctrl_addr, SDP_MAX_SERVER_STR_LEN);
-	if(addr == NULL)
-		return(SDP_ERROR_MEMORY_ALLOCATION);
+    addr = strndup(client->com->ctrl_addr, SDP_MAX_SERVER_STR_LEN);
+    if(addr == NULL)
+        return(SDP_ERROR_MEMORY_ALLOCATION);
 
-	*r_addr = addr;
-	return SDP_SUCCESS;
+    *r_addr = addr;
+    return SDP_SUCCESS;
 }
 
 
 int sdp_ctrl_client_check_inbox(sdp_ctrl_client_t client, void **r_data)
 {
-	int rv = SDP_SUCCESS;
-	int bytes, msg_cnt = 0;
-	char *msg = NULL;
-	void *data = NULL;
-	ctrl_response_result_t result = BAD_RESULT;
+    int rv = SDP_SUCCESS;
+    int bytes, msg_cnt = 0;
+    char *msg = NULL;
+    void *data = NULL;
+    ctrl_response_result_t result = BAD_RESULT;
 
-	while(msg_cnt < client->message_queue_len)
-	{
-		free(msg);
-		msg = NULL;
+    while(msg_cnt < client->message_queue_len)
+    {
+        free(msg);
+        msg = NULL;
 
-		if((rv = sdp_com_get_msg(client->com, &msg, &bytes)) != SDP_SUCCESS)
-	    {
-	    	log_msg(LOG_ERR, "Error when trying to retrieve message from com.");
-	    	goto cleanup;
-	    }
+        if((rv = sdp_com_get_msg(client->com, &msg, &bytes)) != SDP_SUCCESS)
+        {
+            log_msg(LOG_ERR, "Error when trying to retrieve message from com.");
+            goto cleanup;
+        }
 
-		if(!bytes)
-		{
-			log_msg(LOG_DEBUG, "No more incoming data to retrieve from com");
-			break;
-		}
+        if(!bytes)
+        {
+            log_msg(LOG_DEBUG, "No more incoming data to retrieve from com");
+            break;
+        }
 
-		msg_cnt++;
+        msg_cnt++;
 
-		if((rv = sdp_message_process(msg, &result, &data)) != SDP_SUCCESS)
-		{
-			log_msg(LOG_ERR, "Message processing failed");
-			goto cleanup;
-		}
+        if((rv = sdp_message_process(msg, &result, &data)) != SDP_SUCCESS)
+        {
+            log_msg(LOG_ERR, "Message processing failed");
+            goto cleanup;
+        }
 
-		switch(result)
-		{
-			case CREDENTIALS_GOOD:
-				log_msg(LOG_INFO, "Credentials-good message received");
-				client->controller_ready = 1;
-				break;
+        switch(result)
+        {
+            case CREDENTIALS_GOOD:
+                log_msg(LOG_INFO, "Credentials-good message received");
+                client->controller_ready = 1;
+                break;
 
-			case KEEP_ALIVE:
-				log_msg(LOG_INFO, "Keep-alive response received");
-				sdp_ctrl_client_process_keep_alive(client);
-				break;
+            case KEEP_ALIVE:
+                log_msg(LOG_INFO, "Keep-alive response received");
+                sdp_ctrl_client_process_keep_alive(client);
+                break;
 
-			case CREDS_UPDATE:
-				log_msg(LOG_INFO, "Credential update received");
-				client->controller_ready = 1;
+            case CREDS_UPDATE:
+                log_msg(LOG_INFO, "Credential update received");
+                client->controller_ready = 1;
 
-				// Process new credentials
-				if((rv = sdp_ctrl_client_process_cred_update(client, data)) != SDP_SUCCESS)
-				{
-					log_msg(LOG_ERR, "Failed to process credential update.");
-					goto cleanup;
-				}
-				break;
+                // Process new credentials
+                if((rv = sdp_ctrl_client_process_cred_update(client, data)) != SDP_SUCCESS)
+                {
+                    log_msg(LOG_ERR, "Failed to process credential update.");
+                    goto cleanup;
+                }
+                break;
 
-			case ACCESS_REFRESH:
-				log_msg(LOG_INFO, "Access data refresh received");
-				client->last_access_refresh = time(NULL);
-				*r_data = data;
-				goto cleanup;
+            case ACCESS_REFRESH:
+                log_msg(LOG_INFO, "Access data refresh received");
+                client->last_access_refresh = time(NULL);
+                *r_data = data;
+                goto cleanup;
 
-			case ACCESS_UPDATE:
-				log_msg(LOG_INFO, "Access data update received");
-				*r_data = data;
-				goto cleanup;
+            case ACCESS_UPDATE:
+                log_msg(LOG_INFO, "Access data update received");
+                *r_data = data;
+                goto cleanup;
 
-			default:
-				log_msg(LOG_ERR, "Unknown message processing result");
+            default:
+                log_msg(LOG_ERR, "Unknown message processing result");
 
-		}  // END switch(result)
+        }  // END switch(result)
 
-	}  // END while(msg_cnt < q_len)
+    }  // END while(msg_cnt < q_len)
 
 cleanup:
-	free(msg);
-	return rv;
+    free(msg);
+    return rv;
 }
 
 
 int sdp_ctrl_client_request_keep_alive(sdp_ctrl_client_t client)
 {
-	//int bytes = 0;
-	int rv = SDP_ERROR_KEEP_ALIVE;
-	//ctrl_response_result_t result = BAD_RESULT;
-	char *msg = NULL;
+    //int bytes = 0;
+    int rv = SDP_ERROR_KEEP_ALIVE;
+    //ctrl_response_result_t result = BAD_RESULT;
+    char *msg = NULL;
 
-	if(client == NULL || !client->initialized)
-		return SDP_ERROR_UNINITIALIZED;
+    if(client == NULL || !client->initialized)
+        return SDP_ERROR_UNINITIALIZED;
 
-	if(client->com->conn_state == SDP_COM_DISCONNECTED)
-		return SDP_ERROR_CONN_DOWN;
+    if(client->com->conn_state == SDP_COM_DISCONNECTED)
+        return SDP_ERROR_CONN_DOWN;
 
-	if(client->client_state != SDP_CTRL_CLIENT_STATE_READY &&
-	   client->client_state != SDP_CTRL_CLIENT_STATE_KEEP_ALIVE_UNFULFILLED &&
-	   client->client_state != SDP_CTRL_CLIENT_STATE_KEEP_ALIVE_REQUESTING)
-	{
-		log_msg(LOG_DEBUG, "Control Client not in proper state to request keep alive.");
-		return SDP_ERROR_STATE;
-	}
+    if(client->client_state != SDP_CTRL_CLIENT_STATE_READY &&
+       client->client_state != SDP_CTRL_CLIENT_STATE_KEEP_ALIVE_UNFULFILLED &&
+       client->client_state != SDP_CTRL_CLIENT_STATE_KEEP_ALIVE_REQUESTING)
+    {
+        log_msg(LOG_DEBUG, "Control Client not in proper state to request keep alive.");
+        return SDP_ERROR_STATE;
+    }
 
-	// Make the proper message
-	if((rv = sdp_message_make(sdp_action_keep_alive, NULL, &msg)) != SDP_SUCCESS)
-	{
-		log_msg(LOG_ERR, "Failed to make keep alive message.");
-		goto cleanup;
-	}
+    // Make the proper message
+    if((rv = sdp_message_make(sdp_action_keep_alive, NULL, &msg)) != SDP_SUCCESS)
+    {
+        log_msg(LOG_ERR, "Failed to make keep alive message.");
+        goto cleanup;
+    }
 
-	// Send it off
-	if((rv = sdp_com_send_msg(client->com, msg)) != SDP_SUCCESS)
-	{
-		log_msg(LOG_ERR, "Failed to send keep alive message.");
-		goto cleanup;
-	}
+    // Send it off
+    if((rv = sdp_com_send_msg(client->com, msg)) != SDP_SUCCESS)
+    {
+        log_msg(LOG_ERR, "Failed to send keep alive message.");
+        goto cleanup;
+    }
 
-	// Set state accordingly
-	sdp_ctrl_client_set_request_vars(client, SDP_CTRL_CLIENT_STATE_KEEP_ALIVE_REQUESTING);
+    // Set state accordingly
+    sdp_ctrl_client_set_request_vars(client, SDP_CTRL_CLIENT_STATE_KEEP_ALIVE_REQUESTING);
 
 
 cleanup:
-	free(msg);
-	return rv;
+    free(msg);
+    return rv;
 }
 
 void sdp_ctrl_client_process_keep_alive(sdp_ctrl_client_t client)
 {
-	client->last_contact = time(NULL);
+    client->last_contact = time(NULL);
 
-	if(client->client_state == SDP_CTRL_CLIENT_STATE_KEEP_ALIVE_REQUESTING ||
-	   client->client_state == SDP_CTRL_CLIENT_STATE_KEEP_ALIVE_UNFULFILLED)
-		sdp_ctrl_client_clear_state_vars(client);
+    if(client->client_state == SDP_CTRL_CLIENT_STATE_KEEP_ALIVE_REQUESTING ||
+       client->client_state == SDP_CTRL_CLIENT_STATE_KEEP_ALIVE_UNFULFILLED)
+        sdp_ctrl_client_clear_state_vars(client);
 
 }
 
 
 int sdp_ctrl_client_request_cred_update(sdp_ctrl_client_t client)
 {
-	int rv = SDP_ERROR_CRED_REQ;
-	char *msg = NULL;
+    int rv = SDP_ERROR_CRED_REQ;
+    char *msg = NULL;
 
-	// Is the client context properly initialized
-	if(client == NULL || !client->initialized)
-		return SDP_ERROR_UNINITIALIZED;
+    // Is the client context properly initialized
+    if(client == NULL || !client->initialized)
+        return SDP_ERROR_UNINITIALIZED;
 
-	// Is the client currently connected
-	if(client->com->conn_state == SDP_COM_DISCONNECTED)
-		return SDP_ERROR_CONN_DOWN;
+    // Is the client currently connected
+    if(client->com->conn_state == SDP_COM_DISCONNECTED)
+        return SDP_ERROR_CONN_DOWN;
 
-	// Is the client in the right state
-	if(client->client_state != SDP_CTRL_CLIENT_STATE_READY &&
-	   client->client_state != SDP_CTRL_CLIENT_STATE_CRED_UNFULFILLED &&
-	   client->client_state != SDP_CTRL_CLIENT_STATE_CRED_REQUESTING)
-	{
-		log_msg(LOG_DEBUG, "Control Client not in proper state to request credential update.");
-		return SDP_ERROR_STATE;
-	}
+    // Is the client in the right state
+    if(client->client_state != SDP_CTRL_CLIENT_STATE_READY &&
+       client->client_state != SDP_CTRL_CLIENT_STATE_CRED_UNFULFILLED &&
+       client->client_state != SDP_CTRL_CLIENT_STATE_CRED_REQUESTING)
+    {
+        log_msg(LOG_DEBUG, "Control Client not in proper state to request credential update.");
+        return SDP_ERROR_STATE;
+    }
 
-	// Make the proper message
-	if((rv = sdp_message_make(sdp_action_cred_update_request, NULL, &msg)) != SDP_SUCCESS)
-	{
-		log_msg(LOG_ERR, "Failed to make credential request message.");
-		goto cleanup;
-	}
+    // Make the proper message
+    if((rv = sdp_message_make(sdp_action_cred_update_request, NULL, &msg)) != SDP_SUCCESS)
+    {
+        log_msg(LOG_ERR, "Failed to make credential request message.");
+        goto cleanup;
+    }
 
-	// Send it off
-	if((rv = sdp_com_send_msg(client->com, msg)) != SDP_SUCCESS)
-	{
-		log_msg(LOG_ERR, "Failed to send credential request message.");
-		goto cleanup;
-	}
+    // Send it off
+    if((rv = sdp_com_send_msg(client->com, msg)) != SDP_SUCCESS)
+    {
+        log_msg(LOG_ERR, "Failed to send credential request message.");
+        goto cleanup;
+    }
 
-	// Set state accordingly
-	sdp_ctrl_client_set_request_vars(client, SDP_CTRL_CLIENT_STATE_CRED_REQUESTING);
+    // Set state accordingly
+    sdp_ctrl_client_set_request_vars(client, SDP_CTRL_CLIENT_STATE_CRED_REQUESTING);
 
 
 cleanup:
     log_msg(LOG_DEBUG, "Freeing memory before exiting function");
 
     free(msg);
-	return rv;
+    return rv;
 }
 
 int sdp_ctrl_client_request_access_refresh(sdp_ctrl_client_t client)
 {
-	int rv = SDP_ERROR_CRED_REQ;
-	char *msg = NULL;
+    int rv = SDP_ERROR_CRED_REQ;
+    char *msg = NULL;
 
-	// Is the client context properly initialized
-	if(client == NULL || !client->initialized)
-		return SDP_ERROR_UNINITIALIZED;
+    // Is the client context properly initialized
+    if(client == NULL || !client->initialized)
+        return SDP_ERROR_UNINITIALIZED;
 
-	// Is the client currently connected
-	if(client->com->conn_state == SDP_COM_DISCONNECTED)
-		return SDP_ERROR_CONN_DOWN;
+    // Is the client currently connected
+    if(client->com->conn_state == SDP_COM_DISCONNECTED)
+        return SDP_ERROR_CONN_DOWN;
 
-	// Is the client in the right state
-	if(client->client_state != SDP_CTRL_CLIENT_STATE_READY &&
-	   client->client_state != SDP_CTRL_CLIENT_STATE_ACCESS_REFRESH_REQUESTING &&
-	   client->client_state != SDP_CTRL_CLIENT_STATE_ACCESS_REFRESH_UNFULFILLED)
-	{
-		log_msg(LOG_DEBUG, "Control Client not in proper state to request access data refresh.");
-		return SDP_ERROR_STATE;
-	}
+    // Is the client in the right state
+    if(client->client_state != SDP_CTRL_CLIENT_STATE_READY &&
+       client->client_state != SDP_CTRL_CLIENT_STATE_ACCESS_REFRESH_REQUESTING &&
+       client->client_state != SDP_CTRL_CLIENT_STATE_ACCESS_REFRESH_UNFULFILLED)
+    {
+        log_msg(LOG_DEBUG, "Control Client not in proper state to request access data refresh.");
+        return SDP_ERROR_STATE;
+    }
 
-	// Make the proper message
-	if((rv = sdp_message_make(sdp_action_access_refresh_request, NULL, &msg)) != SDP_SUCCESS)
-	{
-		log_msg(LOG_ERR, "Failed to make access refresh request message.");
-		goto cleanup;
-	}
+    // Make the proper message
+    if((rv = sdp_message_make(sdp_action_access_refresh_request, NULL, &msg)) != SDP_SUCCESS)
+    {
+        log_msg(LOG_ERR, "Failed to make access refresh request message.");
+        goto cleanup;
+    }
 
-	// Send it off
-	if((rv = sdp_com_send_msg(client->com, msg)) != SDP_SUCCESS)
-	{
-		log_msg(LOG_ERR, "Failed to send access refresh request message.");
-		goto cleanup;
-	}
+    // Send it off
+    if((rv = sdp_com_send_msg(client->com, msg)) != SDP_SUCCESS)
+    {
+        log_msg(LOG_ERR, "Failed to send access refresh request message.");
+        goto cleanup;
+    }
 
-	// Set state accordingly
-	sdp_ctrl_client_set_request_vars(client, SDP_CTRL_CLIENT_STATE_ACCESS_REFRESH_REQUESTING);
+    // Set state accordingly
+    sdp_ctrl_client_set_request_vars(client, SDP_CTRL_CLIENT_STATE_ACCESS_REFRESH_REQUESTING);
 
 
 cleanup:
     log_msg(LOG_DEBUG, "Freeing memory before exiting function");
 
     free(msg);
-	return rv;
+    return rv;
 }
 
 
 
 int sdp_ctrl_client_process_cred_update(sdp_ctrl_client_t client, void *credentials)
 {
-	int rv = SDP_ERROR_CRED_REQ;
-	char *msg = NULL;
+    int rv = SDP_ERROR_CRED_REQ;
+    char *msg = NULL;
 
-	// critical section, disable thread cancellation
-	// apparently many, many C functions are considered cancellation points
-	// and could cause the thread to exit at a very inopportune time, so
-	// disable cancellation while in this function
-	pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
+    // critical section, disable thread cancellation
+    // apparently many, many C functions are considered cancellation points
+    // and could cause the thread to exit at a very inopportune time, so
+    // disable cancellation while in this function
+    pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
 
-	// Store new credentials
-	if((rv = sdp_ctrl_client_save_credentials(client, (sdp_creds_t)credentials)) != SDP_SUCCESS)
-	{
-		log_msg(LOG_ERR, "Failed to store new credentials. May need to restore previous credentials.");
-		goto cleanup;
-	}
+    // Store new credentials
+    if((rv = sdp_ctrl_client_save_credentials(client, (sdp_creds_t)credentials)) != SDP_SUCCESS)
+    {
+        log_msg(LOG_ERR, "Failed to store new credentials. May need to restore previous credentials.");
+        goto cleanup;
+    }
 
-	client->last_contact = time(NULL);
-	client->last_cred_update = client->last_contact;
+    client->last_contact = time(NULL);
+    client->last_cred_update = client->last_contact;
 
-	if(client->client_state == SDP_CTRL_CLIENT_STATE_CRED_REQUESTING ||
-	   client->client_state == SDP_CTRL_CLIENT_STATE_CRED_UNFULFILLED)
-		sdp_ctrl_client_clear_state_vars(client);
+    if(client->client_state == SDP_CTRL_CLIENT_STATE_CRED_REQUESTING ||
+       client->client_state == SDP_CTRL_CLIENT_STATE_CRED_UNFULFILLED)
+        sdp_ctrl_client_clear_state_vars(client);
 
-	// Make the 'Fulfilled' response message
-	if((rv = sdp_message_make(sdp_action_cred_ack, NULL, &msg)) != SDP_SUCCESS)
-	{
-		log_msg(LOG_ERR, "Failed to make credential request 'ACK' message.");
-		goto cleanup;
-	}
+    // Make the 'Fulfilled' response message
+    if((rv = sdp_message_make(sdp_action_cred_ack, NULL, &msg)) != SDP_SUCCESS)
+    {
+        log_msg(LOG_ERR, "Failed to make credential request 'ACK' message.");
+        goto cleanup;
+    }
 
-	if((rv = sdp_com_send_msg(client->com, msg)) != SDP_SUCCESS)
-	{
-		log_msg(LOG_ERR, "Failed to send credential request 'ACK' message.");
-		goto cleanup;
-	}
+    if((rv = sdp_com_send_msg(client->com, msg)) != SDP_SUCCESS)
+    {
+        log_msg(LOG_ERR, "Failed to send credential request 'ACK' message.");
+        goto cleanup;
+    }
 
 cleanup:
-	pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
-	pthread_testcancel();
+    pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
+    pthread_testcancel();
 
     sdp_message_destroy_creds(credentials);
     free(msg);
-	return rv;
+    return rv;
 }
 
 
 int  sdp_ctrl_client_send_access_ack(sdp_ctrl_client_t client)
 {
-	int rv = SDP_SUCCESS;
-	char *msg = NULL;
+    int rv = SDP_SUCCESS;
+    char *msg = NULL;
 
-	if(client->client_state == SDP_CTRL_CLIENT_STATE_ACCESS_REFRESH_REQUESTING ||
-	   client->client_state == SDP_CTRL_CLIENT_STATE_ACCESS_REFRESH_UNFULFILLED ||
-	   client->client_state == SDP_CTRL_CLIENT_STATE_ACCESS_UPDATE_REQUESTING ||
-	   client->client_state == SDP_CTRL_CLIENT_STATE_ACCESS_UPDATE_UNFULFILLED)
-		sdp_ctrl_client_clear_state_vars(client);
+    if(client->client_state == SDP_CTRL_CLIENT_STATE_ACCESS_REFRESH_REQUESTING ||
+       client->client_state == SDP_CTRL_CLIENT_STATE_ACCESS_REFRESH_UNFULFILLED ||
+       client->client_state == SDP_CTRL_CLIENT_STATE_ACCESS_UPDATE_REQUESTING ||
+       client->client_state == SDP_CTRL_CLIENT_STATE_ACCESS_UPDATE_UNFULFILLED)
+        sdp_ctrl_client_clear_state_vars(client);
 
 
-	// Make the ACK response message
-	if((rv = sdp_message_make(sdp_action_access_ack, NULL, &msg)) != SDP_SUCCESS)
-	{
-		log_msg(LOG_ERR, "Failed to make access data 'ACK' message.");
-		goto cleanup;
-	}
+    // Make the ACK response message
+    if((rv = sdp_message_make(sdp_action_access_ack, NULL, &msg)) != SDP_SUCCESS)
+    {
+        log_msg(LOG_ERR, "Failed to make access data 'ACK' message.");
+        goto cleanup;
+    }
 
-	if((rv = sdp_com_send_msg(client->com, msg)) != SDP_SUCCESS)
-	{
-		log_msg(LOG_ERR, "Failed to send access data 'ACK' message.");
-		goto cleanup;
-	}
+    if((rv = sdp_com_send_msg(client->com, msg)) != SDP_SUCCESS)
+    {
+        log_msg(LOG_ERR, "Failed to send access data 'ACK' message.");
+        goto cleanup;
+    }
 
 cleanup:
     log_msg(LOG_DEBUG, "Freeing memory before exiting function");
 
     free(msg);
-	return rv;
+    return rv;
 }
 
 
 int  sdp_ctrl_client_send_access_error(sdp_ctrl_client_t client)
 {
-	int rv = SDP_SUCCESS;
-	char *msg = NULL;
+    int rv = SDP_SUCCESS;
+    char *msg = NULL;
 
-	// Make the Error response message
-	// THIS NEEDS TO CHANGE DEPENDING ON HOW WE WANT TO MANAGE STATE ON BOTH SIDES
-	if((rv = sdp_message_make(sdp_action_bad_message, NULL, &msg)) != SDP_SUCCESS)
-	{
-		log_msg(LOG_ERR, "Failed to make access data 'ERROR' message.");
-		goto cleanup;
-	}
+    // Make the Error response message
+    // THIS NEEDS TO CHANGE DEPENDING ON HOW WE WANT TO MANAGE STATE ON BOTH SIDES
+    if((rv = sdp_message_make(sdp_action_bad_message, NULL, &msg)) != SDP_SUCCESS)
+    {
+        log_msg(LOG_ERR, "Failed to make access data 'ERROR' message.");
+        goto cleanup;
+    }
 
-	if((rv = sdp_com_send_msg(client->com, msg)) != SDP_SUCCESS)
-	{
-		log_msg(LOG_ERR, "Failed to send access data 'ERROR' message.");
-		goto cleanup;
-	}
+    if((rv = sdp_com_send_msg(client->com, msg)) != SDP_SUCCESS)
+    {
+        log_msg(LOG_ERR, "Failed to send access data 'ERROR' message.");
+        goto cleanup;
+    }
 
 cleanup:
     log_msg(LOG_DEBUG, "Freeing memory before exiting function");
 
     free(msg);
-	return rv;
+    return rv;
 }
 
 
@@ -903,8 +903,8 @@ cleanup:
 
 int sdp_ctrl_client_clean_exit(sdp_ctrl_client_t client, int status)
 {
-	sdp_ctrl_client_destroy(client);
-	return status;
+    sdp_ctrl_client_destroy(client);
+    return status;
 }
 
 int sdp_ctrl_client_setup_pid(sdp_ctrl_client_t client, pid_t *r_pid)
@@ -912,8 +912,8 @@ int sdp_ctrl_client_setup_pid(sdp_ctrl_client_t client, pid_t *r_pid)
     pid_t    pid, old_pid = 0;
     int rv;
 
-	if(client == NULL || !client->initialized)
-		return SDP_ERROR_UNINITIALIZED;
+    if(client == NULL || !client->initialized)
+        return SDP_ERROR_UNINITIALIZED;
 
     // If we are a new process (just being started), proceed with normal
     // start-up. Otherwise, we are here as a result of a signal sent to an
@@ -927,8 +927,8 @@ int sdp_ctrl_client_setup_pid(sdp_ctrl_client_t client, pid_t *r_pid)
         //
         if(client->foreground == 0)
         {
-        	rv = sdp_ctrl_client_daemonize(client, &pid);
-        	*r_pid = pid;
+            rv = sdp_ctrl_client_daemonize(client, &pid);
+            *r_pid = pid;
         }
         else
         {
@@ -950,7 +950,7 @@ int sdp_ctrl_client_setup_pid(sdp_ctrl_client_t client, pid_t *r_pid)
     }
     else
     {
-    	log_msg(LOG_WARNING, "Re-starting SDP Control Client");
+        log_msg(LOG_WARNING, "Re-starting SDP Control Client");
     }
 
     return rv;
@@ -963,8 +963,8 @@ int sdp_ctrl_client_daemonize(sdp_ctrl_client_t client, pid_t *r_pid)
 {
     pid_t pid, old_pid;
 
-	if(client == NULL || !client->initialized)
-		return SDP_ERROR_UNINITIALIZED;
+    if(client == NULL || !client->initialized)
+        return SDP_ERROR_UNINITIALIZED;
 
     // Reset the our umask
     umask(0);
@@ -1035,7 +1035,7 @@ int sdp_ctrl_client_handle_signals(sdp_ctrl_client_t client)
 
         if(sdp_ctrl_client_got_sighup)
         {
-        	log_msg(LOG_WARNING, "Got SIGHUP. Restarting.");
+            log_msg(LOG_WARNING, "Got SIGHUP. Restarting.");
             sdp_ctrl_client_got_sighup = 0;
 
             // if restart func succeeds, loop will carry on
@@ -1044,25 +1044,25 @@ int sdp_ctrl_client_handle_signals(sdp_ctrl_client_t client)
         }
         else if(sdp_ctrl_client_got_sigint)
         {
-        	log_msg(LOG_WARNING, "Got SIGINT. Exiting...");
+            log_msg(LOG_WARNING, "Got SIGINT. Exiting...");
             sdp_ctrl_client_got_sigint = 0;
         }
         else if(sdp_ctrl_client_got_sigterm)
         {
-        	log_msg(LOG_WARNING, "Got SIGTERM. Exiting...");
+            log_msg(LOG_WARNING, "Got SIGTERM. Exiting...");
             sdp_ctrl_client_got_sigterm = 0;
         }
         else
         {
-        	log_msg(LOG_ERR,
+            log_msg(LOG_ERR,
                 "Got signal %i. No defined action to be taken.", last_sig);
-        	rv = SDP_SUCCESS;
+            rv = SDP_SUCCESS;
         }
     }
     else    // ctrl_client_got_signal was not set
     {
-    	// log_msg(LOG_DEBUG, "No signals. Carry on...");
-    	rv = SDP_SUCCESS;
+        // log_msg(LOG_DEBUG, "No signals. Carry on...");
+        rv = SDP_SUCCESS;
     }
     return rv;
 }
@@ -1172,8 +1172,8 @@ int sdp_ctrl_client_write_pid_file(sdp_ctrl_client_t client, pid_t *r_old_pid)
     // Reset errno (just in case)
     errno = 0;
 
-	if(client == NULL || !client->initialized)
-		return SDP_ERROR_UNINITIALIZED;
+    if(client == NULL || !client->initialized)
+        return SDP_ERROR_UNINITIALIZED;
 
     // Open the PID file
     op_fd = open(client->pid_file, O_WRONLY|O_CREAT, S_IRUSR|S_IWUSR);
@@ -1249,8 +1249,8 @@ int sdp_ctrl_client_get_running_pid(sdp_ctrl_client_t client, pid_t *r_pid)
     int     rv = SDP_ERROR_FILESYSTEM_OPERATION;
     *r_pid = 0;
 
-	if(client == NULL || !client->initialized)
-		return SDP_ERROR_UNINITIALIZED;
+    if(client == NULL || !client->initialized)
+        return SDP_ERROR_UNINITIALIZED;
 
     if((rv = sdp_ctrl_client_verify_file_perms(client->pid_file)) != SDP_SUCCESS)
     {
@@ -1280,7 +1280,7 @@ int sdp_ctrl_client_get_running_pid(sdp_ctrl_client_t client, pid_t *r_pid)
     }
     else
     {
-    	rv = SDP_ERROR_FILESYSTEM_OPERATION;
+        rv = SDP_ERROR_FILESYSTEM_OPERATION;
         perror("Error trying to read() PID file: ");
     }
 
@@ -1345,251 +1345,251 @@ int sdp_ctrl_client_verify_file_perms(const char *file)
 
 int sdp_ctrl_client_loop(sdp_ctrl_client_t client)
 {
-	int rv = SDP_ERROR;
-	void *data = NULL;
+    int rv = SDP_ERROR;
+    void *data = NULL;
 
-	if(client == NULL || !client->initialized)
-		return SDP_ERROR_UNINITIALIZED;
+    if(client == NULL || !client->initialized)
+        return SDP_ERROR_UNINITIALIZED;
 
-	while(1)
-	{
-		// connect if necessary
-		if(client->com->conn_state == SDP_COM_DISCONNECTED)
-		{
-			if((rv = sdp_com_connect(client->com)) != SDP_SUCCESS)
-			{
-				break;
-			}
-			client->initial_conn_time = client->last_contact = time(NULL);
+    while(1)
+    {
+        // connect if necessary
+        if(client->com->conn_state == SDP_COM_DISCONNECTED)
+        {
+            if((rv = sdp_com_connect(client->com)) != SDP_SUCCESS)
+            {
+                break;
+            }
+            client->initial_conn_time = client->last_contact = time(NULL);
 
-			// reset to wait for first message from controller
-			client->controller_ready = 0;
-		}
+            // reset to wait for first message from controller
+            client->controller_ready = 0;
+        }
 
-		// check for incoming messages
-		if((rv = sdp_ctrl_client_check_inbox(client, &data)) != SDP_SUCCESS)
-			break;
+        // check for incoming messages
+        if((rv = sdp_ctrl_client_check_inbox(client, &data)) != SDP_SUCCESS)
+            break;
 
-		// do not begin sending requests until controller is ready
-		if( !(client->controller_ready) )
-			continue;
+        // do not begin sending requests until controller is ready
+        if( !(client->controller_ready) )
+            continue;
 
-		// if new connection or just time, update credentials
-		if((rv = sdp_ctrl_client_consider_cred_update(client)) != SDP_SUCCESS)
-			break;
+        // if new connection or just time, update credentials
+        if((rv = sdp_ctrl_client_consider_cred_update(client)) != SDP_SUCCESS)
+            break;
 
-		// if configured to disconnect after update, do so
-		if(!client->remain_connected && client->last_cred_update > 0)
-			break;
+        // if configured to disconnect after update, do so
+        if(!client->remain_connected && client->last_cred_update > 0)
+            break;
 
-		// handle any signals that may have come in
-		if((rv = sdp_ctrl_client_handle_signals(client)) != SDP_SUCCESS)
-			break;
+        // handle any signals that may have come in
+        if((rv = sdp_ctrl_client_handle_signals(client)) != SDP_SUCCESS)
+            break;
 
-		// is a keep alive due
-		if((rv = sdp_ctrl_client_consider_keep_alive(client)) != SDP_SUCCESS)
-			break;
+        // is a keep alive due
+        if((rv = sdp_ctrl_client_consider_keep_alive(client)) != SDP_SUCCESS)
+            break;
 
-		sleep(1);
-	}
+        sleep(1);
+    }
 
-	sdp_com_disconnect(client->com);
+    sdp_com_disconnect(client->com);
 
-	log_msg(LOG_WARNING, "SDP Control Client Exiting");
-	return rv;
+    log_msg(LOG_WARNING, "SDP Control Client Exiting");
+    return rv;
 }
 
 
 int sdp_ctrl_client_consider_keep_alive(sdp_ctrl_client_t client)
 {
-	time_t ts;
-	int rv = SDP_SUCCESS;
+    time_t ts;
+    int rv = SDP_SUCCESS;
 
-	// This should never happen, but just to be safe
-	if(client == NULL || !client->initialized)
-		return SDP_ERROR_UNINITIALIZED;
+    // This should never happen, but just to be safe
+    if(client == NULL || !client->initialized)
+        return SDP_ERROR_UNINITIALIZED;
 
-	// This is not a failure, but we do halt consideration
-	if(client->com->conn_state == SDP_COM_DISCONNECTED)
-		return SDP_SUCCESS;
+    // This is not a failure, but we do halt consideration
+    if(client->com->conn_state == SDP_COM_DISCONNECTED)
+        return SDP_SUCCESS;
 
-	if(client->client_state == SDP_CTRL_CLIENT_STATE_READY)
-	{
-		if( (ts = time(NULL)) >= (client->last_contact + client->keep_alive_interval) )
-		{
-			rv = sdp_ctrl_client_request_keep_alive(client);
-		}
-		else
-		{
-			//log_msg(LOG_DEBUG, "Not time for keep alive request.");
-			return SDP_SUCCESS;
-		}
-	}
-	else if(client->client_state == SDP_CTRL_CLIENT_STATE_KEEP_ALIVE_REQUESTING ||
-			client->client_state == SDP_CTRL_CLIENT_STATE_KEEP_ALIVE_UNFULFILLED)
-	{
-		if( (ts = time(NULL)) >= (client->last_req_time + client->req_retry_interval) )
-		{
-			if(client->req_attempts >= client->max_req_attempts)
-			{
-				log_msg(LOG_ERR, "Too many failed keep alive requests. Exiting.");
-				sdp_com_disconnect(client->com);
-				client->client_state = SDP_CTRL_CLIENT_STATE_TIME_TO_QUIT;
-				return SDP_ERROR_MANY_FAILED_REQS;
-			}
-			else
-			{
-				client->client_state = SDP_CTRL_CLIENT_STATE_KEEP_ALIVE_UNFULFILLED;
-				client->req_retry_interval *= 2;
-				log_msg(LOG_DEBUG, "It is time to retry an unfulfilled keep alive request.");
-				rv = sdp_ctrl_client_request_keep_alive(client);
-			}
-		}
-		else
-		{
-			//log_msg(LOG_DEBUG, "Not time to retry keep alive request.");
-			return SDP_SUCCESS;
-		}
-	}
-	else
-	{
-		//log_msg(LOG_DEBUG, "Control Client not in proper state to make keep alive request.");
-		return SDP_SUCCESS;
-	}
+    if(client->client_state == SDP_CTRL_CLIENT_STATE_READY)
+    {
+        if( (ts = time(NULL)) >= (client->last_contact + client->keep_alive_interval) )
+        {
+            rv = sdp_ctrl_client_request_keep_alive(client);
+        }
+        else
+        {
+            //log_msg(LOG_DEBUG, "Not time for keep alive request.");
+            return SDP_SUCCESS;
+        }
+    }
+    else if(client->client_state == SDP_CTRL_CLIENT_STATE_KEEP_ALIVE_REQUESTING ||
+            client->client_state == SDP_CTRL_CLIENT_STATE_KEEP_ALIVE_UNFULFILLED)
+    {
+        if( (ts = time(NULL)) >= (client->last_req_time + client->req_retry_interval) )
+        {
+            if(client->req_attempts >= client->max_req_attempts)
+            {
+                log_msg(LOG_ERR, "Too many failed keep alive requests. Exiting.");
+                sdp_com_disconnect(client->com);
+                client->client_state = SDP_CTRL_CLIENT_STATE_TIME_TO_QUIT;
+                return SDP_ERROR_MANY_FAILED_REQS;
+            }
+            else
+            {
+                client->client_state = SDP_CTRL_CLIENT_STATE_KEEP_ALIVE_UNFULFILLED;
+                client->req_retry_interval *= 2;
+                log_msg(LOG_DEBUG, "It is time to retry an unfulfilled keep alive request.");
+                rv = sdp_ctrl_client_request_keep_alive(client);
+            }
+        }
+        else
+        {
+            //log_msg(LOG_DEBUG, "Not time to retry keep alive request.");
+            return SDP_SUCCESS;
+        }
+    }
+    else
+    {
+        //log_msg(LOG_DEBUG, "Control Client not in proper state to make keep alive request.");
+        return SDP_SUCCESS;
+    }
 
 
-	// arriving here means we attempted to send the message
-	// the only error we want to pass up the chain at this point is the fatal memory allocation error
-	if(rv != SDP_ERROR_MEMORY_ALLOCATION)
-		rv = SDP_SUCCESS;
+    // arriving here means we attempted to send the message
+    // the only error we want to pass up the chain at this point is the fatal memory allocation error
+    if(rv != SDP_ERROR_MEMORY_ALLOCATION)
+        rv = SDP_SUCCESS;
 
-	log_msg(LOG_DEBUG, "Exiting function sdp_ctrl_client_consider_keep_alive");
-	return rv;
+    log_msg(LOG_DEBUG, "Exiting function sdp_ctrl_client_consider_keep_alive");
+    return rv;
 }
 
 int sdp_ctrl_client_consider_cred_update(sdp_ctrl_client_t client)
 {
-	time_t ts;
-	int rv = SDP_SUCCESS;
+    time_t ts;
+    int rv = SDP_SUCCESS;
 
-	// This should never happen, but just to be safe
-	if(client == NULL || !client->initialized)
-		return SDP_ERROR_UNINITIALIZED;
+    // This should never happen, but just to be safe
+    if(client == NULL || !client->initialized)
+        return SDP_ERROR_UNINITIALIZED;
 
-	// This is not a failure, but we do halt consideration
-	if(client->com->conn_state == SDP_COM_DISCONNECTED)
-		return SDP_SUCCESS;
+    // This is not a failure, but we do halt consideration
+    if(client->com->conn_state == SDP_COM_DISCONNECTED)
+        return SDP_SUCCESS;
 
-	if(client->client_state == SDP_CTRL_CLIENT_STATE_READY)
-	{
-		if( (ts = time(NULL)) >= (client->last_cred_update + client->cred_update_interval) )
-		{
-			log_msg(LOG_DEBUG, "It is time for a credential update request.");
-			rv = sdp_ctrl_client_request_cred_update(client);
-		}
-		else
-		{
-			//log_msg(LOG_DEBUG, "Not time for credential update request.");
-			return SDP_SUCCESS;
-		}
-	}
-	else if(client->client_state == SDP_CTRL_CLIENT_STATE_CRED_REQUESTING ||
-			client->client_state == SDP_CTRL_CLIENT_STATE_CRED_UNFULFILLED)
-	{
-		if( (ts = time(NULL)) >= (client->last_req_time + client->req_retry_interval) )
-		{
-			if(client->req_attempts >= client->max_req_attempts)
-			{
-				log_msg(LOG_ERR, "Too many failed credential requests. Exiting.");
-				sdp_com_disconnect(client->com);
-				client->client_state = SDP_CTRL_CLIENT_STATE_TIME_TO_QUIT;
-				return SDP_ERROR_MANY_FAILED_REQS;
-			}
-			else
-			{
-				client->client_state = SDP_CTRL_CLIENT_STATE_CRED_UNFULFILLED;
-				client->req_retry_interval *= 2;
-				log_msg(LOG_DEBUG, "It is time to retry an unfulfilled credential update request.");
-				rv = sdp_ctrl_client_request_cred_update(client);
-			}
-		}
-		else
-		{
-			//log_msg(LOG_DEBUG, "Not time to retry credential update request.");
-			return SDP_SUCCESS;
-		}
-	}
-	else
-	{
-		//log_msg(LOG_DEBUG, "Control Client not in proper state to request credential update.");
-		return SDP_SUCCESS;
-	}
+    if(client->client_state == SDP_CTRL_CLIENT_STATE_READY)
+    {
+        if( (ts = time(NULL)) >= (client->last_cred_update + client->cred_update_interval) )
+        {
+            log_msg(LOG_DEBUG, "It is time for a credential update request.");
+            rv = sdp_ctrl_client_request_cred_update(client);
+        }
+        else
+        {
+            //log_msg(LOG_DEBUG, "Not time for credential update request.");
+            return SDP_SUCCESS;
+        }
+    }
+    else if(client->client_state == SDP_CTRL_CLIENT_STATE_CRED_REQUESTING ||
+            client->client_state == SDP_CTRL_CLIENT_STATE_CRED_UNFULFILLED)
+    {
+        if( (ts = time(NULL)) >= (client->last_req_time + client->req_retry_interval) )
+        {
+            if(client->req_attempts >= client->max_req_attempts)
+            {
+                log_msg(LOG_ERR, "Too many failed credential requests. Exiting.");
+                sdp_com_disconnect(client->com);
+                client->client_state = SDP_CTRL_CLIENT_STATE_TIME_TO_QUIT;
+                return SDP_ERROR_MANY_FAILED_REQS;
+            }
+            else
+            {
+                client->client_state = SDP_CTRL_CLIENT_STATE_CRED_UNFULFILLED;
+                client->req_retry_interval *= 2;
+                log_msg(LOG_DEBUG, "It is time to retry an unfulfilled credential update request.");
+                rv = sdp_ctrl_client_request_cred_update(client);
+            }
+        }
+        else
+        {
+            //log_msg(LOG_DEBUG, "Not time to retry credential update request.");
+            return SDP_SUCCESS;
+        }
+    }
+    else
+    {
+        //log_msg(LOG_DEBUG, "Control Client not in proper state to request credential update.");
+        return SDP_SUCCESS;
+    }
 
-	log_msg(LOG_DEBUG, "Exiting function ctrl_client_consider_cred_update");
-	return rv;
+    log_msg(LOG_DEBUG, "Exiting function ctrl_client_consider_cred_update");
+    return rv;
 }
 
 
 int sdp_ctrl_client_consider_access_refresh(sdp_ctrl_client_t client)
 {
-	time_t ts;
-	int rv = SDP_SUCCESS;
+    time_t ts;
+    int rv = SDP_SUCCESS;
 
-	// This should never happen, but just to be safe
-	if(client == NULL || !client->initialized)
-		return SDP_ERROR_UNINITIALIZED;
+    // This should never happen, but just to be safe
+    if(client == NULL || !client->initialized)
+        return SDP_ERROR_UNINITIALIZED;
 
-	// This is not a failure, but we do halt consideration
-	if(client->com->conn_state == SDP_COM_DISCONNECTED)
-		return SDP_SUCCESS;
+    // This is not a failure, but we do halt consideration
+    if(client->com->conn_state == SDP_COM_DISCONNECTED)
+        return SDP_SUCCESS;
 
-	if(client->client_state == SDP_CTRL_CLIENT_STATE_READY)
-	{
-		if( (ts = time(NULL)) >= (client->last_access_refresh + client->access_refresh_interval) )
-		{
-			log_msg(LOG_DEBUG, "It is time for an access data refresh request.");
-			rv = sdp_ctrl_client_request_access_refresh(client);
-		}
-		else
-		{
-			//log_msg(LOG_DEBUG, "Not time for access data refresh request.");
-			return SDP_SUCCESS;
-		}
-	}
-	else if(client->client_state == SDP_CTRL_CLIENT_STATE_ACCESS_REFRESH_REQUESTING ||
-			client->client_state == SDP_CTRL_CLIENT_STATE_ACCESS_REFRESH_UNFULFILLED)
-	{
-		if( (ts = time(NULL)) >= (client->last_req_time + client->req_retry_interval) )
-		{
-			if(client->req_attempts >= client->max_req_attempts)
-			{
-				log_msg(LOG_ERR, "Too many failed access refresh requests. Exiting.");
-				sdp_com_disconnect(client->com);
-				client->client_state = SDP_CTRL_CLIENT_STATE_TIME_TO_QUIT;
-				return SDP_ERROR_MANY_FAILED_REQS;
-			}
-			else
-			{
-				client->client_state = SDP_CTRL_CLIENT_STATE_ACCESS_REFRESH_UNFULFILLED;
-				client->req_retry_interval *= 2;
-				log_msg(LOG_DEBUG, "It is time to retry an unfulfilled access data refresh request.");
-				rv = sdp_ctrl_client_request_access_refresh(client);
-			}
-		}
-		else
-		{
-			//log_msg(LOG_DEBUG, "Not time to retry access data refresh request.");
-			return SDP_SUCCESS;
-		}
-	}
-	else
-	{
-		//log_msg(LOG_DEBUG, "Control Client not in proper state to request access data refresh.");
-		return SDP_SUCCESS;
-	}
+    if(client->client_state == SDP_CTRL_CLIENT_STATE_READY)
+    {
+        if( (ts = time(NULL)) >= (client->last_access_refresh + client->access_refresh_interval) )
+        {
+            log_msg(LOG_DEBUG, "It is time for an access data refresh request.");
+            rv = sdp_ctrl_client_request_access_refresh(client);
+        }
+        else
+        {
+            //log_msg(LOG_DEBUG, "Not time for access data refresh request.");
+            return SDP_SUCCESS;
+        }
+    }
+    else if(client->client_state == SDP_CTRL_CLIENT_STATE_ACCESS_REFRESH_REQUESTING ||
+            client->client_state == SDP_CTRL_CLIENT_STATE_ACCESS_REFRESH_UNFULFILLED)
+    {
+        if( (ts = time(NULL)) >= (client->last_req_time + client->req_retry_interval) )
+        {
+            if(client->req_attempts >= client->max_req_attempts)
+            {
+                log_msg(LOG_ERR, "Too many failed access refresh requests. Exiting.");
+                sdp_com_disconnect(client->com);
+                client->client_state = SDP_CTRL_CLIENT_STATE_TIME_TO_QUIT;
+                return SDP_ERROR_MANY_FAILED_REQS;
+            }
+            else
+            {
+                client->client_state = SDP_CTRL_CLIENT_STATE_ACCESS_REFRESH_UNFULFILLED;
+                client->req_retry_interval *= 2;
+                log_msg(LOG_DEBUG, "It is time to retry an unfulfilled access data refresh request.");
+                rv = sdp_ctrl_client_request_access_refresh(client);
+            }
+        }
+        else
+        {
+            //log_msg(LOG_DEBUG, "Not time to retry access data refresh request.");
+            return SDP_SUCCESS;
+        }
+    }
+    else
+    {
+        //log_msg(LOG_DEBUG, "Control Client not in proper state to request access data refresh.");
+        return SDP_SUCCESS;
+    }
 
-	log_msg(LOG_DEBUG, "Exiting function sdp_ctrl_client_consider_access_refresh");
-	return rv;
+    log_msg(LOG_DEBUG, "Exiting function sdp_ctrl_client_consider_access_refresh");
+    return rv;
 }
 
 
@@ -1597,89 +1597,101 @@ int sdp_ctrl_client_consider_access_refresh(sdp_ctrl_client_t client)
 
 void sdp_ctrl_client_clear_state_vars(sdp_ctrl_client_t client)
 {
-	client->last_req_time = 0;
-	client->req_retry_interval = client->initial_req_retry_interval;
-	client->req_attempts = 0;
-	client->client_state = SDP_CTRL_CLIENT_STATE_READY;
+    client->last_req_time = 0;
+    client->req_retry_interval = client->initial_req_retry_interval;
+    client->req_attempts = 0;
+    client->client_state = SDP_CTRL_CLIENT_STATE_READY;
 }
 
 
 void sdp_ctrl_client_set_request_vars(sdp_ctrl_client_t client, sdp_ctrl_client_state_t new_state)
 {
-	client->client_state = new_state;
-	client->last_req_time = time(NULL);
-	client->req_attempts++;
+    client->client_state = new_state;
+    client->last_req_time = time(NULL);
+    client->req_attempts++;
 }
 
 
 int  sdp_ctrl_client_save_credentials(sdp_ctrl_client_t client, sdp_creds_t creds)
 {
-	int rv = SDP_ERROR_FILESYSTEM_OPERATION;
+    int rv = SDP_ERROR_FILESYSTEM_OPERATION;
 
-	// store certificate file
-	log_msg(LOG_DEBUG, "Storing certificate file");
-	if((rv = sdp_save_to_file(client->com->cert_file, creds->tls_client_cert)) != SDP_SUCCESS)
-	{
-		log_msg(LOG_ERR, "Failed to store client certificate to: %s", client->com->cert_file);
-		return rv;
-	}
+    // store certificate file
+    log_msg(LOG_DEBUG, "Storing certificate file");
+    if((rv = sdp_save_to_file(client->com->cert_file, creds->tls_client_cert)) != SDP_SUCCESS)
+    {
+        log_msg(LOG_ERR, "Failed to store client certificate to: %s", client->com->cert_file);
+        return rv;
+    }
 
-	// store key file
-	log_msg(LOG_DEBUG, "Storing key file");
-	if((rv = sdp_save_to_file(client->com->key_file, creds->tls_client_key)) != SDP_SUCCESS)
-	{
-		log_msg(LOG_ERR, "Failed to store client key to: %s", client->com->key_file);
-		sdp_restore_file(client->com->cert_file);
-		return rv;
-	}
+    // store key file
+    log_msg(LOG_DEBUG, "Storing key file");
+    if((rv = sdp_save_to_file(client->com->key_file, creds->tls_client_key)) != SDP_SUCCESS)
+    {
+        log_msg(LOG_ERR, "Failed to store client key to: %s", client->com->key_file);
+        sdp_restore_file(client->com->cert_file);
+        return rv;
+    }
 
-	// store SPA keys in ctrl client config file
-	log_msg(LOG_DEBUG, "Storing SPA keys in sdp ctrl client config file");
-	if((rv = sdp_replace_spa_keys(
-			client->config_file,
-			client->com->spa_encryption_key, creds->encryption_key, 1,
-			client->com->spa_hmac_key, creds->hmac_key, 1
-			)) != SDP_SUCCESS)
-	{
-		log_msg(LOG_ERR, "Failed to store SPA keys in ctrl client config file");
-		sdp_restore_file(client->com->cert_file);
-		sdp_restore_file(client->com->key_file);
-		return rv;
-	}
+    // can only replace SPA keys if old ones were defined to search for
+    // and if new ones were provided
+    if( client->com->spa_encryption_key != NULL &&
+    	client->com->spa_hmac_key != NULL &&
+		creds->encryption_key != NULL &&
+		creds->hmac_key != NULL )
+    {
+        // store SPA keys in ctrl client config file
+        log_msg(LOG_DEBUG, "Storing SPA keys in sdp ctrl client config file");
+        if((rv = sdp_replace_spa_keys(
+                client->config_file,
+                client->com->spa_encryption_key, creds->encryption_key, 1,
+                client->com->spa_hmac_key, creds->hmac_key, 1
+                )) != SDP_SUCCESS)
+        {
+            log_msg(LOG_ERR, "Failed to store SPA keys in ctrl client config file");
+            sdp_restore_file(client->com->cert_file);
+            sdp_restore_file(client->com->key_file);
+            return rv;
+        }
 
-	// store SPA keys in fwknop config file
-	log_msg(LOG_DEBUG, "Storing SPA keys in fwknop config file");
-	if((rv = sdp_replace_spa_keys(
-			client->com->fwknoprc_file,
-			client->com->spa_encryption_key, creds->encryption_key, 1,
-			client->com->spa_hmac_key, creds->hmac_key, 1
-			)) != SDP_SUCCESS)
-	{
-		log_msg(LOG_ERR, "Failed to store SPA keys in fwknop config file");
-		sdp_restore_file(client->com->cert_file);
-		sdp_restore_file(client->com->key_file);
-		sdp_restore_file(client->config_file);
-		return rv;
-	}
+        // can only replace SPA keys in fwknoprc file if the file's location was given
+        if( client->com->fwknoprc_file != NULL )
+        {
+			// store SPA keys in fwknop config file
+			log_msg(LOG_DEBUG, "Storing SPA keys in fwknop config file");
+			if((rv = sdp_replace_spa_keys(
+					client->com->fwknoprc_file,
+					client->com->spa_encryption_key, creds->encryption_key, 1,
+					client->com->spa_hmac_key, creds->hmac_key, 1
+					)) != SDP_SUCCESS)
+			{
+				log_msg(LOG_ERR, "Failed to store SPA keys in fwknop config file");
+				sdp_restore_file(client->com->cert_file);
+				sdp_restore_file(client->com->key_file);
+				sdp_restore_file(client->config_file);
+				return rv;
+			}
+        }
+    }
 
-	log_msg(LOG_WARNING, "All new credentials stored successfully");
+    log_msg(LOG_WARNING, "All new credentials stored successfully");
 
-	// Now that the keys are stored, save them in com
-	free(client->com->spa_encryption_key);
-	if((client->com->spa_encryption_key = strndup(creds->encryption_key, SDP_MAX_B64_KEY_LEN)) == NULL)
-	{
-		log_msg(LOG_ERR, "Memory error while swapping keys in com module. Still saved in relevant files.");
-		return SDP_ERROR_MEMORY_ALLOCATION;
-	}
+    // Now that the keys are stored, save them in com
+    free(client->com->spa_encryption_key);
+    if((client->com->spa_encryption_key = strndup(creds->encryption_key, SDP_MAX_B64_KEY_LEN)) == NULL)
+    {
+        log_msg(LOG_ERR, "Memory error while swapping keys in com module. Still saved in relevant files.");
+        return SDP_ERROR_MEMORY_ALLOCATION;
+    }
 
-	free(client->com->spa_hmac_key);
-	if((client->com->spa_hmac_key = strndup(creds->hmac_key, SDP_MAX_B64_KEY_LEN)) == NULL)
-	{
-		log_msg(LOG_ERR, "Memory error while swapping keys in com module. Still saved in relevant files.");
-		return SDP_ERROR_MEMORY_ALLOCATION;
-	}
+    free(client->com->spa_hmac_key);
+    if((client->com->spa_hmac_key = strndup(creds->hmac_key, SDP_MAX_B64_KEY_LEN)) == NULL)
+    {
+        log_msg(LOG_ERR, "Memory error while swapping keys in com module. Still saved in relevant files.");
+        return SDP_ERROR_MEMORY_ALLOCATION;
+    }
 
-	return rv;
+    return rv;
 }
 
 /**
@@ -1693,17 +1705,17 @@ int  sdp_ctrl_client_save_credentials(sdp_ctrl_client_t client, sdp_creds_t cred
  */
 void sdp_ctrl_client_destroy_internals(sdp_ctrl_client_t client)
 {
-	if(client == NULL)
-		return;
+    if(client == NULL)
+        return;
 
-	if(client->config_file != NULL)
-		free(client->config_file);
+    if(client->config_file != NULL)
+        free(client->config_file);
 
-	if(client->pid_file != NULL)
-		free(client->pid_file);
+    if(client->pid_file != NULL)
+        free(client->pid_file);
 
-	if(client->com != NULL)
-		sdp_com_destroy(client->com);
+    if(client->com != NULL)
+        sdp_com_destroy(client->com);
 }
 
 
@@ -1720,42 +1732,45 @@ void sdp_ctrl_client_destroy_internals(sdp_ctrl_client_t client)
  */
 int sdp_ctrl_client_restart_myself(sdp_ctrl_client_t client)
 {
-	int rv = SDP_SUCCESS;
-	char *config_file = NULL;
-	char *fwknoprc_file = NULL;
+    int rv = SDP_SUCCESS;
+    char *config_file = NULL;
+    char *fwknoprc_file = NULL;
 
-	// disconnect
-	sdp_com_disconnect(client->com);
+    // disconnect
+    sdp_com_disconnect(client->com);
 
-	// grab key items required from old object
+    // grab key items required from old object
     if((config_file = strndup(client->config_file, PATH_MAX)) == NULL)
     {
-    	log_msg(LOG_ERR, "Error copying config file path");
-    	return SDP_ERROR_MEMORY_ALLOCATION;
+        log_msg(LOG_ERR, "Error copying config file path");
+        return SDP_ERROR_MEMORY_ALLOCATION;
     }
 
-    if((fwknoprc_file = strndup(client->com->fwknoprc_file, PATH_MAX)) == NULL)
+    if(client->com->fwknoprc_file != NULL)
     {
-    	log_msg(LOG_ERR, "Error copying fwknoprc file path");
-    	return SDP_ERROR_MEMORY_ALLOCATION;
+        if((fwknoprc_file = strndup(client->com->fwknoprc_file, PATH_MAX)) == NULL)
+        {
+            log_msg(LOG_ERR, "Error copying fwknoprc file path");
+            return SDP_ERROR_MEMORY_ALLOCATION;
+        }
     }
 
 
-	// destroy old internals including com object
-	sdp_ctrl_client_destroy_internals(client);
-	memset(client, 0x00, sizeof *client);
+    // destroy old internals including com object
+    sdp_ctrl_client_destroy_internals(client);
+    memset(client, 0x00, sizeof *client);
 
-	// create new com object
-	if((rv = sdp_com_new(&(client->com))) != SDP_SUCCESS)
-		return sdp_ctrl_client_clean_exit(client, rv);
+    // create new com object
+    if((rv = sdp_com_new(&(client->com))) != SDP_SUCCESS)
+        return sdp_ctrl_client_clean_exit(client, rv);
 
-	if((rv = sdp_ctrl_client_config_init(client, config_file, fwknoprc_file)) != SDP_SUCCESS)
-		return sdp_ctrl_client_clean_exit(client, rv);
+    if((rv = sdp_ctrl_client_config_init(client, config_file, fwknoprc_file)) != SDP_SUCCESS)
+        return sdp_ctrl_client_clean_exit(client, rv);
 
-	sdp_ctrl_client_describe(client);
+    sdp_ctrl_client_describe(client);
 
-	// client loop will now carry on
-	return rv;
+    // client loop will now carry on
+    return rv;
 }
 
 

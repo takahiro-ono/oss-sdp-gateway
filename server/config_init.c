@@ -1009,14 +1009,13 @@ validate_options(fko_srv_options_t *opts)
 
     if(strncmp(opts->config[CONF_DISABLE_SDP_CTRL_CLIENT], "N", 1) == 0)
     {
-    	// config file paths must be set, no defaults
-    	if(opts->config[CONF_SDP_CTRL_CLIENT_CONF] == NULL ||
-    	   opts->config[CONF_FWKNOP_CLIENT_CONF] == NULL)
+    	// config file path must be set, no default
+    	if(opts->config[CONF_SDP_CTRL_CLIENT_CONF] == NULL)
     	{
             log_msg(LOG_ERR,
-                "Invalid configuration: the file paths SDP_CTRL_CLIENT_CONF "
-            	"and FWKNOP_CLIENT_CONF must be defined when "
-            	"SDP mode and the SDP control client are enabled"
+                "Invalid configuration: the file path SDP_CTRL_CLIENT_CONF "
+            	"must be defined when SDP mode and the SDP control client "
+            	"are enabled"
             );
             clean_exit(opts, NO_FW_CLEANUP, EXIT_FAILURE);
     	}
