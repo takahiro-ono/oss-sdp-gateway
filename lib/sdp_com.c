@@ -430,18 +430,37 @@ int sdp_com_init(sdp_com_t com)
           com->ctrl_port &&
           com->key_file &&
           com->cert_file &&
-          com->spa_encryption_key &&
-          com->spa_hmac_key &&
           com->read_timeout.tv_sec &&
           com->write_timeout.tv_sec &&
           com->initial_conn_attempt_interval &&
           com->max_conn_attempts))
         return SDP_ERROR_BAD_ARG;
 
-    if( com->use_spa && !com->ctrl_stanza )
+    if( com->use_spa )
     {
-        log_msg(LOG_ERR, "Configured to use SPA for controller, must set CTRL_STANZA.");
-        return SDP_ERROR_BAD_ARG;
+        if( !com->fwknoprc_file )
+        {
+            log_msg(LOG_ERR, "Configured to use SPA for controller, must set FWKNOPRC_FILE.");
+            return SDP_ERROR_BAD_ARG;
+        }
+
+        if( !com->spa_encryption_key )
+        {
+            log_msg(LOG_ERR, "Configured to use SPA for controller, must set SPA_ENCRYPTION_KEY.");
+            return SDP_ERROR_BAD_ARG;
+        }
+
+        if( !com->spa_hmac_key )
+        {
+            log_msg(LOG_ERR, "Configured to use SPA for controller, must set SPA_HMAC_KEY.");
+            return SDP_ERROR_BAD_ARG;
+        }
+
+        if( !com->ctrl_stanza )
+        {
+            log_msg(LOG_ERR, "Configured to use SPA for controller, must set CTRL_STANZA.");
+            return SDP_ERROR_BAD_ARG;
+        }
     }
 
     com->conn_state = SDP_COM_DISCONNECTED;
