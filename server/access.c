@@ -280,10 +280,10 @@ add_acc_force_nat(acc_stanza_t *curr_acc, const char *val)
     curr_acc->force_nat = 1;
 
     if(curr_acc->force_nat_ip != NULL)
-    	free(curr_acc->force_nat_ip );
+        free(curr_acc->force_nat_ip );
 
     if((curr_acc->force_nat_ip = strndup(ip_str, MAX_IPV4_STR_LEN)) == NULL)
-    	return FKO_ERROR_MEMORY_ALLOCATION;
+        return FKO_ERROR_MEMORY_ALLOCATION;
 
     return FWKNOPD_SUCCESS;
 }
@@ -310,10 +310,10 @@ add_acc_force_snat(acc_stanza_t *curr_acc, const char *val)
     curr_acc->force_snat = 1;
 
     if(curr_acc->force_snat_ip != NULL)
-    	free(curr_acc->force_snat_ip );
+        free(curr_acc->force_snat_ip );
 
     if((curr_acc->force_snat_ip = strndup(ip_str, MAX_IPV4_STR_LEN)) == NULL)
-    	return FKO_ERROR_MEMORY_ALLOCATION;
+        return FKO_ERROR_MEMORY_ALLOCATION;
 
     return FWKNOPD_SUCCESS;
 }
@@ -945,66 +945,66 @@ free_acc_stanza_data(acc_stanza_t *acc)
 static int
 expand_one_acc_ent_list(acc_stanza_t *acc)
 {
-	/* Expand the source string to 32-bit integer IP + masks for each entry.
-	*/
-	if(expand_acc_int_list(&(acc->source_list), acc->source) != SUCCESS)
-	{
-		log_msg(LOG_ERR, "[*] Fatal invalid SOURCE in access stanza");
-		return 0;
-	}
+    /* Expand the source string to 32-bit integer IP + masks for each entry.
+    */
+    if(expand_acc_int_list(&(acc->source_list), acc->source) != SUCCESS)
+    {
+        log_msg(LOG_ERR, "[*] Fatal invalid SOURCE in access stanza");
+        return 0;
+    }
 
-	if(acc->destination != NULL && strlen(acc->destination))
-	{
-		if(expand_acc_int_list(&(acc->destination_list), acc->destination) != SUCCESS)
-		{
-			log_msg(LOG_ERR, "[*] Fatal invalid DESTINATION in access stanza");
-			return 0;
-		}
-	}
+    if(acc->destination != NULL && strlen(acc->destination))
+    {
+        if(expand_acc_int_list(&(acc->destination_list), acc->destination) != SUCCESS)
+        {
+            log_msg(LOG_ERR, "[*] Fatal invalid DESTINATION in access stanza");
+            return 0;
+        }
+    }
 
-	/* Now expand the open_ports string.
-	*/
-	if(acc->open_ports != NULL && strlen(acc->open_ports))
-	{
-		if(expand_acc_port_list(&(acc->oport_list), acc->open_ports) != SUCCESS)
-		{
-			log_msg(LOG_ERR, "[*] Fatal invalid OPEN_PORTS in access stanza");
-			return 0;
-		}
-	}
+    /* Now expand the open_ports string.
+    */
+    if(acc->open_ports != NULL && strlen(acc->open_ports))
+    {
+        if(expand_acc_port_list(&(acc->oport_list), acc->open_ports) != SUCCESS)
+        {
+            log_msg(LOG_ERR, "[*] Fatal invalid OPEN_PORTS in access stanza");
+            return 0;
+        }
+    }
 
-	if(acc->restrict_ports != NULL && strlen(acc->restrict_ports))
-	{
-		if(expand_acc_port_list(&(acc->rport_list), acc->restrict_ports) != SUCCESS)
-		{
-			log_msg(LOG_ERR, "[*] Fatal invalid RESTRICT_PORTS in access stanza");
-			return 0;
-		}
-	}
+    if(acc->restrict_ports != NULL && strlen(acc->restrict_ports))
+    {
+        if(expand_acc_port_list(&(acc->rport_list), acc->restrict_ports) != SUCCESS)
+        {
+            log_msg(LOG_ERR, "[*] Fatal invalid RESTRICT_PORTS in access stanza");
+            return 0;
+        }
+    }
 
-	/* Expand the GPG_REMOTE_ID string.
-	*/
-	if(acc->gpg_remote_id != NULL && strlen(acc->gpg_remote_id))
-	{
-		if(expand_acc_string_list(&(acc->gpg_remote_id_list),
-					acc->gpg_remote_id) != SUCCESS)
-		{
-			log_msg(LOG_ERR, "[*] Fatal invalid GPG_REMOTE_ID list in access stanza");
-			return 0;
-		}
-	}
+    /* Expand the GPG_REMOTE_ID string.
+    */
+    if(acc->gpg_remote_id != NULL && strlen(acc->gpg_remote_id))
+    {
+        if(expand_acc_string_list(&(acc->gpg_remote_id_list),
+                    acc->gpg_remote_id) != SUCCESS)
+        {
+            log_msg(LOG_ERR, "[*] Fatal invalid GPG_REMOTE_ID list in access stanza");
+            return 0;
+        }
+    }
 
-	/* Expand the GPG_FINGERPRINT_ID string.
-	*/
-	if(acc->gpg_remote_fpr != NULL && strlen(acc->gpg_remote_fpr))
-	{
-		if(expand_acc_string_list(&(acc->gpg_remote_fpr_list),
-					acc->gpg_remote_fpr) != SUCCESS)
-		{
-			log_msg(LOG_ERR, "[*] Fatal invalid GPG_FINGERPRINT_ID list in access stanza");
-			return 0;
-		}
-	}
+    /* Expand the GPG_FINGERPRINT_ID string.
+    */
+    if(acc->gpg_remote_fpr != NULL && strlen(acc->gpg_remote_fpr))
+    {
+        if(expand_acc_string_list(&(acc->gpg_remote_fpr_list),
+                    acc->gpg_remote_fpr) != SUCCESS)
+        {
+            log_msg(LOG_ERR, "[*] Fatal invalid GPG_FINGERPRINT_ID list in access stanza");
+            return 0;
+        }
+    }
 
     return SUCCESS;
 }
@@ -1013,12 +1013,12 @@ expand_one_acc_ent_list(acc_stanza_t *acc)
 static int
 traverse_expand_hash_cb(hash_table_node_t *node)
 {
-	int res = SUCCESS;
-	acc_stanza_t *acc = (acc_stanza_t *)(node->data);
-	res = expand_one_acc_ent_list(acc);
-	if(res == SUCCESS)
-		return 0;
-	return 1;
+    int res = SUCCESS;
+    acc_stanza_t *acc = (acc_stanza_t *)(node->data);
+    res = expand_one_acc_ent_list(acc);
+    if(res == SUCCESS)
+        return 0;
+    return 1;
 }
 
 
@@ -1027,27 +1027,27 @@ traverse_expand_hash_cb(hash_table_node_t *node)
 static void
 expand_acc_ent_lists(fko_srv_options_t *opts)
 {
-	if(strncasecmp(opts->config[CONF_DISABLE_SDP_MODE], "Y", 1) == 0)
-	{
-		acc_stanza_t   *acc = opts->acc_stanzas;
+    if(strncasecmp(opts->config[CONF_DISABLE_SDP_MODE], "Y", 1) == 0)
+    {
+        acc_stanza_t   *acc = opts->acc_stanzas;
 
-		/* We need to do this for each stanza.
-		*/
-		while(acc)
-		{
-			if(expand_one_acc_ent_list(acc) != SUCCESS)
-				clean_exit(opts, NO_FW_CLEANUP, EXIT_FAILURE);
-			acc = acc->next;
-		}
-	}
-	else
-	{
-		// hash_table_traverse returns 0 for success, unlike the functions in this file
-		if( hash_table_traverse(opts->acc_stanza_hash_tbl, traverse_expand_hash_cb)	!= 0 )
-			clean_exit(opts, NO_FW_CLEANUP, EXIT_FAILURE);
-	}
+        /* We need to do this for each stanza.
+        */
+        while(acc)
+        {
+            if(expand_one_acc_ent_list(acc) != SUCCESS)
+                clean_exit(opts, NO_FW_CLEANUP, EXIT_FAILURE);
+            acc = acc->next;
+        }
+    }
+    else
+    {
+        // hash_table_traverse returns 0 for success, unlike the functions in this file
+        if( hash_table_traverse(opts->acc_stanza_hash_tbl, traverse_expand_hash_cb)    != 0 )
+            clean_exit(opts, NO_FW_CLEANUP, EXIT_FAILURE);
+    }
 
-	return;
+    return;
 }
 
 
@@ -1080,15 +1080,15 @@ destroy_hash_node_cb(hash_table_node_t *node)
   if(node->key != NULL) bdestroy((bstring)(node->key));
   if(node->data != NULL)
   {
-	  free_acc_stanza_data((acc_stanza_t*)(node->data));
-	  free(node->data);
+      free_acc_stanza_data((acc_stanza_t*)(node->data));
+      free(node->data);
   }
 }
 
 static int
 traverse_dump_hash_cb(hash_table_node_t *node)
 {
-	acc_stanza_t *acc = (acc_stanza_t *)(node->data);
+    acc_stanza_t *acc = (acc_stanza_t *)(node->data);
 
     fprintf(stdout,
         "SDP_CLIENT_ID:  %"PRIu32"\n"
@@ -1132,16 +1132,16 @@ traverse_dump_hash_cb(hash_table_node_t *node)
         "GPG_IGNORE_SIG_VERIFY_ERROR:  %s\n"
         "              GPG_REMOTE_ID:  %s\n"
         "         GPG_FINGERPRINT_ID:  %s\n",
-		acc->sdp_client_id,
+        acc->sdp_client_id,
         acc->source,
         (acc->destination == NULL) ? "<not set>" : acc->destination,
         (acc->open_ports == NULL) ? "<not set>" : acc->open_ports,
         (acc->restrict_ports == NULL) ? "<not set>" : acc->restrict_ports,
-        (acc->key == NULL) ? "<not set>" : "<see the access.conf file>",
-        (acc->key_base64 == NULL) ? "<not set>" : "<see the access.conf file>",
+        (acc->key == NULL) ? "<not set>" : "<HIDDEN>",
+        (acc->key_base64 == NULL) ? "<not set>" : "<HIDDEN>",
         acc->key_len ? acc->key_len : 0,
-        (acc->hmac_key == NULL) ? "<not set>" : "<see the access.conf file>",
-        (acc->hmac_key_base64 == NULL) ? "<not set>" : "<see the access.conf file>",
+        (acc->hmac_key == NULL) ? "<not set>" : "<HIDDEN>",
+        (acc->hmac_key_base64 == NULL) ? "<not set>" : "<HIDDEN>",
         acc->hmac_key_len ? acc->hmac_key_len : 0,
         acc->hmac_type,
         acc->fw_access_timeout,
@@ -1217,78 +1217,78 @@ acc_stanza_add(fko_srv_options_t *opts, char *val)
 
     if(strncasecmp(opts->config[CONF_DISABLE_SDP_MODE], "Y", 1) == 0)
     {
-		/* If this is not the first acc entry, we walk our acc pointer to the
-		 * end of the existing list.
-		*/
-		if(acc == NULL)
-		{
-			opts->acc_stanzas = new_acc;
-		}
-		else
-		{
-			do {
-				last_acc = acc;
-			} while((acc = acc->next));
+        /* If this is not the first acc entry, we walk our acc pointer to the
+         * end of the existing list.
+        */
+        if(acc == NULL)
+        {
+            opts->acc_stanzas = new_acc;
+        }
+        else
+        {
+            do {
+                last_acc = acc;
+            } while((acc = acc->next));
 
-			last_acc->next = new_acc;
-		}
+            last_acc->next = new_acc;
+        }
     }
     else
     {
-    	if(opts->acc_stanza_hash_tbl == NULL)
-    	{
-    		//need to initialize hash table
-    		hash_table_len = strtol_wrapper(opts->config[CONF_ACC_STANZA_HASH_TABLE_LENGTH],
-    		        			   MIN_ACC_STANZA_HASH_TABLE_LENGTH,
-    							   MAX_ACC_STANZA_HASH_TABLE_LENGTH,
-    							   NO_EXIT_UPON_ERR,
-    							   &is_err);
+        if(opts->acc_stanza_hash_tbl == NULL)
+        {
+            //need to initialize hash table
+            hash_table_len = strtol_wrapper(opts->config[CONF_ACC_STANZA_HASH_TABLE_LENGTH],
+                                   MIN_ACC_STANZA_HASH_TABLE_LENGTH,
+                                   MAX_ACC_STANZA_HASH_TABLE_LENGTH,
+                                   NO_EXIT_UPON_ERR,
+                                   &is_err);
 
-			if(is_err != FKO_SUCCESS)
-			{
-				log_msg(LOG_ERR, "[*] var %s value '%s' not in the range %d-%d",
-						"ACC_STANZA_HASH_TABLE_LENGTH",
-						opts->config[CONF_ACC_STANZA_HASH_TABLE_LENGTH],
-						MIN_ACC_STANZA_HASH_TABLE_LENGTH,
-						MAX_ACC_STANZA_HASH_TABLE_LENGTH);
-				clean_exit(opts, NO_FW_CLEANUP, EXIT_FAILURE);
-			}
+            if(is_err != FKO_SUCCESS)
+            {
+                log_msg(LOG_ERR, "[*] var %s value '%s' not in the range %d-%d",
+                        "ACC_STANZA_HASH_TABLE_LENGTH",
+                        opts->config[CONF_ACC_STANZA_HASH_TABLE_LENGTH],
+                        MIN_ACC_STANZA_HASH_TABLE_LENGTH,
+                        MAX_ACC_STANZA_HASH_TABLE_LENGTH);
+                clean_exit(opts, NO_FW_CLEANUP, EXIT_FAILURE);
+            }
 
-    		opts->acc_stanza_hash_tbl = hash_table_create(hash_table_len,
-    				NULL, NULL, destroy_hash_node_cb);
-    		if(opts->acc_stanza_hash_tbl == NULL)
-    		{
-    	        log_msg(LOG_ERR,
-    	            "[*] Fatal memory allocation error creating access stanza hash table"
-    	        );
-    	        free_acc_stanza_data(new_acc);
-    	        free(new_acc);
-    	        clean_exit(opts, NO_FW_CLEANUP, EXIT_FAILURE);
-    		}
-    	}
+            opts->acc_stanza_hash_tbl = hash_table_create(hash_table_len,
+                    NULL, NULL, destroy_hash_node_cb);
+            if(opts->acc_stanza_hash_tbl == NULL)
+            {
+                log_msg(LOG_ERR,
+                    "[*] Fatal memory allocation error creating access stanza hash table"
+                );
+                free_acc_stanza_data(new_acc);
+                free(new_acc);
+                clean_exit(opts, NO_FW_CLEANUP, EXIT_FAILURE);
+            }
+        }
 
-    	if( val == NULL || (strnlen(val, SDP_MAX_CLIENT_ID_STR_LEN) < 1))
-    	{
-    		log_msg(LOG_ERR,
-				"[*] Fatal error - SDP_CLIENT_ID string invalid"
-			);
-	        free_acc_stanza_data(new_acc);
-	        free(new_acc);
-	        clean_exit(opts, NO_FW_CLEANUP, EXIT_FAILURE);
-    	}
+        if( val == NULL || (strnlen(val, SDP_MAX_CLIENT_ID_STR_LEN) < 1))
+        {
+            log_msg(LOG_ERR,
+                "[*] Fatal error - SDP_CLIENT_ID string invalid"
+            );
+            free_acc_stanza_data(new_acc);
+            free(new_acc);
+            clean_exit(opts, NO_FW_CLEANUP, EXIT_FAILURE);
+        }
 
-    	key = bfromcstr(val);
+        key = bfromcstr(val);
 
-    	if( hash_table_set(opts->acc_stanza_hash_tbl, key, new_acc) != FKO_SUCCESS )
-		{
-	        log_msg(LOG_ERR,
-	            "[*] Fatal error creating access stanza hash table node"
-	        );
-	        bdestroy(key);
-	        free_acc_stanza_data(new_acc);
-	        free(new_acc);
-	        clean_exit(opts, NO_FW_CLEANUP, EXIT_FAILURE);
-		}
+        if( hash_table_set(opts->acc_stanza_hash_tbl, key, new_acc) != FKO_SUCCESS )
+        {
+            log_msg(LOG_ERR,
+                "[*] Fatal error creating access stanza hash table node"
+            );
+            bdestroy(key);
+            free_acc_stanza_data(new_acc);
+            free(new_acc);
+            clean_exit(opts, NO_FW_CLEANUP, EXIT_FAILURE);
+        }
     }
 
     return(new_acc);
@@ -1297,7 +1297,7 @@ acc_stanza_add(fko_srv_options_t *opts, char *val)
 static void
 set_one_acc_defaults(acc_stanza_t *acc)
 {
-	access_counter_g++;
+    access_counter_g++;
 
     /* set default fw_access_timeout if necessary
     */
@@ -1310,7 +1310,7 @@ set_one_acc_defaults(acc_stanza_t *acc)
     {
         if(acc->gpg_home_dir == NULL)
             add_acc_string(&(acc->gpg_home_dir),
-            		access_opts_g->config[CONF_GPG_HOME_DIR], NULL, access_opts_g);
+                    access_opts_g->config[CONF_GPG_HOME_DIR], NULL, access_opts_g);
 
         if(! acc->gpg_require_sig)
         {
@@ -1372,10 +1372,10 @@ set_one_acc_defaults(acc_stanza_t *acc)
 static int
 traverse_set_acc_defaults_cb(hash_table_node_t *node)
 {
-	acc_stanza_t *acc = (acc_stanza_t *)(node->data);
-	if(acc)
-		set_one_acc_defaults(acc);
-	return 0;
+    acc_stanza_t *acc = (acc_stanza_t *)(node->data);
+    if(acc)
+        set_one_acc_defaults(acc);
+    return 0;
 }
 
 
@@ -1385,21 +1385,21 @@ traverse_set_acc_defaults_cb(hash_table_node_t *node)
 static void
 set_acc_defaults(fko_srv_options_t *opts)
 {
-	acc_stanza_t    *acc = opts->acc_stanzas;
+    acc_stanza_t    *acc = opts->acc_stanzas;
     access_counter_g = 0;
     access_opts_g = opts;
 
     if(strncasecmp(opts->config[CONF_DISABLE_SDP_MODE], "Y", 1) == 0)
     {
-		while(acc)
-		{
-			set_one_acc_defaults(acc);
-			acc = acc->next;
-		}
+        while(acc)
+        {
+            set_one_acc_defaults(acc);
+            acc = acc->next;
+        }
     }
     else
     {
-    	hash_table_traverse(opts->acc_stanza_hash_tbl, traverse_set_acc_defaults_cb);
+        hash_table_traverse(opts->acc_stanza_hash_tbl, traverse_set_acc_defaults_cb);
     }
 
     access_opts_g = NULL;
@@ -1480,7 +1480,7 @@ acc_data_is_valid(fko_srv_options_t *opts,
         if(acc->forward_all == 1)
         {
             if(add_acc_force_nat(acc, "0.0.0.0 0") != FWKNOPD_SUCCESS)
-            	return(0);
+                return(0);
         }
         else
         {
@@ -1592,358 +1592,358 @@ acc_data_is_valid(fko_srv_options_t *opts,
 static int
 make_acc_stanza_from_json(fko_srv_options_t *opts, json_object *jdata, acc_stanza_t **r_stanza)
 {
-	int rv = FWKNOPD_SUCCESS;
-	char *tmp;
+    int rv = FWKNOPD_SUCCESS;
+    char *tmp;
     struct passwd  *user_pw = NULL;
     struct passwd  *sudo_user_pw = NULL;
     struct passwd  *tmp_pw = NULL;
-	acc_stanza_t *stanza = calloc(1, sizeof(acc_stanza_t));
+    acc_stanza_t *stanza = calloc(1, sizeof(acc_stanza_t));
 
-	if((rv = sdp_get_json_int_field("sdp_client_id", jdata, (int*)&(stanza->sdp_client_id))) != SDP_SUCCESS)
-	{
-		log_msg(LOG_ERR, "Did not find SDP Client ID in access stanza, invalid stanza entry");
-		goto cleanup;
-	}
+    if((rv = sdp_get_json_int_field("sdp_client_id", jdata, (int*)&(stanza->sdp_client_id))) != SDP_SUCCESS)
+    {
+        log_msg(LOG_ERR, "Did not find SDP Client ID in access stanza, invalid stanza entry");
+        goto cleanup;
+    }
 
-	if((rv = sdp_get_json_string_field("source", jdata, &(stanza->source))) != SDP_SUCCESS)
-	{
-		log_msg(LOG_WARNING, "Did not find source in access stanza, setting to ANY");
-		if((stanza->source = strndup("ANY", 4)) == NULL)
-		{
-			rv = FKO_ERROR_MEMORY_ALLOCATION;
-			goto cleanup;
-		}
-	}
+    if((rv = sdp_get_json_string_field("source", jdata, &(stanza->source))) != SDP_SUCCESS)
+    {
+        log_msg(LOG_WARNING, "Did not find source in access stanza, setting to ANY");
+        if((stanza->source = strndup("ANY", 4)) == NULL)
+        {
+            rv = FKO_ERROR_MEMORY_ALLOCATION;
+            goto cleanup;
+        }
+    }
 
-	sdp_get_json_string_field("destination", jdata, &(stanza->destination));
-	sdp_get_json_string_field("open_ports", jdata, &(stanza->open_ports));
-	sdp_get_json_string_field("restrict_ports", jdata, &(stanza->restrict_ports));
+    sdp_get_json_string_field("destination", jdata, &(stanza->destination));
+    sdp_get_json_string_field("open_ports", jdata, &(stanza->open_ports));
+    sdp_get_json_string_field("restrict_ports", jdata, &(stanza->restrict_ports));
 
-	if(sdp_get_json_string_field("key", jdata, &(stanza->key)) == SDP_SUCCESS)
-	{
-		if((stanza->key_len = strnlen(stanza->key, MAX_KEY_LEN + 1)) > MAX_KEY_LEN)
-		{
-			log_msg(LOG_ERR, "Key length exceeds max length of %d bytes", MAX_KEY_LEN);
-			rv = FWKNOPD_ERROR_BAD_STANZA_DATA;
-			goto cleanup;
-		}
-
-		add_acc_bool(&(stanza->use_rijndael), "Y");
-	}
-
-	if(sdp_get_json_string_field("key_base64", jdata, &(stanza->key_base64)) == SDP_SUCCESS)
-	{
-		if(strnlen(stanza->key_base64, MAX_B64_KEY_LEN + 1) > MAX_B64_KEY_LEN)
-		{
-			log_msg(LOG_ERR, "B64 key length exceeds max length %d bytes", MAX_B64_KEY_LEN);
-			rv = FWKNOPD_ERROR_BAD_STANZA_DATA;
-			goto cleanup;
-		}
-		// make space for decoded version of the key
-		// decode function does not watch for buffer overwrite, so oversize the buffer
-		if((stanza->key = calloc(1, MAX_B64_KEY_LEN)) == NULL)
-		{
-			rv = SDP_ERROR_MEMORY_ALLOCATION;
-			goto cleanup;
-		}
-		// perform decode and get key len
-		if((stanza->key_len = fko_base64_decode(stanza->key_base64, (unsigned char*)stanza->key)) < 0)
-		{
-			log_msg(LOG_ERR, "Failed to decode base64 key");
-			rv = FWKNOPD_ERROR_BAD_STANZA_DATA;
-			goto cleanup;
-		}
-
-		if(stanza->key_len > MAX_KEY_LEN)
-		{
-			log_msg(LOG_ERR, "Decoded key length is %d bytes, exceeds max length %d bytes", stanza->key_len, MAX_KEY_LEN);
-			rv = FWKNOPD_ERROR_BAD_STANZA_DATA;
-			goto cleanup;
-		}
-
-		add_acc_bool(&(stanza->use_rijndael), "Y");
-	}
-
-	if(sdp_get_json_string_field("hmac_type", jdata, &tmp) == SDP_SUCCESS)
-	{
-		if((stanza->hmac_type = hmac_digest_strtoint(tmp)) < 0)
-		{
-            log_msg(LOG_ERR,
-                "HMAC_DIGEST_TYPE argument '%s' must be one of {md5,sha1,sha256,sha384,sha512}",
-				tmp);
-			free(tmp);
-			goto cleanup;
-		}
-		free(tmp);
-	}
-
-	if(sdp_get_json_string_field("hmac_key", jdata, &(stanza->hmac_key)) == SDP_SUCCESS)
-	{
-		if((stanza->hmac_key_len = strnlen(stanza->key, MAX_KEY_LEN + 1)) > MAX_KEY_LEN)
-		{
-			log_msg(LOG_ERR, "Key length exceeds max length of %d bytes", MAX_KEY_LEN);
-			rv = FWKNOPD_ERROR_BAD_STANZA_DATA;
-			goto cleanup;
-		}
-	}
-
-	if(sdp_get_json_string_field("hmac_key_base64", jdata, &(stanza->hmac_key_base64)) == SDP_SUCCESS)
-	{
-		if(strnlen(stanza->hmac_key_base64, MAX_B64_KEY_LEN + 1) > MAX_B64_KEY_LEN)
-		{
-			log_msg(LOG_ERR, "B64 key length exceeds max length %d bytes", MAX_B64_KEY_LEN);
-			rv = FWKNOPD_ERROR_BAD_STANZA_DATA;
-			goto cleanup;
-		}
-		// make space for decoded version of the key
-		// decode function does not watch for buffer overwrite, so oversize the buffer
-		if((stanza->hmac_key = calloc(1, MAX_B64_KEY_LEN)) == NULL)
-		{
-			rv = SDP_ERROR_MEMORY_ALLOCATION;
-			goto cleanup;
-		}
-		// perform decode and get key len
-		if((stanza->hmac_key_len = fko_base64_decode(stanza->hmac_key_base64, (unsigned char*)stanza->hmac_key)) < 0)
-		{
-			log_msg(LOG_ERR, "Failed to decode base64 key");
-			rv = FWKNOPD_ERROR_BAD_STANZA_DATA;
-			goto cleanup;
-		}
-
-		if(stanza->hmac_key_len > MAX_KEY_LEN)
-		{
-			log_msg(LOG_ERR, "Decoded key length is %d bytes, exceeds max length %d bytes", stanza->hmac_key_len, MAX_KEY_LEN);
-			rv = FWKNOPD_ERROR_BAD_STANZA_DATA;
-			goto cleanup;
-		}
-	}
-
-	if(sdp_get_json_int_field("fw_access_timeout", jdata, &(stanza->fw_access_timeout)) == SDP_SUCCESS)
-	{
-		if(stanza->fw_access_timeout < 0 || stanza->fw_access_timeout > RCHK_MAX_FW_TIMEOUT)
-		{
-            log_msg(LOG_ERR,
-                "fw_access_timeout value %d not in range [0 - %d].",
-				stanza->fw_access_timeout, RCHK_MAX_FW_TIMEOUT);
+    if(sdp_get_json_string_field("key", jdata, &(stanza->key)) == SDP_SUCCESS)
+    {
+        if((stanza->key_len = strnlen(stanza->key, MAX_KEY_LEN + 1)) > MAX_KEY_LEN)
+        {
+            log_msg(LOG_ERR, "Key length exceeds max length of %d bytes", MAX_KEY_LEN);
             rv = FWKNOPD_ERROR_BAD_STANZA_DATA;
             goto cleanup;
-		}
-	}
+        }
 
-	if(sdp_get_json_string_field("encryption_mode", jdata, &tmp) == SDP_SUCCESS)
-	{
-		if((stanza->encryption_mode = enc_mode_strtoint(tmp)) < 0)
-		{
+        add_acc_bool(&(stanza->use_rijndael), "Y");
+    }
+
+    if(sdp_get_json_string_field("key_base64", jdata, &(stanza->key_base64)) == SDP_SUCCESS)
+    {
+        if(strnlen(stanza->key_base64, MAX_B64_KEY_LEN + 1) > MAX_B64_KEY_LEN)
+        {
+            log_msg(LOG_ERR, "B64 key length exceeds max length %d bytes", MAX_B64_KEY_LEN);
+            rv = FWKNOPD_ERROR_BAD_STANZA_DATA;
+            goto cleanup;
+        }
+        // make space for decoded version of the key
+        // decode function does not watch for buffer overwrite, so oversize the buffer
+        if((stanza->key = calloc(1, MAX_B64_KEY_LEN)) == NULL)
+        {
+            rv = SDP_ERROR_MEMORY_ALLOCATION;
+            goto cleanup;
+        }
+        // perform decode and get key len
+        if((stanza->key_len = fko_base64_decode(stanza->key_base64, (unsigned char*)stanza->key)) < 0)
+        {
+            log_msg(LOG_ERR, "Failed to decode base64 key");
+            rv = FWKNOPD_ERROR_BAD_STANZA_DATA;
+            goto cleanup;
+        }
+
+        if(stanza->key_len > MAX_KEY_LEN)
+        {
+            log_msg(LOG_ERR, "Decoded key length is %d bytes, exceeds max length %d bytes", stanza->key_len, MAX_KEY_LEN);
+            rv = FWKNOPD_ERROR_BAD_STANZA_DATA;
+            goto cleanup;
+        }
+
+        add_acc_bool(&(stanza->use_rijndael), "Y");
+    }
+
+    if(sdp_get_json_string_field("hmac_type", jdata, &tmp) == SDP_SUCCESS)
+    {
+        if((stanza->hmac_type = hmac_digest_strtoint(tmp)) < 0)
+        {
+            log_msg(LOG_ERR,
+                "HMAC_DIGEST_TYPE argument '%s' must be one of {md5,sha1,sha256,sha384,sha512}",
+                tmp);
+            free(tmp);
+            goto cleanup;
+        }
+        free(tmp);
+    }
+
+    if(sdp_get_json_string_field("hmac_key", jdata, &(stanza->hmac_key)) == SDP_SUCCESS)
+    {
+        if((stanza->hmac_key_len = strnlen(stanza->key, MAX_KEY_LEN + 1)) > MAX_KEY_LEN)
+        {
+            log_msg(LOG_ERR, "Key length exceeds max length of %d bytes", MAX_KEY_LEN);
+            rv = FWKNOPD_ERROR_BAD_STANZA_DATA;
+            goto cleanup;
+        }
+    }
+
+    if(sdp_get_json_string_field("hmac_key_base64", jdata, &(stanza->hmac_key_base64)) == SDP_SUCCESS)
+    {
+        if(strnlen(stanza->hmac_key_base64, MAX_B64_KEY_LEN + 1) > MAX_B64_KEY_LEN)
+        {
+            log_msg(LOG_ERR, "B64 key length exceeds max length %d bytes", MAX_B64_KEY_LEN);
+            rv = FWKNOPD_ERROR_BAD_STANZA_DATA;
+            goto cleanup;
+        }
+        // make space for decoded version of the key
+        // decode function does not watch for buffer overwrite, so oversize the buffer
+        if((stanza->hmac_key = calloc(1, MAX_B64_KEY_LEN)) == NULL)
+        {
+            rv = SDP_ERROR_MEMORY_ALLOCATION;
+            goto cleanup;
+        }
+        // perform decode and get key len
+        if((stanza->hmac_key_len = fko_base64_decode(stanza->hmac_key_base64, (unsigned char*)stanza->hmac_key)) < 0)
+        {
+            log_msg(LOG_ERR, "Failed to decode base64 key");
+            rv = FWKNOPD_ERROR_BAD_STANZA_DATA;
+            goto cleanup;
+        }
+
+        if(stanza->hmac_key_len > MAX_KEY_LEN)
+        {
+            log_msg(LOG_ERR, "Decoded key length is %d bytes, exceeds max length %d bytes", stanza->hmac_key_len, MAX_KEY_LEN);
+            rv = FWKNOPD_ERROR_BAD_STANZA_DATA;
+            goto cleanup;
+        }
+    }
+
+    if(sdp_get_json_int_field("fw_access_timeout", jdata, &(stanza->fw_access_timeout)) == SDP_SUCCESS)
+    {
+        if(stanza->fw_access_timeout < 0 || stanza->fw_access_timeout > RCHK_MAX_FW_TIMEOUT)
+        {
+            log_msg(LOG_ERR,
+                "fw_access_timeout value %d not in range [0 - %d].",
+                stanza->fw_access_timeout, RCHK_MAX_FW_TIMEOUT);
+            rv = FWKNOPD_ERROR_BAD_STANZA_DATA;
+            goto cleanup;
+        }
+    }
+
+    if(sdp_get_json_string_field("encryption_mode", jdata, &tmp) == SDP_SUCCESS)
+    {
+        if((stanza->encryption_mode = enc_mode_strtoint(tmp)) < 0)
+        {
             log_msg(LOG_ERR,
                 "Unrecognized encryption_mode '%s', use {CBC,CTR,legacy,Asymmetric}",
                 tmp);
             free(tmp);
             goto cleanup;
-		}
-		free(tmp);
-	}
+        }
+        free(tmp);
+    }
 
-	if(sdp_get_json_string_field("enable_cmd_exec", jdata, &tmp) == SDP_SUCCESS)
-	{
-		add_acc_bool(&(stanza->enable_cmd_exec), tmp);
-		free(tmp);
-	}
+    if(sdp_get_json_string_field("enable_cmd_exec", jdata, &tmp) == SDP_SUCCESS)
+    {
+        add_acc_bool(&(stanza->enable_cmd_exec), tmp);
+        free(tmp);
+    }
 
-	if(sdp_get_json_string_field("enable_cmd_sudo_exec", jdata, &tmp) == SDP_SUCCESS)
-	{
-		add_acc_bool(&(stanza->enable_cmd_sudo_exec), tmp);
-		free(tmp);
-	}
+    if(sdp_get_json_string_field("enable_cmd_sudo_exec", jdata, &tmp) == SDP_SUCCESS)
+    {
+        add_acc_bool(&(stanza->enable_cmd_sudo_exec), tmp);
+        free(tmp);
+    }
 
-	if(sdp_get_json_string_field("cmd_sudo_exec_user", jdata, &(stanza->cmd_sudo_exec_user)) == SDP_SUCCESS)
-	{
+    if(sdp_get_json_string_field("cmd_sudo_exec_user", jdata, &(stanza->cmd_sudo_exec_user)) == SDP_SUCCESS)
+    {
         errno = 0;
         sudo_user_pw = getpwnam(stanza->cmd_sudo_exec_user);
 
         if(sudo_user_pw == NULL)
         {
             log_msg(LOG_ERR, "Unable to determine UID for %s: %s.",
-            		stanza->cmd_sudo_exec_user,
-					errno ? strerror(errno) : "Not a user on this system");
+                    stanza->cmd_sudo_exec_user,
+                    errno ? strerror(errno) : "Not a user on this system");
             goto cleanup;
         }
 
         stanza->cmd_sudo_exec_uid = sudo_user_pw->pw_uid;
-	}
+    }
 
-	if(sdp_get_json_string_field("cmd_exec_user", jdata, &(stanza->cmd_exec_user)) == SDP_SUCCESS)
-	{
+    if(sdp_get_json_string_field("cmd_exec_user", jdata, &(stanza->cmd_exec_user)) == SDP_SUCCESS)
+    {
         errno = 0;
         user_pw = getpwnam(stanza->cmd_exec_user);
 
         if(user_pw == NULL)
         {
             log_msg(LOG_ERR, "Unable to determine UID for %s: %s.",
-            		stanza->cmd_exec_user,
-					errno ? strerror(errno) : "Not a user on this system");
+                    stanza->cmd_exec_user,
+                    errno ? strerror(errno) : "Not a user on this system");
             goto cleanup;
         }
 
         stanza->cmd_exec_uid = user_pw->pw_uid;
-	}
+    }
 
-	if(sdp_get_json_string_field("cmd_sudo_exec_group", jdata, &(stanza->cmd_sudo_exec_group)) == SDP_SUCCESS)
-	{
+    if(sdp_get_json_string_field("cmd_sudo_exec_group", jdata, &(stanza->cmd_sudo_exec_group)) == SDP_SUCCESS)
+    {
         errno = 0;
         tmp_pw = getpwnam(stanza->cmd_sudo_exec_group);
 
         if(tmp_pw == NULL)
         {
             log_msg(LOG_ERR, "Unable to determine GID for %s: %s.",
-            		stanza->cmd_sudo_exec_group,
-					errno ? strerror(errno) : "Not a group on this system");
+                    stanza->cmd_sudo_exec_group,
+                    errno ? strerror(errno) : "Not a group on this system");
             goto cleanup;
         }
 
         stanza->cmd_sudo_exec_gid = tmp_pw->pw_gid;
-	}
+    }
 
-	if(sdp_get_json_string_field("cmd_exec_group", jdata, &(stanza->cmd_exec_group)) == SDP_SUCCESS)
-	{
+    if(sdp_get_json_string_field("cmd_exec_group", jdata, &(stanza->cmd_exec_group)) == SDP_SUCCESS)
+    {
         errno = 0;
         tmp_pw = getpwnam(stanza->cmd_exec_group);
 
         if(tmp_pw == NULL)
         {
             log_msg(LOG_ERR, "Unable to determine GID for %s: %s.",
-            		stanza->cmd_exec_group,
-					errno ? strerror(errno) : "Not a group on this system");
+                    stanza->cmd_exec_group,
+                    errno ? strerror(errno) : "Not a group on this system");
             goto cleanup;
         }
 
         stanza->cmd_exec_gid = tmp_pw->pw_gid;
-	}
+    }
 
-	if(sdp_get_json_string_field("cmd_cycle_open", jdata, &(stanza->cmd_cycle_open)) == SDP_SUCCESS)
-	{
-		stanza->cmd_cycle_do_close = 1;
-	}
+    if(sdp_get_json_string_field("cmd_cycle_open", jdata, &(stanza->cmd_cycle_open)) == SDP_SUCCESS)
+    {
+        stanza->cmd_cycle_do_close = 1;
+    }
 
-	sdp_get_json_string_field("cmd_cycle_close", jdata, &(stanza->cmd_cycle_close));
-	sdp_get_json_int_field("cmd_cycle_timer", jdata, &(stanza->cmd_cycle_timer));
-	sdp_get_json_string_field("require_username", jdata, &(stanza->require_username));
+    sdp_get_json_string_field("cmd_cycle_close", jdata, &(stanza->cmd_cycle_close));
+    sdp_get_json_int_field("cmd_cycle_timer", jdata, &(stanza->cmd_cycle_timer));
+    sdp_get_json_string_field("require_username", jdata, &(stanza->require_username));
 
-	if(sdp_get_json_string_field("require_source_address", jdata, &tmp) == SDP_SUCCESS)
-	{
-		add_acc_bool(&(stanza->require_source_address), tmp);
-		free(tmp);
-	}
+    if(sdp_get_json_string_field("require_source_address", jdata, &tmp) == SDP_SUCCESS)
+    {
+        add_acc_bool(&(stanza->require_source_address), tmp);
+        free(tmp);
+    }
 
-	if(sdp_get_json_string_field("require_source", jdata, &tmp) == SDP_SUCCESS)
-	{
-		add_acc_bool(&(stanza->require_source_address), tmp);
-		free(tmp);
-	}
+    if(sdp_get_json_string_field("require_source", jdata, &tmp) == SDP_SUCCESS)
+    {
+        add_acc_bool(&(stanza->require_source_address), tmp);
+        free(tmp);
+    }
 
-	if(sdp_get_json_string_field("gpg_home_dir", jdata, &(stanza->gpg_home_dir)) == SDP_SUCCESS)
-	{
-		if(!is_valid_dir(stanza->gpg_home_dir))
-		{
+    if(sdp_get_json_string_field("gpg_home_dir", jdata, &(stanza->gpg_home_dir)) == SDP_SUCCESS)
+    {
+        if(!is_valid_dir(stanza->gpg_home_dir))
+        {
             log_msg(LOG_ERR,
                 "GPG_HOME_DIR directory '%s' stat()/existence problem in stanza source '%s'",
-				stanza->gpg_home_dir, stanza->source);
+                stanza->gpg_home_dir, stanza->source);
             rv = FWKNOPD_ERROR_BAD_STANZA_DATA;
             goto cleanup;
-		}
-	}
+        }
+    }
 
-	sdp_get_json_string_field("gpg_exe", jdata, &(stanza->gpg_exe));
-	sdp_get_json_string_field("gpg_decrypt_id", jdata, &(stanza->gpg_decrypt_id));
+    sdp_get_json_string_field("gpg_exe", jdata, &(stanza->gpg_exe));
+    sdp_get_json_string_field("gpg_decrypt_id", jdata, &(stanza->gpg_decrypt_id));
 
-	if((sdp_get_json_string_field("gpg_decrypt_pw", jdata, &(stanza->gpg_decrypt_pw))) == SDP_SUCCESS)
-	{
-		add_acc_bool(&(stanza->use_gpg), "Y");
-	}
+    if((sdp_get_json_string_field("gpg_decrypt_pw", jdata, &(stanza->gpg_decrypt_pw))) == SDP_SUCCESS)
+    {
+        add_acc_bool(&(stanza->use_gpg), "Y");
+    }
 
-	if(sdp_get_json_string_field("gpg_allow_no_pw", jdata, &tmp) == SDP_SUCCESS)
-	{
-		add_acc_bool(&(stanza->gpg_allow_no_pw), tmp);
-		free(tmp);
-		if(stanza->gpg_allow_no_pw == 1)
-		{
-			add_acc_bool(&(stanza->use_gpg), "Y");
-			if((stanza->gpg_decrypt_pw = strndup("", 1)) == NULL)
-			{
-				rv = FKO_ERROR_MEMORY_ALLOCATION;
-				goto cleanup;
-			}
-		}
-	}
+    if(sdp_get_json_string_field("gpg_allow_no_pw", jdata, &tmp) == SDP_SUCCESS)
+    {
+        add_acc_bool(&(stanza->gpg_allow_no_pw), tmp);
+        free(tmp);
+        if(stanza->gpg_allow_no_pw == 1)
+        {
+            add_acc_bool(&(stanza->use_gpg), "Y");
+            if((stanza->gpg_decrypt_pw = strndup("", 1)) == NULL)
+            {
+                rv = FKO_ERROR_MEMORY_ALLOCATION;
+                goto cleanup;
+            }
+        }
+    }
 
-	if(sdp_get_json_string_field("gpg_require_sig", jdata, &tmp) == SDP_SUCCESS)
-	{
-		add_acc_bool(&(stanza->gpg_require_sig), tmp);
-		free(tmp);
-	}
+    if(sdp_get_json_string_field("gpg_require_sig", jdata, &tmp) == SDP_SUCCESS)
+    {
+        add_acc_bool(&(stanza->gpg_require_sig), tmp);
+        free(tmp);
+    }
 
-	if(sdp_get_json_string_field("gpg_disable_sig", jdata, &tmp) == SDP_SUCCESS)
-	{
-		add_acc_bool(&(stanza->gpg_disable_sig), tmp);
-		free(tmp);
-	}
+    if(sdp_get_json_string_field("gpg_disable_sig", jdata, &tmp) == SDP_SUCCESS)
+    {
+        add_acc_bool(&(stanza->gpg_disable_sig), tmp);
+        free(tmp);
+    }
 
-	if(sdp_get_json_string_field("gpg_ignore_sig_error", jdata, &tmp) == SDP_SUCCESS)
-	{
-		add_acc_bool(&(stanza->gpg_ignore_sig_error), tmp);
-		free(tmp);
-	}
+    if(sdp_get_json_string_field("gpg_ignore_sig_error", jdata, &tmp) == SDP_SUCCESS)
+    {
+        add_acc_bool(&(stanza->gpg_ignore_sig_error), tmp);
+        free(tmp);
+    }
 
-	sdp_get_json_string_field("gpg_remote_id", jdata, &(stanza->gpg_remote_id));
-	sdp_get_json_string_field("gpg_remote_fpr", jdata, &(stanza->gpg_remote_fpr));
+    sdp_get_json_string_field("gpg_remote_id", jdata, &(stanza->gpg_remote_id));
+    sdp_get_json_string_field("gpg_remote_fpr", jdata, &(stanza->gpg_remote_fpr));
 
-	if(sdp_get_json_string_field("access_expire_time", jdata, &tmp) == SDP_SUCCESS)
-	{
+    if(sdp_get_json_string_field("access_expire_time", jdata, &tmp) == SDP_SUCCESS)
+    {
         if((rv = add_acc_expire_time(&(stanza->access_expire_time), tmp)) != FWKNOPD_SUCCESS)
         {
-        	free(tmp);
+            free(tmp);
             goto cleanup;
         }
-		free(tmp);
-	}
+        free(tmp);
+    }
 
-	if(sdp_get_json_string_field("access_expire_epoch", jdata, &tmp) == SDP_SUCCESS)
-	{
+    if(sdp_get_json_string_field("access_expire_epoch", jdata, &tmp) == SDP_SUCCESS)
+    {
         if((rv = add_acc_expire_time_epoch(&(stanza->access_expire_time), tmp)) != FWKNOPD_SUCCESS)
         {
-        	free(tmp);
+            free(tmp);
             goto cleanup;
         }
-		free(tmp);
-	}
+        free(tmp);
+    }
 
-	if(sdp_get_json_string_field("force_nat", jdata, &tmp) == SDP_SUCCESS)
-	{
+    if(sdp_get_json_string_field("force_nat", jdata, &tmp) == SDP_SUCCESS)
+    {
 #if FIREWALL_FIREWALLD
-		if(strncasecmp(opts->config[CONF_ENABLE_FIREWD_FORWARDING], "Y", 1) !=0
-			&& (strncasecmp(opts->config[CONF_ENABLE_FIREWD_LOCAL_NAT], "Y", 1) !=0 ))
-		{
-			log_msg(LOG_ERR,
-				"[*] FORCE_NAT requires either ENABLE_FIREWD_FORWARDING or ENABLE_FIREWD_LOCAL_NAT in fwknopd.conf");
+        if(strncasecmp(opts->config[CONF_ENABLE_FIREWD_FORWARDING], "Y", 1) !=0
+            && (strncasecmp(opts->config[CONF_ENABLE_FIREWD_LOCAL_NAT], "Y", 1) !=0 ))
+        {
+            log_msg(LOG_ERR,
+                "[*] FORCE_NAT requires either ENABLE_FIREWD_FORWARDING or ENABLE_FIREWD_LOCAL_NAT in fwknopd.conf");
             free(tmp);
-			rv = FWKNOPD_ERROR_BAD_STANZA_DATA;
-			goto cleanup;
-		}
+            rv = FWKNOPD_ERROR_BAD_STANZA_DATA;
+            goto cleanup;
+        }
 #elif FIREWALL_IPTABLES
-		if(strncasecmp(opts->config[CONF_ENABLE_IPT_FORWARDING], "Y", 1) !=0
-			&& (strncasecmp(opts->config[CONF_ENABLE_IPT_LOCAL_NAT], "Y", 1) !=0 ))
-		{
-			log_msg(LOG_ERR,
-				"[*] FORCE_NAT requires ENABLE_IPT_FORWARDING ENABLE_IPT_LOCAL_NAT in fwknopd.conf");
+        if(strncasecmp(opts->config[CONF_ENABLE_IPT_FORWARDING], "Y", 1) !=0
+            && (strncasecmp(opts->config[CONF_ENABLE_IPT_LOCAL_NAT], "Y", 1) !=0 ))
+        {
+            log_msg(LOG_ERR,
+                "[*] FORCE_NAT requires ENABLE_IPT_FORWARDING ENABLE_IPT_LOCAL_NAT in fwknopd.conf");
             free(tmp);
-			rv = FWKNOPD_ERROR_BAD_STANZA_DATA;
-			goto cleanup;
-		}
+            rv = FWKNOPD_ERROR_BAD_STANZA_DATA;
+            goto cleanup;
+        }
 #else
         log_msg(LOG_ERR,
             "[*] FORCE_NAT not supported.");
         free(tmp);
-		rv = FWKNOPD_ERROR_BAD_STANZA_DATA;
-		goto cleanup;
+        rv = FWKNOPD_ERROR_BAD_STANZA_DATA;
+        goto cleanup;
 #endif
         if((rv = add_acc_force_nat(stanza, tmp)) != FWKNOPD_SUCCESS)
         {
@@ -1951,36 +1951,36 @@ make_acc_stanza_from_json(fko_srv_options_t *opts, json_object *jdata, acc_stanz
             goto cleanup;
         }
         free(tmp);
-	}
+    }
 
-	if(sdp_get_json_string_field("force_snat", jdata, &tmp) == SDP_SUCCESS)
-	{
+    if(sdp_get_json_string_field("force_snat", jdata, &tmp) == SDP_SUCCESS)
+    {
 #if FIREWALL_FIREWALLD
-		if(strncasecmp(opts->config[CONF_ENABLE_FIREWD_FORWARDING], "Y", 1) !=0
-			&& (strncasecmp(opts->config[CONF_ENABLE_FIREWD_LOCAL_NAT], "Y", 1) !=0 ))
-		{
-			log_msg(LOG_ERR,
-				"[*] FORCE_SNAT requires either ENABLE_FIREWD_FORWARDING or ENABLE_FIREWD_LOCAL_NAT in fwknopd.conf");
+        if(strncasecmp(opts->config[CONF_ENABLE_FIREWD_FORWARDING], "Y", 1) !=0
+            && (strncasecmp(opts->config[CONF_ENABLE_FIREWD_LOCAL_NAT], "Y", 1) !=0 ))
+        {
+            log_msg(LOG_ERR,
+                "[*] FORCE_SNAT requires either ENABLE_FIREWD_FORWARDING or ENABLE_FIREWD_LOCAL_NAT in fwknopd.conf");
             free(tmp);
-			rv = FWKNOPD_ERROR_BAD_STANZA_DATA;
-			goto cleanup;
-		}
+            rv = FWKNOPD_ERROR_BAD_STANZA_DATA;
+            goto cleanup;
+        }
 #elif FIREWALL_IPTABLES
-		if(strncasecmp(opts->config[CONF_ENABLE_IPT_FORWARDING], "Y", 1) !=0
-			&& (strncasecmp(opts->config[CONF_ENABLE_IPT_LOCAL_NAT], "Y", 1) !=0 ))
-		{
-			log_msg(LOG_ERR,
-				"[*] FORCE_SNAT requires ENABLE_IPT_FORWARDING ENABLE_IPT_LOCAL_NAT in fwknopd.conf");
+        if(strncasecmp(opts->config[CONF_ENABLE_IPT_FORWARDING], "Y", 1) !=0
+            && (strncasecmp(opts->config[CONF_ENABLE_IPT_LOCAL_NAT], "Y", 1) !=0 ))
+        {
+            log_msg(LOG_ERR,
+                "[*] FORCE_SNAT requires ENABLE_IPT_FORWARDING ENABLE_IPT_LOCAL_NAT in fwknopd.conf");
             free(tmp);
-			rv = FWKNOPD_ERROR_BAD_STANZA_DATA;
-			goto cleanup;
-		}
+            rv = FWKNOPD_ERROR_BAD_STANZA_DATA;
+            goto cleanup;
+        }
 #else
         log_msg(LOG_ERR,
             "[*] FORCE_SNAT not supported.");
         free(tmp);
-		rv = FWKNOPD_ERROR_BAD_STANZA_DATA;
-		goto cleanup;
+        rv = FWKNOPD_ERROR_BAD_STANZA_DATA;
+        goto cleanup;
 #endif
         if((rv = add_acc_force_snat(stanza, tmp)) != FWKNOPD_SUCCESS)
         {
@@ -1988,234 +1988,268 @@ make_acc_stanza_from_json(fko_srv_options_t *opts, json_object *jdata, acc_stanz
             goto cleanup;
         }
         free(tmp);
-	}
+    }
 
-	if(sdp_get_json_string_field("force_masquerade", jdata, &tmp) == SDP_SUCCESS)
-	{
-		add_acc_bool(&(stanza->force_masquerade), tmp);
-		add_acc_bool(&(stanza->force_snat), tmp);
-		free(tmp);
-	}
+    if(sdp_get_json_string_field("force_masquerade", jdata, &tmp) == SDP_SUCCESS)
+    {
+        add_acc_bool(&(stanza->force_masquerade), tmp);
+        add_acc_bool(&(stanza->force_snat), tmp);
+        free(tmp);
+    }
 
-	if(sdp_get_json_string_field("disable_dnat", jdata, &tmp) == SDP_SUCCESS)
-	{
-		add_acc_bool(&(stanza->disable_dnat), tmp);
-		free(tmp);
-	}
+    if(sdp_get_json_string_field("disable_dnat", jdata, &tmp) == SDP_SUCCESS)
+    {
+        add_acc_bool(&(stanza->disable_dnat), tmp);
+        free(tmp);
+    }
 
-	if(sdp_get_json_string_field("forward_all", jdata, &tmp) == SDP_SUCCESS)
-	{
-		add_acc_bool(&(stanza->forward_all), tmp);
-		free(tmp);
-	}
+    if(sdp_get_json_string_field("forward_all", jdata, &tmp) == SDP_SUCCESS)
+    {
+        add_acc_bool(&(stanza->forward_all), tmp);
+        free(tmp);
+    }
 
-	// do sanity check on data
-	if(!acc_data_is_valid(opts, user_pw, sudo_user_pw, stanza))
-	{
-		log_msg(LOG_ERR, "[*] Validation failed on stanza for SDP ID %d", stanza->sdp_client_id);
-		rv = FWKNOPD_ERROR_BAD_STANZA_DATA;
-	}
+    // do sanity check on data
+    if(!acc_data_is_valid(opts, user_pw, sudo_user_pw, stanza))
+    {
+        log_msg(LOG_ERR, "[*] Validation failed on stanza for SDP ID %d", stanza->sdp_client_id);
+        rv = FWKNOPD_ERROR_BAD_STANZA_DATA;
+    }
 
-	if(expand_one_acc_ent_list(stanza) != SUCCESS)
-	{
-		log_msg(LOG_ERR, "[*] Access list expansion failed on stanza for SDP ID %d", stanza->sdp_client_id);
-		rv = FWKNOPD_ERROR_BAD_STANZA_DATA;
-	}
+    if(expand_one_acc_ent_list(stanza) != SUCCESS)
+    {
+        log_msg(LOG_ERR, "[*] Access list expansion failed on stanza for SDP ID %d", stanza->sdp_client_id);
+        rv = FWKNOPD_ERROR_BAD_STANZA_DATA;
+    }
 
-	set_one_acc_defaults(stanza);
+    set_one_acc_defaults(stanza);
 
 cleanup:
-	if(rv != FWKNOPD_SUCCESS)
-	{
-		free_acc_stanza_data(stanza);
-		free(stanza);
-		*r_stanza = NULL;
-	}
-	else
-	{
-		*r_stanza = stanza;
-	}
-	return rv;
+    if(rv != FWKNOPD_SUCCESS)
+    {
+        free_acc_stanza_data(stanza);
+        free(stanza);
+        *r_stanza = NULL;
+    }
+    else
+    {
+        *r_stanza = stanza;
+    }
+    return rv;
 }
 
+/* Take a json data array from a controller message
+ * remove stanzas from the hash table
+ */
+static void
+remove_access_stanzas(hash_table_t *acc_table, int access_array_len, json_object *jdata)
+{
+    int rv = FKO_SUCCESS;
+    int idx;
+    int sdp_id = 0;
+    json_object *jentry = NULL;
+    bstring key = NULL;
+    char id[SDP_MAX_CLIENT_ID_STR_LEN + 1] = {0};
+
+    // walk through the access array
+    for(idx = 0; idx < access_array_len; idx++)
+    {
+        jentry = json_object_array_get_idx(jdata, idx);
+        if((rv = sdp_get_json_int_field("sdp_client_id", jentry, &sdp_id)) != SDP_SUCCESS)
+        {
+            log_msg(LOG_ERR, "Did not find sdp_client_id field in data array entry.");
+            continue;
+        }
+
+        // convert the sdp id integer to a bstring
+        snprintf(id, SDP_MAX_CLIENT_ID_STR_LEN, "%d", sdp_id);
+        key = bfromcstr(id);
+
+        if( hash_table_delete(acc_table, key) != FKO_SUCCESS )
+        {
+            log_msg(LOG_WARNING, "Did not find hash table node with SDP ID %d to remove. Continuing.", sdp_id);
+        }
+        else
+        {
+            log_msg(LOG_INFO, "Removed access stanza for SDP ID %d from access list.", sdp_id);
+        }
+
+        bdestroy(key);
+    }
+}
 
 /* Take a json data array from a controller message
- * Walk the array, making stanzas and plugging into the hash table
+ * add/replace stanzas in the hash table
+ */
+static int
+modify_access_table(fko_srv_options_t *opts, int access_array_len, json_object *jdata)
+{
+    int rv = FWKNOPD_SUCCESS;
+    acc_stanza_t *new_acc = NULL;
+    int idx = 0;
+    int nodes = 0;
+    json_object *jstanza = NULL;
+    bstring key = NULL;
+    char id[SDP_MAX_CLIENT_ID_STR_LEN + 1] = {0};
+
+    // walk through the access array
+    for(idx = 0; idx < access_array_len; idx++)
+    {
+        jstanza = json_object_array_get_idx(jdata, idx);
+        if((rv = make_acc_stanza_from_json(opts, jstanza, &new_acc)) != FWKNOPD_SUCCESS)
+        {
+            if(rv == FKO_ERROR_MEMORY_ALLOCATION)
+            {
+                log_msg(LOG_ERR, "Memory allocation error while parsing json data, time to die");
+                return FKO_ERROR_MEMORY_ALLOCATION;
+            }
+
+            log_msg(LOG_ERR, "Failed to parse json stanza, attempting to carry on");
+            continue;
+        }
+
+        // convert the sdp id integer to a bstring
+        snprintf(id, SDP_MAX_CLIENT_ID_STR_LEN, "%d", new_acc->sdp_client_id);
+        key = bfromcstr(id);
+
+        if( hash_table_set(opts->acc_stanza_hash_tbl, key, new_acc) != FKO_SUCCESS )
+        {
+            log_msg(LOG_ERR,
+                "Fatal error creating access stanza hash table node"
+            );
+            bdestroy(key);
+            free_acc_stanza_data(new_acc);
+            free(new_acc);
+            return FKO_ERROR_MEMORY_ALLOCATION;
+        }
+
+        log_msg(LOG_INFO, "Added access entry for SDP ID %d", new_acc->sdp_client_id);
+        nodes++;
+    }
+
+    if(nodes > 0)
+    {
+        log_msg(LOG_INFO, "Created %d hash table nodes from %d json stanzas", nodes, access_array_len);
+        rv = FWKNOPD_SUCCESS;
+    }
+    else
+        log_msg(LOG_WARNING, "Failed to create any hash table nodes from %d json stanzas", access_array_len);
+
+    return rv;
+
+}
+
+/* Take a json data array from a controller message
+ * Alter/recreate the hash table based on the action
  */
 int
-process_access_msg(fko_srv_options_t *opts, json_object *jmsg)
+process_access_msg(fko_srv_options_t *opts, int action, json_object *jdata)
 {
-	int rv = FWKNOPD_SUCCESS;
-	acc_stanza_t *new_acc = NULL;
-	int hash_table_len = 0;
-	int access_array_len = 0;
-	int idx = 0;
-	int is_err = 0;
-	int nodes = 0;
-	char *action = NULL;
-	json_object *jarray = NULL;
-	json_object *jstanza = NULL;
-	bstring key = NULL;
-	char id[SDP_MAX_CLIENT_ID_STR_LEN + 1] = {0};
+    int rv = FWKNOPD_SUCCESS;
+    int hash_table_len = 0;
+    int access_array_len = 0;
+    int is_err = 0;
 
-	// get the action string from the message
-	if((rv = sdp_get_json_string_field(sdp_key_action, jmsg, &action)) != SDP_SUCCESS)
-	{
-        log_msg(LOG_ERR, "message action field was not found");
-		return FWKNOPD_ERROR_BAD_MSG;
-	}
+    access_array_len = json_object_array_length(jdata);
+    if(access_array_len <= 0)
+    {
+        log_msg(LOG_ERR, "Received access message with zero length data array.");
+        return FWKNOPD_ERROR_BAD_MSG;
+    }
 
-	// lock the hash table mutex
+    log_msg(LOG_DEBUG, "jdata contains %d objects", access_array_len);
+
+
+    // lock the hash table mutex
     if(pthread_mutex_lock(&(opts->acc_hash_tbl_mutex)))
     {
-    	log_msg(LOG_ERR, "Mutex lock error.");
+        log_msg(LOG_ERR, "Mutex lock error.");
         return FWKNOPD_ERROR_MUTEX;
     }
 
-	// if this is an access data refresh, destroy the hash table
-	if(strncmp(action, sdp_action_access_refresh, strlen(sdp_action_access_refresh)) == 0)
-	{
-		if(opts->acc_stanza_hash_tbl != NULL)
-		{
-			// destroy the table
-			hash_table_destroy(opts->acc_stanza_hash_tbl);
-			opts->acc_stanza_hash_tbl = NULL;
-		}
-	}
-	else if(strncmp(action, sdp_action_access_update, strlen(sdp_action_access_update)) != 0)
-	{
-		// unrecognized action, exiting function
+    if(action == CTRL_ACTION_ACCESS_REMOVE)
+    {
+        if(opts->acc_stanza_hash_tbl == NULL)
+        {
+            //table is not initialized, nothing to do
+            log_msg(LOG_INFO, "Received access remove message, but access table not "
+                    "initialized. Nothing to do.");
+            pthread_mutex_unlock(&(opts->acc_hash_tbl_mutex));
+            return FWKNOPD_ERROR_UNTIMELY_MSG;
+        }
 
-		free(action);
+        remove_access_stanzas(opts->acc_stanza_hash_tbl, access_array_len, jdata);
+        pthread_mutex_unlock(&(opts->acc_hash_tbl_mutex));
 
-		// release lock on the table
-	    pthread_mutex_unlock(&(opts->acc_hash_tbl_mutex));
+        return FWKNOPD_SUCCESS;
+    }
 
-		// did not receive valid message
-        log_msg(LOG_ERR, "message action field was not one of %s or %s", sdp_action_access_refresh, sdp_action_access_update);
-		return FWKNOPD_ERROR_BAD_MSG;
-	}
+    // if this is an access data refresh, destroy the hash table
+    if(action == CTRL_ACTION_ACCESS_REFRESH)
+    {
+        if(opts->acc_stanza_hash_tbl != NULL)
+        {
+            // destroy the table
+            hash_table_destroy(opts->acc_stanza_hash_tbl);
+            opts->acc_stanza_hash_tbl = NULL;
+        }
+    }
 
-	free(action);
+    // create the hash table if necessary
+    if(opts->acc_stanza_hash_tbl == NULL)
+    {
+        //need to initialize hash table
+        hash_table_len = strtol_wrapper(opts->config[CONF_ACC_STANZA_HASH_TABLE_LENGTH],
+                               MIN_ACC_STANZA_HASH_TABLE_LENGTH,
+                               MAX_ACC_STANZA_HASH_TABLE_LENGTH,
+                               NO_EXIT_UPON_ERR,
+                               &is_err);
 
-	if( !json_object_object_get_ex(jmsg, sdp_key_data, &jarray))
-	{
-		// release lock on the table
-	    pthread_mutex_unlock(&(opts->acc_hash_tbl_mutex));
+        if(is_err != FKO_SUCCESS)
+        {
+            // this error should be impossible because the config variable
+            // is checked at startup
 
-		// did not receive valid access data
-        log_msg(LOG_ERR, "message data field was not found");
-		return FWKNOPD_ERROR_BAD_MSG;
-	}
+            pthread_mutex_unlock(&(opts->acc_hash_tbl_mutex));
 
-	// verify the data is an array
-	if(json_object_get_type(jarray) != json_type_array)
-	{
-		// release lock on the table
-	    pthread_mutex_unlock(&(opts->acc_hash_tbl_mutex));
+            log_msg(LOG_ERR, "[*] var %s value '%s' not in the range %d-%d",
+                    "ACC_STANZA_HASH_TABLE_LENGTH",
+                    opts->config[CONF_ACC_STANZA_HASH_TABLE_LENGTH],
+                    MIN_ACC_STANZA_HASH_TABLE_LENGTH,
+                    MAX_ACC_STANZA_HASH_TABLE_LENGTH);
 
-        log_msg(LOG_ERR, "jarray object was not json_type_array as expected");
-		return FWKNOPD_ERROR_BAD_MSG;
-	}
+            return FWKNOPD_ERROR_BAD_CONFIG;
+        }
 
+        opts->acc_stanza_hash_tbl = hash_table_create(hash_table_len,
+                NULL, NULL, destroy_hash_node_cb);
+        if(opts->acc_stanza_hash_tbl == NULL)
+        {
+            pthread_mutex_unlock(&(opts->acc_hash_tbl_mutex));
 
-	// create the hash table if necessary
-	if(opts->acc_stanza_hash_tbl == NULL)
-	{
-		//need to initialize hash table
-		hash_table_len = strtol_wrapper(opts->config[CONF_ACC_STANZA_HASH_TABLE_LENGTH],
-		        			   MIN_ACC_STANZA_HASH_TABLE_LENGTH,
-							   MAX_ACC_STANZA_HASH_TABLE_LENGTH,
-							   NO_EXIT_UPON_ERR,
-							   &is_err);
+            log_msg(LOG_ERR,
+                "[*] Fatal memory allocation error creating access stanza hash table"
+            );
+            return FKO_ERROR_MEMORY_ALLOCATION;
+        }
+    }
 
-		if(is_err != FKO_SUCCESS)
-		{
-			// this error should be impossible because the config variable
-			// is checked at startup
+    // control message is either REFRESH or UPDATE
+    // in either case, use data array to modify the table
+    if((rv = modify_access_table(opts, access_array_len, jdata)) != FWKNOPD_SUCCESS)
+    {
+        log_msg(LOG_ERR, "modify_access_table was unsuccessful");
+    }
 
-		    pthread_mutex_unlock(&(opts->acc_hash_tbl_mutex));
-
-			log_msg(LOG_ERR, "[*] var %s value '%s' not in the range %d-%d",
-					"ACC_STANZA_HASH_TABLE_LENGTH",
-					opts->config[CONF_ACC_STANZA_HASH_TABLE_LENGTH],
-					MIN_ACC_STANZA_HASH_TABLE_LENGTH,
-					MAX_ACC_STANZA_HASH_TABLE_LENGTH);
-
-	        return FWKNOPD_ERROR_BAD_CONFIG;
-		}
-
-		opts->acc_stanza_hash_tbl = hash_table_create(hash_table_len,
-				NULL, NULL, destroy_hash_node_cb);
-		if(opts->acc_stanza_hash_tbl == NULL)
-		{
-		    pthread_mutex_unlock(&(opts->acc_hash_tbl_mutex));
-
-		    log_msg(LOG_ERR,
-	            "[*] Fatal memory allocation error creating access stanza hash table"
-	        );
-	        return FKO_ERROR_MEMORY_ALLOCATION;
-		}
-	}
-
-	access_array_len = json_object_array_length(jarray);
-	log_msg(LOG_DEBUG, "jarray contains %d stanzas", access_array_len);
-
-	// walk through the access array
-	for(idx = 0; idx < access_array_len; idx++)
-	{
-		jstanza = json_object_array_get_idx(jarray, idx);
-		if((rv = make_acc_stanza_from_json(opts, jstanza, &new_acc)) != FWKNOPD_SUCCESS)
-		{
-			if(rv == FKO_ERROR_MEMORY_ALLOCATION)
-			{
-			    pthread_mutex_unlock(&(opts->acc_hash_tbl_mutex));
-				log_msg(LOG_ERR, "Memory allocation error while parsing json data, time to die");
-				return FKO_ERROR_MEMORY_ALLOCATION;
-			}
-
-			log_msg(LOG_ERR, "Failed to parse json stanza, attempting to carry on");
-			continue;
-		}
-
-		// insert in hash table
-		snprintf(id, SDP_MAX_CLIENT_ID_STR_LEN, "%d", new_acc->sdp_client_id);
-    	key = bfromcstr(id);
-
-    	if( hash_table_set(opts->acc_stanza_hash_tbl, key, new_acc) != FKO_SUCCESS )
-		{
-	        log_msg(LOG_ERR,
-	            "Fatal error creating access stanza hash table node"
-	        );
-		    pthread_mutex_unlock(&(opts->acc_hash_tbl_mutex));
-	        bdestroy(key);
-	        free_acc_stanza_data(new_acc);
-	        free(new_acc);
-	        return FKO_ERROR_MEMORY_ALLOCATION;
-		}
-
-    	log_msg(LOG_INFO, "Added access entry for SDP ID %d", new_acc->sdp_client_id);
-    	nodes++;
-	}
-
-	// release lock on the table
+    // release lock on the table
     pthread_mutex_unlock(&(opts->acc_hash_tbl_mutex));
 
-	if(nodes > 0)
-	{
-		log_msg(LOG_INFO, "Created %d hash table nodes from %d json stanzas", nodes, access_array_len);
-		rv = FWKNOPD_SUCCESS;
-	}
-	else
-		log_msg(LOG_WARNING, "Failed to create any hash table nodes from %d json stanzas", access_array_len);
-
-	return rv;
-
+    return rv;
 }
 
 
 
-/* Read and parse the access file, popluating the access data as we go.
+/* Read and parse the access file, populating the access data as we go.
 */
 void
 parse_access_file(fko_srv_options_t *opts)
@@ -2326,25 +2360,25 @@ parse_access_file(fko_srv_options_t *opts)
         */
         if(CONF_VAR_IS(var, "SOURCE"))
         {
-        	if(strncasecmp(opts->config[CONF_DISABLE_SDP_MODE], "Y", 1) == 0)
-        	{
-				/* If this is not the first stanza, sanity check the previous
-				 * stanza for the minimum required data.
-				*/
-				if(curr_acc != NULL) {
-					if(!acc_data_is_valid(opts, user_pw, sudo_user_pw, curr_acc))
-					{
-						log_msg(LOG_ERR, "[*] Data error in access file: '%s'",
-							opts->config[CONF_ACCESS_FILE]);
-						fclose(file_ptr);
-						clean_exit(opts, NO_FW_CLEANUP, EXIT_FAILURE);
-					}
-				}
+            if(strncasecmp(opts->config[CONF_DISABLE_SDP_MODE], "Y", 1) == 0)
+            {
+                /* If this is not the first stanza, sanity check the previous
+                 * stanza for the minimum required data.
+                */
+                if(curr_acc != NULL) {
+                    if(!acc_data_is_valid(opts, user_pw, sudo_user_pw, curr_acc))
+                    {
+                        log_msg(LOG_ERR, "[*] Data error in access file: '%s'",
+                            opts->config[CONF_ACCESS_FILE]);
+                        fclose(file_ptr);
+                        clean_exit(opts, NO_FW_CLEANUP, EXIT_FAILURE);
+                    }
+                }
 
-				/* Start new stanza.
-				*/
-				curr_acc = acc_stanza_add(opts, NULL);
-        	}
+                /* Start new stanza.
+                */
+                curr_acc = acc_stanza_add(opts, NULL);
+            }
             else if (curr_acc == NULL)
             {
                 /* The stanza must start with "SDP_CLIENT_ID" variable
@@ -2358,9 +2392,9 @@ parse_access_file(fko_srv_options_t *opts)
         }
         else if(CONF_VAR_IS(var, "SDP_CLIENT_ID"))
         {
-        	// Don't need this field in legacy mode, so ignore completely
-        	if(strncasecmp(opts->config[CONF_DISABLE_SDP_MODE], "Y", 1) == 0)
-        		continue;
+            // Don't need this field in legacy mode, so ignore completely
+            if(strncasecmp(opts->config[CONF_DISABLE_SDP_MODE], "Y", 1) == 0)
+                continue;
 
             /* If this is not the first stanza, sanity check the previous
              * stanza for the minimum required data.
@@ -2379,15 +2413,15 @@ parse_access_file(fko_srv_options_t *opts)
             */
             curr_acc = acc_stanza_add(opts, val);
             curr_acc->sdp_client_id = (uint32_t)strtol_wrapper(val, 0,
-                                		UINT32_MAX, NO_EXIT_UPON_ERR, &is_err);
-			if(is_err != FKO_SUCCESS)
-			{
-				log_msg(LOG_ERR,
-					"[*] SDP_CLIENT_ID value not in range in access file: '%s'",
+                                        UINT32_MAX, NO_EXIT_UPON_ERR, &is_err);
+            if(is_err != FKO_SUCCESS)
+            {
+                log_msg(LOG_ERR,
+                    "[*] SDP_CLIENT_ID value not in range in access file: '%s'",
                     opts->config[CONF_ACCESS_FILE] );
-				fclose(file_ptr);
-				clean_exit(opts, NO_FW_CLEANUP, EXIT_FAILURE);
-			}
+                fclose(file_ptr);
+                clean_exit(opts, NO_FW_CLEANUP, EXIT_FAILURE);
+            }
             got_sdp_client_id++;
         }
         else if (curr_acc == NULL)
@@ -2917,120 +2951,120 @@ dump_access_list(fko_srv_options_t *opts)
 
     if(strncasecmp(opts->config[CONF_DISABLE_SDP_MODE], "N", 1) == 0)
     {
-    	if(! opts->acc_stanza_hash_tbl)
-    	{
-    		fprintf(stderr, "\n    ** No Access Settings Defined **\n\n");
-    		return;
-    	}
-
-    	// lock the hash table mutex
-        if(pthread_mutex_lock(&(opts->acc_hash_tbl_mutex)))
+        if(! opts->acc_stanza_hash_tbl)
         {
-        	log_msg(LOG_ERR, "Mutex lock error.");
+            fprintf(stderr, "\n    ** No Access Settings Defined **\n\n");
             return;
         }
 
-    	hash_table_traverse(opts->acc_stanza_hash_tbl, traverse_dump_hash_cb);
+        // lock the hash table mutex
+        if(pthread_mutex_lock(&(opts->acc_hash_tbl_mutex)))
+        {
+            log_msg(LOG_ERR, "Mutex lock error.");
+            return;
+        }
 
-    	pthread_mutex_unlock(&(opts->acc_hash_tbl_mutex));
+        hash_table_traverse(opts->acc_stanza_hash_tbl, traverse_dump_hash_cb);
+
+        pthread_mutex_unlock(&(opts->acc_hash_tbl_mutex));
     }
     else
-	{
-		if(!acc)
-		{
-			fprintf(stderr, "\n    ** No Access Settings Defined **\n\n");
-			return;
-		}
+    {
+        if(!acc)
+        {
+            fprintf(stderr, "\n    ** No Access Settings Defined **\n\n");
+            return;
+        }
 
-		while(acc)
-		{
-			fprintf(stdout,
-				"SOURCE (%i):  %s\n"
-				"==============================================================\n"
-				"                DESTINATION:  %s\n"
-				"                 OPEN_PORTS:  %s\n"
-				"             RESTRICT_PORTS:  %s\n"
-				"                        KEY:  %s\n"
-				"                 KEY_BASE64:  %s\n"
-				"                    KEY_LEN:  %d\n"
-				"                   HMAC_KEY:  %s\n"
-				"            HMAC_KEY_BASE64:  %s\n"
-				"               HMAC_KEY_LEN:  %d\n"
-				"           HMAC_DIGEST_TYPE:  %d\n"
-				"          FW_ACCESS_TIMEOUT:  %i\n"
-				"            ENABLE_CMD_EXEC:  %s\n"
-				"       ENABLE_CMD_SUDO_EXEC:  %s\n"
-				"         CMD_SUDO_EXEC_USER:  %s\n"
-				"        CMD_SUDO_EXEC_GROUP:  %s\n"
-				"              CMD_EXEC_USER:  %s\n"
-				"             CMD_EXEC_GROUP:  %s\n"
-				"             CMD_CYCLE_OPEN:  %s\n"
-				"            CMD_CYCLE_CLOSE:  %s\n"
-				"            CMD_CYCLE_TIMER:  %i\n"
-				"           REQUIRE_USERNAME:  %s\n"
-				"     REQUIRE_SOURCE_ADDRESS:  %s\n"
-				"             FORCE_NAT (ip):  %s\n"
-				"          FORCE_NAT (proto):  %s\n"
-				"           FORCE_NAT (port):  %d\n"
-				"            FORCE_SNAT (ip):  %s\n"
-				"           FORCE_MASQUERADE:  %s\n"
-				"               DISABLE_DNAT:  %s\n"
-				"                FORWARD_ALL:  %s\n"
-				"              ACCESS_EXPIRE:  %s"  /* asctime() adds a newline */
-				"               GPG_HOME_DIR:  %s\n"
-				"                    GPG_EXE:  %s\n"
-				"             GPG_DECRYPT_ID:  %s\n"
-				"             GPG_DECRYPT_PW:  %s\n"
-				"            GPG_REQUIRE_SIG:  %s\n"
-				"GPG_IGNORE_SIG_VERIFY_ERROR:  %s\n"
-				"              GPG_REMOTE_ID:  %s\n"
-				"         GPG_FINGERPRINT_ID:  %s\n",
-				++i,
-				acc->source,
-				(acc->destination == NULL) ? "<not set>" : acc->destination,
-				(acc->open_ports == NULL) ? "<not set>" : acc->open_ports,
-				(acc->restrict_ports == NULL) ? "<not set>" : acc->restrict_ports,
-				(acc->key == NULL) ? "<not set>" : "<see the access.conf file>",
-				(acc->key_base64 == NULL) ? "<not set>" : "<see the access.conf file>",
-				acc->key_len ? acc->key_len : 0,
-				(acc->hmac_key == NULL) ? "<not set>" : "<see the access.conf file>",
-				(acc->hmac_key_base64 == NULL) ? "<not set>" : "<see the access.conf file>",
-				acc->hmac_key_len ? acc->hmac_key_len : 0,
-				acc->hmac_type,
-				acc->fw_access_timeout,
-				acc->enable_cmd_exec ? "Yes" : "No",
-				acc->enable_cmd_sudo_exec ? "Yes" : "No",
-				(acc->cmd_sudo_exec_user == NULL) ? "<not set>" : acc->cmd_sudo_exec_user,
-				(acc->cmd_sudo_exec_group == NULL) ? "<not set>" : acc->cmd_sudo_exec_group,
-				(acc->cmd_exec_user == NULL) ? "<not set>" : acc->cmd_exec_user,
-				(acc->cmd_exec_group == NULL) ? "<not set>" : acc->cmd_exec_group,
-				(acc->cmd_cycle_open == NULL) ? "<not set>" : acc->cmd_cycle_open,
-				(acc->cmd_cycle_close == NULL) ? "<not set>" : acc->cmd_cycle_close,
-				acc->cmd_cycle_timer,
-				(acc->require_username == NULL) ? "<not set>" : acc->require_username,
-				acc->require_source_address ? "Yes" : "No",
-				acc->force_nat ? acc->force_nat_ip : "<not set>",
-				acc->force_nat && acc->force_nat_proto != NULL ? acc->force_nat_proto : "<not set>",
-				acc->force_nat ? acc->force_nat_port : 0,
-				acc->force_snat ? acc->force_snat_ip : "<not set>",
-				acc->force_masquerade ? "Yes" : "No",
-				acc->disable_dnat ? "Yes" : "No",
-				acc->forward_all ? "Yes" : "No",
-				(acc->access_expire_time > 0) ? asctime(localtime(&acc->access_expire_time)) : "<not set>\n",
-				(acc->gpg_home_dir == NULL) ? "<not set>" : acc->gpg_home_dir,
-				(acc->gpg_exe == NULL) ? "<not set>" : acc->gpg_exe,
-				(acc->gpg_decrypt_id == NULL) ? "<not set>" : acc->gpg_decrypt_id,
-				(acc->gpg_decrypt_pw == NULL) ? "<not set>" : "<see the access.conf file>",
-				acc->gpg_require_sig ? "Yes" : "No",
-				acc->gpg_ignore_sig_error  ? "Yes" : "No",
-				(acc->gpg_remote_id == NULL) ? "<not set>" : acc->gpg_remote_id,
-				(acc->gpg_remote_fpr == NULL) ? "<not set>" : acc->gpg_remote_fpr
-			);
+        while(acc)
+        {
+            fprintf(stdout,
+                "SOURCE (%i):  %s\n"
+                "==============================================================\n"
+                "                DESTINATION:  %s\n"
+                "                 OPEN_PORTS:  %s\n"
+                "             RESTRICT_PORTS:  %s\n"
+                "                        KEY:  %s\n"
+                "                 KEY_BASE64:  %s\n"
+                "                    KEY_LEN:  %d\n"
+                "                   HMAC_KEY:  %s\n"
+                "            HMAC_KEY_BASE64:  %s\n"
+                "               HMAC_KEY_LEN:  %d\n"
+                "           HMAC_DIGEST_TYPE:  %d\n"
+                "          FW_ACCESS_TIMEOUT:  %i\n"
+                "            ENABLE_CMD_EXEC:  %s\n"
+                "       ENABLE_CMD_SUDO_EXEC:  %s\n"
+                "         CMD_SUDO_EXEC_USER:  %s\n"
+                "        CMD_SUDO_EXEC_GROUP:  %s\n"
+                "              CMD_EXEC_USER:  %s\n"
+                "             CMD_EXEC_GROUP:  %s\n"
+                "             CMD_CYCLE_OPEN:  %s\n"
+                "            CMD_CYCLE_CLOSE:  %s\n"
+                "            CMD_CYCLE_TIMER:  %i\n"
+                "           REQUIRE_USERNAME:  %s\n"
+                "     REQUIRE_SOURCE_ADDRESS:  %s\n"
+                "             FORCE_NAT (ip):  %s\n"
+                "          FORCE_NAT (proto):  %s\n"
+                "           FORCE_NAT (port):  %d\n"
+                "            FORCE_SNAT (ip):  %s\n"
+                "           FORCE_MASQUERADE:  %s\n"
+                "               DISABLE_DNAT:  %s\n"
+                "                FORWARD_ALL:  %s\n"
+                "              ACCESS_EXPIRE:  %s"  /* asctime() adds a newline */
+                "               GPG_HOME_DIR:  %s\n"
+                "                    GPG_EXE:  %s\n"
+                "             GPG_DECRYPT_ID:  %s\n"
+                "             GPG_DECRYPT_PW:  %s\n"
+                "            GPG_REQUIRE_SIG:  %s\n"
+                "GPG_IGNORE_SIG_VERIFY_ERROR:  %s\n"
+                "              GPG_REMOTE_ID:  %s\n"
+                "         GPG_FINGERPRINT_ID:  %s\n",
+                ++i,
+                acc->source,
+                (acc->destination == NULL) ? "<not set>" : acc->destination,
+                (acc->open_ports == NULL) ? "<not set>" : acc->open_ports,
+                (acc->restrict_ports == NULL) ? "<not set>" : acc->restrict_ports,
+                (acc->key == NULL) ? "<not set>" : "<see the access.conf file>",
+                (acc->key_base64 == NULL) ? "<not set>" : "<see the access.conf file>",
+                acc->key_len ? acc->key_len : 0,
+                (acc->hmac_key == NULL) ? "<not set>" : "<see the access.conf file>",
+                (acc->hmac_key_base64 == NULL) ? "<not set>" : "<see the access.conf file>",
+                acc->hmac_key_len ? acc->hmac_key_len : 0,
+                acc->hmac_type,
+                acc->fw_access_timeout,
+                acc->enable_cmd_exec ? "Yes" : "No",
+                acc->enable_cmd_sudo_exec ? "Yes" : "No",
+                (acc->cmd_sudo_exec_user == NULL) ? "<not set>" : acc->cmd_sudo_exec_user,
+                (acc->cmd_sudo_exec_group == NULL) ? "<not set>" : acc->cmd_sudo_exec_group,
+                (acc->cmd_exec_user == NULL) ? "<not set>" : acc->cmd_exec_user,
+                (acc->cmd_exec_group == NULL) ? "<not set>" : acc->cmd_exec_group,
+                (acc->cmd_cycle_open == NULL) ? "<not set>" : acc->cmd_cycle_open,
+                (acc->cmd_cycle_close == NULL) ? "<not set>" : acc->cmd_cycle_close,
+                acc->cmd_cycle_timer,
+                (acc->require_username == NULL) ? "<not set>" : acc->require_username,
+                acc->require_source_address ? "Yes" : "No",
+                acc->force_nat ? acc->force_nat_ip : "<not set>",
+                acc->force_nat && acc->force_nat_proto != NULL ? acc->force_nat_proto : "<not set>",
+                acc->force_nat ? acc->force_nat_port : 0,
+                acc->force_snat ? acc->force_snat_ip : "<not set>",
+                acc->force_masquerade ? "Yes" : "No",
+                acc->disable_dnat ? "Yes" : "No",
+                acc->forward_all ? "Yes" : "No",
+                (acc->access_expire_time > 0) ? asctime(localtime(&acc->access_expire_time)) : "<not set>\n",
+                (acc->gpg_home_dir == NULL) ? "<not set>" : acc->gpg_home_dir,
+                (acc->gpg_exe == NULL) ? "<not set>" : acc->gpg_exe,
+                (acc->gpg_decrypt_id == NULL) ? "<not set>" : acc->gpg_decrypt_id,
+                (acc->gpg_decrypt_pw == NULL) ? "<not set>" : "<see the access.conf file>",
+                acc->gpg_require_sig ? "Yes" : "No",
+                acc->gpg_ignore_sig_error  ? "Yes" : "No",
+                (acc->gpg_remote_id == NULL) ? "<not set>" : acc->gpg_remote_id,
+                (acc->gpg_remote_fpr == NULL) ? "<not set>" : acc->gpg_remote_fpr
+            );
 
-			fprintf(stdout, "\n");
+            fprintf(stdout, "\n");
 
-			acc = acc->next;
-		}
+            acc = acc->next;
+        }
     }
 
     fprintf(stdout, "\n");
@@ -3046,18 +3080,18 @@ DECLARE_UTEST(compare_port_list, "check compare_port_list function")
     acc_port_list_t *in2_pl = NULL;
     acc_port_list_t *acc_pl = NULL;
 
-    /* Match any test */	
+    /* Match any test */
     free_acc_port_list(in1_pl);
     free_acc_port_list(acc_pl);
     add_port_list_ent(&in1_pl, "udp/6002");
     add_port_list_ent(&in2_pl, "udp/6002, udp/6003");
     add_port_list_ent(&acc_pl, "udp/6002, udp/6003");
-    CU_ASSERT(compare_port_list(in1_pl, acc_pl, 1) == 1);	/* Only one match is needed from access port list - 1 */
-    CU_ASSERT(compare_port_list(in2_pl, acc_pl, 1) == 1);	/* Only match is needed from access port list - 2 */
-    CU_ASSERT(compare_port_list(in1_pl, acc_pl, 0) == 1);	/* All ports must match access port list - 1 */
-    CU_ASSERT(compare_port_list(in2_pl, acc_pl, 0) == 1);	/* All ports must match access port list - 2 */
-    CU_ASSERT(compare_port_list(acc_pl, in1_pl, 0) == 0);	/* All ports must match in1 port list - 1 */
-    CU_ASSERT(compare_port_list(acc_pl, in2_pl, 0) == 1);	/* All ports must match in2 port list - 2 */
+    CU_ASSERT(compare_port_list(in1_pl, acc_pl, 1) == 1);    /* Only one match is needed from access port list - 1 */
+    CU_ASSERT(compare_port_list(in2_pl, acc_pl, 1) == 1);    /* Only match is needed from access port list - 2 */
+    CU_ASSERT(compare_port_list(in1_pl, acc_pl, 0) == 1);    /* All ports must match access port list - 1 */
+    CU_ASSERT(compare_port_list(in2_pl, acc_pl, 0) == 1);    /* All ports must match access port list - 2 */
+    CU_ASSERT(compare_port_list(acc_pl, in1_pl, 0) == 0);    /* All ports must match in1 port list - 1 */
+    CU_ASSERT(compare_port_list(acc_pl, in2_pl, 0) == 1);    /* All ports must match in2 port list - 2 */
 }
 
 int register_ts_access(void)

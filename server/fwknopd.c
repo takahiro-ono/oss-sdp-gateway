@@ -162,14 +162,14 @@ main(int argc, char **argv)
         // read the access data from the access.conf file
         if(strncasecmp(opts.config[CONF_DISABLE_SDP_CTRL_CLIENT], "Y", 1) == 0)
         {
-			/* Process the access.conf file.
-			*/
-			parse_access_file(&opts);
+            /* Process the access.conf file.
+            */
+            parse_access_file(&opts);
         }
         else
         {
-        	// connect to controller and get access list
-        	get_access_data_from_controller(&opts);
+            // connect to controller and get access list
+            get_access_data_from_controller(&opts);
 
         }
 
@@ -188,20 +188,20 @@ main(int argc, char **argv)
         */
         setup_pid(&opts);
 
-    	// arriving here means the server received access data
-    	// from the controller, they are still connected so go
-    	// ahead and start the thread to continue listening
-    	if(pthread_create( &(opts.ctrl_client_thread), NULL, control_client_thread_func, (void*)&opts))
-    	{
-    		log_msg(LOG_ERR, "Failed to start SDP Control Client Thread. Aborting.");
-    		clean_exit(&opts, FW_CLEANUP, EXIT_FAILURE);
-    	}
-    	else
-    	{
-    		log_msg(LOG_INFO, "Successfully started SDP Control Client Thread.");
-    	}
+        // arriving here means the server received access data
+        // from the controller, they are still connected so go
+        // ahead and start the thread to continue listening
+        if(pthread_create( &(opts.ctrl_client_thread), NULL, control_client_thread_func, (void*)&opts))
+        {
+            log_msg(LOG_ERR, "Failed to start SDP Control Client Thread. Aborting.");
+            clean_exit(&opts, FW_CLEANUP, EXIT_FAILURE);
+        }
+        else
+        {
+            log_msg(LOG_INFO, "Successfully started SDP Control Client Thread.");
+        }
 
-    	if(opts.verbose > 1 && opts.foreground)
+        if(opts.verbose > 1 && opts.foreground)
         {
             dump_config(&opts);
             dump_access_list(&opts);
@@ -318,107 +318,112 @@ main(int argc, char **argv)
 
 static void get_access_data_from_controller(fko_srv_options_t *opts)
 {
-	int rv = FWKNOPD_SUCCESS;
-	int err = 0;
-	int wait_time = strtol_wrapper(opts->config[CONF_MAX_WAIT_ACC_DATA],
-			        1, RCHK_MAX_WAIT_ACC_DATA, NO_EXIT_UPON_ERR, &err);
+    int rv = FWKNOPD_SUCCESS;
+    int err = 0;
+    int wait_time = strtol_wrapper(opts->config[CONF_MAX_WAIT_ACC_DATA],
+                    1, RCHK_MAX_WAIT_ACC_DATA, NO_EXIT_UPON_ERR, &err);
 
-	json_object *jmsg = NULL;
+    int action = INVALID_CTRL_ACTION;
+    json_object *jdata = NULL;
 
-	if((rv = sdp_ctrl_client_new(opts->config[CONF_SDP_CTRL_CLIENT_CONF],
-			                     opts->config[CONF_FWKNOP_CLIENT_CONF],
-								 &(opts->ctrl_client))) != SDP_SUCCESS)
+    if((rv = sdp_ctrl_client_new(opts->config[CONF_SDP_CTRL_CLIENT_CONF],
+                                 opts->config[CONF_FWKNOP_CLIENT_CONF],
+                                 &(opts->ctrl_client))) != SDP_SUCCESS)
     {
-    	log_msg(LOG_ERR, "Failed to create new SDP ctrl client");
-    	clean_exit(opts, FW_CLEANUP, EXIT_FAILURE);
+        log_msg(LOG_ERR, "Failed to create new SDP ctrl client");
+        clean_exit(opts, FW_CLEANUP, EXIT_FAILURE);
     }
 
-    if((rv = sdp_ctrl_client_listen(opts->ctrl_client, wait_time, (void**)&jmsg)) != SDP_SUCCESS)
+    if((rv = sdp_ctrl_client_listen(opts->ctrl_client, wait_time, &action, (void**)&jdata)) != SDP_SUCCESS)
     {
-    	log_msg(LOG_ERR, "Failed to retrieve access data from controller");
-    	clean_exit(opts, FW_CLEANUP, EXIT_FAILURE);
+        log_msg(LOG_ERR, "Failed to retrieve access data from controller");
+        clean_exit(opts, FW_CLEANUP, EXIT_FAILURE);
     }
 
-    if(process_access_msg(opts, jmsg) != FWKNOPD_SUCCESS)
+    if(process_access_msg(opts, action, jdata) != FWKNOPD_SUCCESS)
     {
-    	json_object_put(jmsg);
-    	log_msg(LOG_ERR, "Failed to get access data from controller. Aborting.");
-		sdp_ctrl_client_send_access_error(opts->ctrl_client);
-    	clean_exit(opts, FW_CLEANUP, EXIT_FAILURE);
+        json_object_put(jdata);
+        log_msg(LOG_ERR, "Failed to get access data from controller. Aborting.");
+        sdp_ctrl_client_send_access_error(opts->ctrl_client);
+        clean_exit(opts, FW_CLEANUP, EXIT_FAILURE);
     }
 
-    json_object_put(jmsg);
+    json_object_put(jdata);
     log_msg(LOG_INFO, "Succeeded in retrieving and installing access configuration");
-	sdp_ctrl_client_send_access_ack(opts->ctrl_client);
+    sdp_ctrl_client_send_access_ack(opts->ctrl_client);
 
     return;
 }
 
 static void *control_client_thread_func(void *arg)
 {
-	int rv = FWKNOPD_SUCCESS;
-	json_object *jmsg = NULL;
-	fko_srv_options_t *opts = (fko_srv_options_t*)arg;
+    int rv = FWKNOPD_SUCCESS;
+    int action = INVALID_CTRL_ACTION;
+    json_object *jdata = NULL;
+    fko_srv_options_t *opts = (fko_srv_options_t*)arg;
 
-	if(opts == NULL ||
-	   opts->ctrl_client == NULL ||
-	   opts->ctrl_client->initialized != 1)
-	{
-		log_msg(LOG_ERR, "Attempted to start SDP control client "
-				"thread without proper initializations. Aborting.");
+    if(opts == NULL ||
+       opts->ctrl_client == NULL ||
+       opts->ctrl_client->initialized != 1)
+    {
+        log_msg(LOG_ERR, "Attempted to start SDP control client "
+                "thread without proper initializations. Aborting.");
 
-		// send kill signal for main thread to catch and exit safely
-		kill(getpid(), SIGTERM);
-		return NULL;
-	}
+        // send kill signal for main thread to catch and exit safely
+        kill(getpid(), SIGTERM);
+        return NULL;
+    }
 
-	while(1)
-	{
-		// listen indefinitely
-		if((rv = sdp_ctrl_client_listen(opts->ctrl_client, 0, (void**)&jmsg)) != SDP_SUCCESS)
-		{
-			log_msg(LOG_ERR, "SDP Control Client thread failure. Aborting.");
-			// send kill signal for main thread to catch and exit safely
-			kill(getpid(), SIGTERM);
-			break;
-		}
+    while(1)
+    {
+        // listen indefinitely
+        if((rv = sdp_ctrl_client_listen(opts->ctrl_client, 0, &action, (void**)&jdata)) != SDP_SUCCESS)
+        {
+            log_msg(LOG_ERR, "SDP Control Client thread failure. Aborting.");
+            // send kill signal for main thread to catch and exit safely
+            kill(getpid(), SIGTERM);
+            break;
+        }
 
-		// if an access data message is received, process that
-		if((rv = process_access_msg(opts, jmsg)) == FWKNOPD_ERROR_MUTEX)
-		{
-			log_msg(LOG_ERR, "SDP Control Client thread mutex error. Aborting.");
-			json_object_put(jmsg);
+        // if an access data message is received, process that
+        if((rv = process_access_msg(opts, action, jdata)) == FWKNOPD_ERROR_MUTEX)
+        {
+            log_msg(LOG_ERR, "SDP Control Client thread mutex error. Aborting.");
+            json_object_put(jdata);
 
-			// send kill signal for main thread to catch and exit safely
-			kill(getpid(), SIGTERM);
-			break;
-		}
-		else if(rv == FKO_ERROR_MEMORY_ALLOCATION)
-		{
-			log_msg(LOG_ERR, "SDP Control Client thread memory allocation error. Aborting.");
-			json_object_put(jmsg);
+            // send kill signal for main thread to catch and exit safely
+            kill(getpid(), SIGTERM);
+            break;
+        }
+        else if(rv == FKO_ERROR_MEMORY_ALLOCATION)
+        {
+            log_msg(LOG_ERR, "SDP Control Client thread memory allocation error. Aborting.");
+            json_object_put(jdata);
 
-			// send kill signal for main thread to catch and exit safely
-			kill(getpid(), SIGTERM);
-			break;
-		}
-		else if(rv != FWKNOPD_SUCCESS)
-		{
-			log_msg(LOG_ERR, "Error processing access data from controller. Carrying on.");
-			sdp_ctrl_client_send_access_error(opts->ctrl_client);
-		}
-		else
-		{
-		    log_msg(LOG_INFO, "Succeeded in retrieving and installing access data.");
-			sdp_ctrl_client_send_access_ack(opts->ctrl_client);
-		}
+            // send kill signal for main thread to catch and exit safely
+            kill(getpid(), SIGTERM);
+            break;
+        }
+        else if(rv != FWKNOPD_SUCCESS)
+        {
+            log_msg(LOG_ERR, "Error processing access data from controller. Carrying on.");
+            sdp_ctrl_client_send_access_error(opts->ctrl_client);
+        }
+        else
+        {
+            log_msg(LOG_INFO, "Succeeded in modifying access data.");
+            sdp_ctrl_client_send_access_ack(opts->ctrl_client);
 
-		json_object_put(jmsg);
+            if(opts->verbose > 1 && opts->foreground)
+            {
+                dump_access_list(opts);
+            }
+        }
 
-		pthread_testcancel();
-	}
+        json_object_put(jdata);
+    }
 
-	return NULL;
+    return NULL;
 }
 
 

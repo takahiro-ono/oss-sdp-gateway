@@ -234,11 +234,12 @@ int sdp_ctrl_client_start(sdp_ctrl_client_t client, pid_t *r_child_pid)
  *
  * @return SDP_SUCCESS or an error code.
  */
-int sdp_ctrl_client_listen(sdp_ctrl_client_t client, int max_time, void **r_data)
+int sdp_ctrl_client_listen(sdp_ctrl_client_t client, int max_time, int *r_action, void **r_data)
 {
     int rv = SDP_SUCCESS;
     void *data = NULL;
     time_t stop_time = time(NULL) + max_time;
+    int action = INVALID_CTRL_ACTION;
 
     if(client == NULL || !client->initialized)
         return SDP_ERROR_UNINITIALIZED;
@@ -256,13 +257,14 @@ int sdp_ctrl_client_listen(sdp_ctrl_client_t client, int max_time, void **r_data
         }
 
         // check for incoming messages
-        if((rv = sdp_ctrl_client_check_inbox(client, &data)) != SDP_SUCCESS)
+        if((rv = sdp_ctrl_client_check_inbox(client, &action, &data)) != SDP_SUCCESS)
             break;
 
         // if data was returned, it must be passed up to the caller
         if(data != NULL)
         {
             log_msg(LOG_DEBUG, "sdp_ctrl_client_check_inbox returned data, passing up to caller");
+            *r_action = action;
             *r_data = data;
             break;
         }
@@ -549,13 +551,13 @@ int sdp_ctrl_client_get_addr(sdp_ctrl_client_t client, char **r_addr)
 }
 
 
-int sdp_ctrl_client_check_inbox(sdp_ctrl_client_t client, void **r_data)
+int sdp_ctrl_client_check_inbox(sdp_ctrl_client_t client, int *r_action, void **r_data)
 {
     int rv = SDP_SUCCESS;
     int bytes, msg_cnt = 0;
     char *msg = NULL;
     void *data = NULL;
-    ctrl_response_result_t result = BAD_RESULT;
+    ctrl_action_t action = INVALID_CTRL_ACTION;
 
     while(msg_cnt < client->message_queue_len)
     {
@@ -576,25 +578,25 @@ int sdp_ctrl_client_check_inbox(sdp_ctrl_client_t client, void **r_data)
 
         msg_cnt++;
 
-        if((rv = sdp_message_process(msg, &result, &data)) != SDP_SUCCESS)
+        if((rv = sdp_message_process(msg, &action, &data)) != SDP_SUCCESS)
         {
             log_msg(LOG_ERR, "Message processing failed");
             goto cleanup;
         }
 
-        switch(result)
+        switch(action)
         {
-            case CREDENTIALS_GOOD:
+            case CTRL_ACTION_CREDENTIALS_GOOD:
                 log_msg(LOG_INFO, "Credentials-good message received");
                 client->controller_ready = 1;
                 break;
 
-            case KEEP_ALIVE:
+            case CTRL_ACTION_KEEP_ALIVE:
                 log_msg(LOG_INFO, "Keep-alive response received");
                 sdp_ctrl_client_process_keep_alive(client);
                 break;
 
-            case CREDS_UPDATE:
+            case CTRL_ACTION_CREDENTIAL_UPDATE:
                 log_msg(LOG_INFO, "Credential update received");
                 client->controller_ready = 1;
 
@@ -606,14 +608,22 @@ int sdp_ctrl_client_check_inbox(sdp_ctrl_client_t client, void **r_data)
                 }
                 break;
 
-            case ACCESS_REFRESH:
+            case CTRL_ACTION_ACCESS_REFRESH:
                 log_msg(LOG_INFO, "Access data refresh received");
                 client->last_access_refresh = time(NULL);
+                *r_action = action;
                 *r_data = data;
                 goto cleanup;
 
-            case ACCESS_UPDATE:
+            case CTRL_ACTION_ACCESS_UPDATE:
                 log_msg(LOG_INFO, "Access data update received");
+                *r_action = action;
+                *r_data = data;
+                goto cleanup;
+
+            case CTRL_ACTION_ACCESS_REMOVE:
+                log_msg(LOG_INFO, "Access data remove received");
+                *r_action = action;
                 *r_data = data;
                 goto cleanup;
 
@@ -1346,6 +1356,7 @@ int sdp_ctrl_client_verify_file_perms(const char *file)
 int sdp_ctrl_client_loop(sdp_ctrl_client_t client)
 {
     int rv = SDP_ERROR;
+    int action = INVALID_CTRL_ACTION;
     void *data = NULL;
 
     if(client == NULL || !client->initialized)
@@ -1367,7 +1378,7 @@ int sdp_ctrl_client_loop(sdp_ctrl_client_t client)
         }
 
         // check for incoming messages
-        if((rv = sdp_ctrl_client_check_inbox(client, &data)) != SDP_SUCCESS)
+        if((rv = sdp_ctrl_client_check_inbox(client, &action, &data)) != SDP_SUCCESS)
             break;
 
         // do not begin sending requests until controller is ready
@@ -1636,9 +1647,9 @@ int  sdp_ctrl_client_save_credentials(sdp_ctrl_client_t client, sdp_creds_t cred
     // can only replace SPA keys if old ones were defined to search for
     // and if new ones were provided
     if( client->com->spa_encryption_key != NULL &&
-    	client->com->spa_hmac_key != NULL &&
-		creds->encryption_key != NULL &&
-		creds->hmac_key != NULL )
+        client->com->spa_hmac_key != NULL &&
+        creds->encryption_key != NULL &&
+        creds->hmac_key != NULL )
     {
         // store SPA keys in ctrl client config file
         log_msg(LOG_DEBUG, "Storing SPA keys in sdp ctrl client config file");
@@ -1657,20 +1668,20 @@ int  sdp_ctrl_client_save_credentials(sdp_ctrl_client_t client, sdp_creds_t cred
         // can only replace SPA keys in fwknoprc file if the file's location was given
         if( client->com->fwknoprc_file != NULL )
         {
-			// store SPA keys in fwknop config file
-			log_msg(LOG_DEBUG, "Storing SPA keys in fwknop config file");
-			if((rv = sdp_replace_spa_keys(
-					client->com->fwknoprc_file,
-					client->com->spa_encryption_key, creds->encryption_key, 1,
-					client->com->spa_hmac_key, creds->hmac_key, 1
-					)) != SDP_SUCCESS)
-			{
-				log_msg(LOG_ERR, "Failed to store SPA keys in fwknop config file");
-				sdp_restore_file(client->com->cert_file);
-				sdp_restore_file(client->com->key_file);
-				sdp_restore_file(client->config_file);
-				return rv;
-			}
+            // store SPA keys in fwknop config file
+            log_msg(LOG_DEBUG, "Storing SPA keys in fwknop config file");
+            if((rv = sdp_replace_spa_keys(
+                    client->com->fwknoprc_file,
+                    client->com->spa_encryption_key, creds->encryption_key, 1,
+                    client->com->spa_hmac_key, creds->hmac_key, 1
+                    )) != SDP_SUCCESS)
+            {
+                log_msg(LOG_ERR, "Failed to store SPA keys in fwknop config file");
+                sdp_restore_file(client->com->cert_file);
+                sdp_restore_file(client->com->key_file);
+                sdp_restore_file(client->config_file);
+                return rv;
+            }
         }
     }
 

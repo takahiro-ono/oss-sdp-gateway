@@ -48,7 +48,7 @@
 
 /* Function Prototypes
 */
-int process_access_msg(fko_srv_options_t *opts, json_object *jdata);
+int process_access_msg(fko_srv_options_t *opts, int action, json_object *jdata);
 void parse_access_file(fko_srv_options_t *opts);
 int compare_addr_list(acc_int_list_t *source_list, const uint32_t ip);
 int acc_check_port_access(acc_stanza_t *acc, char *port_str);
