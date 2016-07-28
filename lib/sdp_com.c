@@ -246,6 +246,13 @@ static int sdp_com_socket_connect(sdp_com_t com)
     if(com->conn_state == SDP_COM_CONNECTED)
         return SDP_SUCCESS;
 
+    // cleanup old ssl object if necessary
+    if(com->ssl != NULL)
+    {
+    	SSL_free(com->ssl);
+    	com->ssl = NULL;
+    }
+
     snprintf(port, SDP_COM_MAX_PORT_STRING_BUFFER_LEN, "%u", com->ctrl_port);
 
     memset(&hints, 0, sizeof(struct addrinfo));
@@ -332,7 +339,7 @@ static int sdp_com_socket_connect(sdp_com_t com)
 
     // from here on out, we call sdp_com_disconnect to clean up connections
     // so set the socket_descriptor field for such situations
-       com->socket_descriptor = sd;
+    com->socket_descriptor = sd;
 
     log_msg(LOG_DEBUG, "Created new SSL object, setting socket descriptor field in the SSL object");
 
@@ -525,6 +532,12 @@ void sdp_com_destroy(sdp_com_t com)
 
     if(com->ssl_ctx != NULL)
         SSL_CTX_free(com->ssl_ctx);
+
+    // free the OpenSSL digests and algorithms
+    EVP_cleanup();
+
+    // free the OpenSSL error strings
+    ERR_free_strings();
 
     free(com);
 }

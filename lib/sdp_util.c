@@ -528,7 +528,7 @@ int sdp_make_absolute_path(const char *file, char **r_full_path)
 	}
 
 	// Deal with ./ at start of file
-	if('.' == file[0])
+	if('.' == file[0] && '/' == file[1])
 	{
 		file_str_offset = 2;
 		file_str_len = file_str_len - 2;

@@ -8,6 +8,7 @@
 #include "sdp_ctrl_client_config.h"
 
 #include <stdint.h>
+#include <unistd.h>
 #include "sdp_util.h"
 #include "sdp_errors.h"
 #include "sdp_log_msg.h"
@@ -173,6 +174,7 @@ int sdp_ctrl_client_config_init(sdp_ctrl_client_t client, const char *config_fil
     char            conf_line_buf[SDP_MAX_LINE_LEN] = {0};
     char            var[SDP_MAX_LINE_LEN]  = {0};
     char            val[SDP_MAX_LINE_LEN]  = {0};
+    char            current_dir[PATH_MAX+1] = {0};
 
     struct stat     st;
 
@@ -194,6 +196,17 @@ int sdp_ctrl_client_config_init(sdp_ctrl_client_t client, const char *config_fil
     {
         log_msg(LOG_ERR, "Config file: '%s' was not found.",
             config_file);
+
+        // get the working dir
+        if((getcwd(current_dir, PATH_MAX+1)) == NULL)
+        {
+        	log_msg(LOG_ERR, "Failed to get current directory");
+        }
+        else
+        {
+        	log_msg(LOG_ERR, "Running from: %s", current_dir);
+        }
+
         return SDP_ERROR_CONFIG;
     }
 
@@ -201,6 +214,17 @@ int sdp_ctrl_client_config_init(sdp_ctrl_client_t client, const char *config_fil
     {
         log_msg(LOG_ERR, ".fwknoprc file: '%s' was not found.",
             config_file);
+
+        // get the working dir
+        if((getcwd(current_dir, PATH_MAX+1)) == NULL)
+        {
+        	log_msg(LOG_ERR, "Failed to get current directory");
+        }
+        else
+        {
+        	log_msg(LOG_ERR, "Running from: %s", current_dir);
+        }
+
         return SDP_ERROR_CONFIG;
     }
 

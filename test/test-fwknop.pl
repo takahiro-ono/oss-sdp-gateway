@@ -11,6 +11,8 @@ use IO::Socket;
 use Data::Dumper;
 use Getopt::Long 'GetOptions';
 use strict;
+use POSIX ":sys_wait_h";
+
 
 #==================== config =====================
 my $logfile         = 'test.log';
@@ -21,10 +23,12 @@ our $local_hmac_key_file = 'local_hmac_spa.key';
 my $output_dir      = 'output';
 our $conf_dir       = 'conf';
 my $run_dir         = 'run';
+our $sdp_tmp_dir    = 'sdptmp';
 our $run_tmp_dir_top = 'runtmp';
 our $run_tmp_dir    = "$run_tmp_dir_top/subdir1/subdir2";
 my $cmd_out_tmp     = 'cmd.out';
 my $server_cmd_tmp  = 'server_cmd.out';
+my $controller_cmd_tmp = 'controller_cmd.out';
 my $openssl_cmd_tmp = 'openssl_cmd.out';
 my $data_tmp        = 'data.tmp';
 my $key_tmp         = 'key.tmp';
@@ -81,6 +85,39 @@ our $sdp_ctrl_client_disabled = 1;
 our $client_sdp_options = "--sdp-id $sdp_client_id --disable-ctrl-client";
 our $alt_client_sdp_options = "--sdp-id $alt_sdp_client_id --disable-ctrl-client";
 our $srv_sdp_options    = "--disable-ctrl-client";
+our $controllerCmd      = '';
+our $controller_path    = '';
+our $ctrl_pid           = 0;
+our $ctrl_ppid          = 0;
+our $controller_test_config = cwd() . '/conf/sdp-ctrl-client/config.js';
+our $destroy_database   = 0;
+our $sql_run_cmd        = "mysql --defaults-file=/root/mysql_login.conf";
+our $sql_create_file = './conf/sdp-ctrl-client/sdp_test_create.sql';
+our $sql_create_user_file = './conf/sdp-ctrl-client/sdp_test_create_user.sql';
+our $sql_setup_file = './conf/sdp-ctrl-client/sdp_test_setup.sql';
+our $sql_cleanup_file = './conf/sdp-ctrl-client/sdp_test_cleanup.sql';
+our $sql_destroy_file = './conf/sdp-ctrl-client/sdp_test_destroy.sql';
+
+our $sql_create_cmd = "mysql -u root -p < $sql_create_file";
+our $sql_create_user_cmd = "mysql -u root -p < $sql_create_user_file";
+# our $sql_setup_cmd = "mysql -u sdp_test -psdptestpassword < $sql_setup_file";
+our $sql_setup_cmd = "mysql -u sdp_test < $sql_setup_file";
+# our $sql_cleanup_cmd = "mysql -u sdp_test -psdptestpassword < $sql_cleanup_file";
+our $sql_cleanup_cmd = "mysql -u sdp_test < $sql_cleanup_file";
+our $sql_destroy_cmd = "mysql -u root -p < $sql_destroy_file";
+
+
+our $tmp_server_rc = "$sdp_tmp_dir/server.fwknoprc";
+our $tmp_server_ctrl_conf = "$sdp_tmp_dir/server_sdp_ctrl_client.conf";
+our $tmp_server_ctrl_cert = "$sdp_tmp_dir/server.crt";
+our $tmp_server_ctrl_key = "$sdp_tmp_dir/server.key";
+
+our $tmp_client_rc = "$sdp_tmp_dir/client.fwknoprc";
+our $tmp_client_ctrl_conf = "$sdp_tmp_dir/client_sdp_ctrl_client.conf";
+our $tmp_client_ctrl_cert = "$sdp_tmp_dir/client.crt";
+our $tmp_client_ctrl_key = "$sdp_tmp_dir/client.key";
+
+
 
 our $gpg_client_subkey = '9CF38326'; ### last subkey in the keyring as shown above,
                                      ### and GPG_REMOTE_ID must match in access.conf
@@ -145,6 +182,7 @@ my @test_files = (
     "$tests_dir/gpg_no_pw_hmac.pl",
     "$tests_dir/gpg.pl",
     "$tests_dir/gpg_hmac.pl",
+    "$tests_dir/sdp.pl",
 );
 #================== end config ===================
 
@@ -174,6 +212,7 @@ our @perl_FKO_module              = ();  ### from tests/perl_FKO_module.pl
 our @python_fko                   = ();  ### from tests/python_fko.pl
 our @os_compatibility             = ();  ### from tests/os_compatibility.pl
 our @rijndael_backwards_compatibility = ();  ### from tests/rijndael_backwards_compatibility.pl
+our @sdp                          = ();  ### from tests/sdp.pl
 
 my $passed = 0;
 my $failed = 0;
@@ -218,6 +257,7 @@ my $total_fuzzing_pkts = 0;
 our $sudo_access_conf = "$run_dir/sudo_access.conf";
 my $sudo_conf_testing = '';
 my $server_test_file  = '';
+my $ctrl_test_file = '';
 my $client_only_mode = 0;
 my $server_only_mode = 0;
 my $enable_cores_pattern_mode = 0;
@@ -283,6 +323,7 @@ my $lib_view_cmd = '';
 my $git_path = '';
 our $valgrind_path = '';
 our $fiu_run_path = '';
+our $node_path = '';
 our $sudo_path = '';
 our $gcov_path = '';
 my  $touch_path = '';
@@ -355,6 +396,8 @@ exit 1 unless GetOptions(
     'fwknop-path=s'     => \$fwknopCmd,
     'fwknopd-path=s'    => \$fwknopdCmd,
     'disable-sdp'       => \$sdp_disabled,
+    'controller-path=s' => \$controller_path,
+    'destroy-db'        => \$destroy_database,
     'enable-broken'     => \$run_broken_tests,
     'lib-dir=s'         => \$lib_dir,  ### for LD_LIBRARY_PATH
     'loopback-intf=s'   => \$loopback_intf,
@@ -608,6 +651,15 @@ our %cf = (
     'fuzz_source'                  => "$conf_dir/fuzzing_source_access.conf",
     'fuzz_open_ports'              => "$conf_dir/fuzzing_open_ports_access.conf",
     'fuzz_restrict_ports'          => "$conf_dir/fuzzing_restrict_ports_access.conf",
+    'client_ctrl_conf'             => "$conf_dir/sdp-ctrl-client/client_sdp_ctrl_client.conf",
+    'server_ctrl_conf'             => "$conf_dir/sdp-ctrl-client/server_sdp_ctrl_client.conf",
+    'client_ctrl_key'              => "$conf_dir/sdp-ctrl-client/client.key",
+    'server_ctrl_key'              => "$conf_dir/sdp-ctrl-client/server.key",
+    'client_ctrl_cert'             => "$conf_dir/sdp-ctrl-client/client.crt",
+    'server_ctrl_cert'             => "$conf_dir/sdp-ctrl-client/server.crt",
+    'client_fwknoprc'              => "$conf_dir/sdp-ctrl-client/client.fwknoprc",
+    'server_fwknoprc'              => "$conf_dir/sdp-ctrl-client/server.fwknoprc",
+    'sdp_fwknopd_conf'             => "$conf_dir/sdp-ctrl-client/fwknopd.conf"
 );
 
 our $lib_view_str = "LD_LIBRARY_PATH=$lib_dir";
@@ -672,6 +724,10 @@ our $intf_str = "-i $loopback_intf --foreground $verbose_str";
 our $default_client_args = "$lib_view_str $valgrind_str " .
     "$fwknopCmd $client_sdp_options -A tcp/22 -a $fake_ip -D $loopback_ip --get-key " .
     "$local_key_file --no-save-args $verbose_str";
+
+our $default_client_args_sdp = "$lib_view_str $valgrind_str " .
+    "$fwknopCmd --rc-file $tmp_client_rc -n service_gate " .
+    "--no-save-args $verbose_str";
 
 our $default_client_args_long_key = "$lib_view_str $valgrind_str " .
     "$fwknopCmd $client_sdp_options -A tcp/22 -a $fake_ip -D $loopback_ip --get-key " .
@@ -783,6 +839,9 @@ our $client_and_server_gpg_4096_args_no_pw = "$default_client_args_no_get_key " 
 our $default_server_conf_args = "-c $cf{'def'} -a $cf{'def_access'} " .
     "-d $default_digest_file -p $default_pid_file";
 
+our $default_server_conf_args_sdp = "-c $cf{'sdp_fwknopd_conf'} " .
+    "-d $default_digest_file -p $default_pid_file";
+
 our $default_server_hmac_conf_args = "-c $cf{'def'} -a $cf{'hmac_access'} " .
     "-d $default_digest_file -p $default_pid_file";
 
@@ -869,6 +928,7 @@ my @tests = (
     @gpg_no_pw_hmac,
     @gpg,
     @gpg_hmac,
+    @sdp,
 );
 
 if ($enable_profile_coverage_check) {
@@ -981,8 +1041,21 @@ my %test_keys = (
     'server_positive_num_matches'    => $OPTIONAL,
     'server_negative_output_matches' => $OPTIONAL,
     'server_negative_num_matches'    => $OPTIONAL,
+    'ctrl_positive_output_matches' => $OPTIONAL,
+    'ctrl_positive_num_matches'    => $OPTIONAL,
+    'ctrl_negative_output_matches' => $OPTIONAL,
+    'ctrl_negative_num_matches'    => $OPTIONAL,
     'client_cycles_per_server_instance' => $OPTIONAL_NUMERIC,
     'iptables_rm_chains_after_server_start' => $OPTIONAL,
+    'server_sending_spa' => $OPTIONAL,
+    'client_fwknoprc' => $OPTIONAL,
+    'client_ctrl_conf' => $OPTIONAL,
+    'client_ctrl_key' => $OPTIONAL,
+    'client_ctrl_cert' => $OPTIONAL,
+    'server_fwknoprc' => $OPTIONAL,
+    'server_ctrl_conf' => $OPTIONAL,
+    'server_ctrl_key' => $OPTIONAL,
+    'server_ctrl_cert' => $OPTIONAL,
 );
 
 &validate_test_hashes();
@@ -1069,6 +1142,17 @@ unless ($list_mode) {
     &restore_gpg_dirs();
 }
 
+
+if ($controller_path && $destroy_database) {
+    &logr("\n\n[.] Destroying SDP controller database. Prepare to enter mysql root password.\n");
+    if(system $sql_destroy_cmd) {
+        &logr("[*] Failed to destroy SDP controller database. \n");
+    }
+    else {
+    	&logr("[.] Succeeded in destroying SDP controller database.\n");
+    }
+}
+   
 my $total_elapsed_seconds = time() - $start_time;
 my $total_elapsed_minutes = sprintf "%.2f", ($total_elapsed_seconds / 60);
 
@@ -1184,6 +1268,7 @@ sub run_test() {
     $executed++;
     $curr_test_file   = "$output_dir/$executed.test";
     $server_test_file = "$output_dir/${executed}_fwknopd.test";
+    $ctrl_test_file = "$output_dir/${executed}_controller.test";
 
     &write_test_file("[+] TEST: $msg\n", $curr_test_file);
 
@@ -1199,7 +1284,7 @@ sub run_test() {
     
     ### if we're in valgrind mode, make sure there were no memory leaks
     if ($enable_valgrind) {
-        for my $file ($curr_test_file, $server_test_file) {
+        for my $file ($curr_test_file, $server_test_file, $ctrl_test_file) {
             next unless -e $file;
             if ($rv) {
                 &write_test_file("[+] VERDICT: pass ($executed)\n", $file);
@@ -2644,7 +2729,7 @@ sub _client_send_spa_packet() {
             if ($test_hr->{'weak_server_receive_check'}) {
                 last if $matches > 0;
             } else {
-                last if $matches == $cycle_ctr+1;
+                last if $matches >= $cycle_ctr+1;
             }
 
             &write_test_file("[.] _client_send_spa_packet() : " .
@@ -2854,6 +2939,388 @@ sub use_terminal_run_client() {
     my $test_hr = shift;
 
     return &run_cmd($test_hr->{'cmdline'}, $cmd_out_tmp, $curr_test_file);
+}
+
+sub copy_sdp_config_file() {
+	my ($config_file, $dest, $log_file) = @_;
+	
+	my $rv = 1;
+	
+	copy($config_file, $dest) or $rv = 0;
+	
+	if ($rv == 0) {
+		&write_test_file("[*] Failed to copy $config_file to $dest: $!\n", $log_file);
+	}
+	
+	return $rv;
+}
+
+sub copy_sdp_config_files() {
+    my $test_hr = shift;
+    my $removed = 0;
+    
+    if (-d $sdp_tmp_dir) {
+        $removed = rmtree $sdp_tmp_dir;
+        if($removed < 1) {
+            &write_test_file("[*] Failed to remove $sdp_tmp_dir : $!\n", 
+                $curr_test_file);
+            return 0;
+        }
+    }
+    
+    if ( !(mkdir $sdp_tmp_dir)) {
+        &write_test_file("[*] Could not mkdir $sdp_tmp_dir: $!\n", $curr_test_file);
+        return 0;
+    }
+    
+    if ($test_hr->{'cmdline'}) {
+        &write_test_file(
+            "[.] Copying client config files for SDP testing to directory: $sdp_tmp_dir\n",
+            $curr_test_file);
+        
+        if ($test_hr->{'client_fwknoprc'}) {
+            &copy_sdp_config_file($test_hr->{'client_fwknoprc'}, $tmp_client_rc, 
+                $curr_test_file) or return 0;
+        }
+        else {
+            &copy_sdp_config_file($cf{'client_fwknoprc'}, $tmp_client_rc, 
+                $curr_test_file) or return 0;
+        }
+        
+        if ($test_hr->{'client_ctrl_conf'}) {
+            &copy_sdp_config_file($test_hr->{'client_ctrl_conf'}, 
+                $tmp_client_ctrl_conf, $curr_test_file) or return 0;
+        }
+        else {
+            &copy_sdp_config_file($cf{'client_ctrl_conf'}, 
+                $tmp_client_ctrl_conf, $curr_test_file) or return 0;
+        }
+
+        if ($test_hr->{'client_ctrl_key'}) {
+            &copy_sdp_config_file($test_hr->{'client_ctrl_key'}, 
+                $tmp_client_ctrl_key, $curr_test_file) or return 0;
+        }
+        else {
+            &copy_sdp_config_file($cf{'client_ctrl_key'}, $tmp_client_ctrl_key, 
+                $curr_test_file) or return 0;
+        }
+        
+        if ($test_hr->{'client_ctrl_cert'}) {
+            &copy_sdp_config_file($test_hr->{'client_ctrl_cert'}, 
+                $tmp_client_ctrl_cert, $curr_test_file) or return 0;
+        }
+        else {
+            &copy_sdp_config_file($cf{'client_ctrl_cert'}, $tmp_client_ctrl_cert, 
+                $curr_test_file) or return 0;
+        }
+
+        &write_test_file("[.] Finished copying client config files for SDP testing\n",
+            $curr_test_file);        
+    }
+
+    if ($test_hr->{'fwknopd_cmdline'}) {
+        &write_test_file(
+            "[.] Copying server config files for SDP testing to directory: $sdp_tmp_dir\n",
+            $curr_test_file);
+        
+        if ($test_hr->{'server_fwknoprc'}) {
+            &copy_sdp_config_file($test_hr->{'server_fwknoprc'}, $tmp_server_rc, 
+                $server_test_file) or return 0;
+        }
+        else {
+            &copy_sdp_config_file($cf{'server_fwknoprc'}, $tmp_server_rc, 
+                $server_test_file) or return 0;
+        }
+        
+        if ($test_hr->{'server_ctrl_conf'}) {
+            &copy_sdp_config_file($test_hr->{'server_ctrl_conf'}, 
+                $tmp_server_ctrl_conf, $server_test_file) or return 0;
+        }
+        else {
+            &copy_sdp_config_file($cf{'server_ctrl_conf'}, $tmp_server_ctrl_conf, 
+                $server_test_file) or return 0;
+        }
+
+        if ($test_hr->{'server_ctrl_key'}) {
+            &copy_sdp_config_file($test_hr->{'server_ctrl_key'}, 
+                $tmp_server_ctrl_key, $server_test_file) or return 0;
+        }
+        else {
+            &copy_sdp_config_file($cf{'server_ctrl_key'}, $tmp_server_ctrl_key, 
+                $server_test_file) or return 0;
+        }
+        
+        if ($test_hr->{'server_ctrl_cert'}) {
+            &copy_sdp_config_file($test_hr->{'server_ctrl_cert'}, 
+                $tmp_server_ctrl_cert, $server_test_file) or return 0;
+        }
+        else {
+            &copy_sdp_config_file($cf{'server_ctrl_cert'}, 
+                $tmp_server_ctrl_cert, $server_test_file) or return 0;
+        }
+
+        &write_test_file(
+            "[.] Finished copying server config files for SDP testing\n",
+            $curr_test_file);        
+    }
+    
+    return 1;
+}
+
+sub is_client_running() {
+	return 0;
+}
+
+sub stop_client() {
+	
+}
+
+sub is_ctrl_running() {
+    my $rv = 0;
+    
+    &write_test_file("[.] Checking if controller is running...\n", $curr_test_file);
+                
+    if ($ctrl_pid <= 0) {
+        &write_test_file(
+            "[.] Controller PID not set, assuming controller is not running.\n", 
+            $curr_test_file);
+        return 0;
+    }
+    
+    &write_test_file("[.] Supposed controller PPID: $ctrl_ppid\n", 
+        $curr_test_file);
+    &write_test_file("[.] Supposed controller PID: $ctrl_pid\n", 
+        $curr_test_file);
+    
+    my @ctrl_pids = map{ $_ =~ /(\d+)/; $1 }split("\n", `ps -p $ctrl_pid` );
+    # remove the header line that ps creates
+    splice @ctrl_pids, 0, 1;
+    &write_test_file(
+        "ps found multiple instances of $ctrl_pid: @ctrl_pids\n", 
+        $curr_test_file) if @ctrl_pids > 1;   
+    &write_test_file(
+        "ps found one instance of $ctrl_pid: ".$ctrl_pids[0]."\n", 
+        $curr_test_file) if @ctrl_pids == 1;
+    
+    if (@ctrl_pids == 1) {
+        $rv = 1;
+        &write_test_file("[.] Controller is running with PID: $ctrl_pid\n", 
+            $curr_test_file);
+    }
+    elsif (@ctrl_pids > 1) {
+        &write_test_file("[.] Unable to determine if controller is running.\n", 
+            $curr_test_file);
+    }
+    else {
+        &write_test_file("[.] Controller is NOT running.\n", 
+            $curr_test_file);
+    }
+        
+    return $rv;
+}
+
+sub stop_ctrl() {
+	my $tries = 0;
+	my $ctrl_was_stopped = 1;
+	
+	if ( &is_ctrl_running() ) {
+        &write_test_file("[.] Attempting to stop controller...\n", $curr_test_file);
+        kill 'TERM', $ctrl_pid;
+	}
+	else {
+		$ctrl_was_stopped = 0;
+	}
+	
+	if ( &is_ctrl_running() ) {
+		&write_test_file("[.] Controller is still running. Give it a second...\n", $curr_test_file);
+		sleep 1;
+		while ( &is_ctrl_running() ) {
+            $tries++;
+            &write_test_file("[*] Soft kill failed to stop controller. Using KILL, try: $tries\n",
+                $curr_test_file);
+                
+            kill 'KILL', $ctrl_pid;
+            
+            last if $tries == 10;
+            sleep 1;
+		}
+	}
+    
+    if ($tries >= 10) {
+    	&write_test_file("[*] Failed to kill controller using KILL, PID is $ctrl_pid\n",
+            $curr_test_file);
+        &logr("[*] Failed to kill controller using KILL, PID is $ctrl_pid\n"); 
+        $ctrl_was_stopped = 0;
+    }
+    
+    $ctrl_pid = 0;
+    return $ctrl_was_stopped;
+    
+}
+
+
+sub sdp_test_cleanup() {
+    my $server_was_stopped = 1; 
+    my $ctrl_was_stopped = 1;
+    
+    &stop_client();
+	
+    if (&is_fwknopd_running()) {
+        &stop_fwknopd();
+        $server_was_stopped = 0 if &is_fwknopd_running();
+    } else {
+        &write_test_file("[-] server is not running.\n", $curr_test_file);
+        $server_was_stopped = 0;
+    }
+    
+    $ctrl_was_stopped = &stop_ctrl();
+
+	# clean out the sdp_test database
+	&run_cmd($sql_cleanup_cmd, $cmd_out_tmp, $curr_test_file);
+	
+    # delete all the temp config files
+    if (-d $sdp_tmp_dir) {
+        rmtree $sdp_tmp_dir or die $!;
+    }
+
+	return ($server_was_stopped, $ctrl_was_stopped);
+}
+
+sub controller_cycle() {
+	my $test_hr = shift;
+	my $rv = 1;
+    my $max_pkt_tries = 10;
+    my $server_was_stopped = 0;
+    my $ctrl_was_stopped = 0;
+    my $fw_rule_created = 0;
+    my $fw_rule_removed = 0;
+    my $access_data_received = 0;
+    
+
+    $max_pkt_tries = $test_hr->{'max_pkt_tries'}
+        if $test_hr->{'max_pkt_tries'};
+
+	
+	# make duplicates of config files that will get modified
+	# during SDP operations
+	$rv = &copy_sdp_config_files($test_hr);
+	if ($rv == 0) {
+        &sdp_test_cleanup();
+        return 0;
+	}
+	
+	# configure the database
+	$rv = &run_cmd($sql_setup_cmd, $cmd_out_tmp, $curr_test_file);
+    if ($rv == 0) {
+        &write_test_file("[*] Failed to populate controller database : $!\n", $curr_test_file);
+        &sdp_test_cleanup();
+        return 0;
+    }
+	
+	
+	($rv, $access_data_received) = &server_controller_interaction($test_hr);
+	if ($rv == 0) {
+		&sdp_test_cleanup();
+		return 0;
+	}
+	
+    my $client_cycles = 0; ### will only be set if an fwknop command was given
+    $client_cycles = 1 if $test_hr->{'cmdline'}; ### default
+    $client_cycles = $test_hr->{'client_cycles_per_server_instance'}
+        if $test_hr->{'client_cycles_per_server_instance'} > 0;
+
+    for (my $cycle_ctr=0; $cycle_ctr < $client_cycles; $cycle_ctr++) {
+
+        $fw_rule_created = 1;
+        $fw_rule_removed = 0;
+
+        if ($client_cycles > 1) {
+            &write_test_file("[+] Start client cycle: " . ($cycle_ctr+1) . "\n",
+                $curr_test_file);
+        }
+
+        ### send the SPA packet(s) to the server 
+        unless (&_client_send_spa_packet($test_hr,
+                    $cycle_ctr, $SERVER_RECEIVE_CHECK)) {
+            if ($enable_openssl_compatibility_tests) {
+                &write_test_file(
+                    "[-] fwknop client execution and/or OpenSSL error.\n",
+                    $curr_test_file);
+            } else {
+                &write_test_file("[-] fwknop client execution error.\n",
+                    $curr_test_file);
+            }
+            $rv = 0;
+        }
+
+        &write_test_file("[.] before fw_check, rv=$rv.\n",
+            $curr_test_file);
+        ### check to see if the SPA packet resulted in a new fw access rule
+        ($rv, $fw_rule_created, $fw_rule_removed)
+            = &fw_check($rv, $fw_rule_created, $fw_rule_removed, $test_hr);
+    }
+
+    ($server_was_stopped, $ctrl_was_stopped) = &sdp_test_cleanup();
+
+    unless ($server_was_stopped || $test_hr->{'server_exec_err'}) {
+        &write_test_file("[-] server_was_stopped=0, so setting rv=0.\n",
+            $curr_test_file);
+        $rv = 0;
+    }
+
+    $rv = 0 unless &process_output_matches($test_hr);
+    
+    &write_test_file("\n\n[.] controller_cycle() summary: \n " .
+                     "     result:                $rv [ 0 = BAD, 1 = GOOD ] \n " .
+                  #   "     client_was_stopped:    $client_was_stopped \n " .
+                     "     server_was_stopped:    $server_was_stopped \n " .
+			         "     ctrl_was_stopped:      $ctrl_was_stopped \n " .
+                     "     access_data_received:  $access_data_received \n " .
+			         "     fw_rule_created:       $fw_rule_created \n ". 
+			         "     fw_rule_removed:       $fw_rule_removed \n ",
+			         $curr_test_file);
+    
+    return $rv;
+}
+
+sub server_controller_interaction() {
+	my $test_hr = shift;
+	
+	my $rv = 0;
+	my $fw_rule_created = 1;
+    my $fw_rule_removed = 0;
+	
+	my $access_data_received = 0;
+	
+	### start controller
+	&start_controller($test_hr);
+	if ($ctrl_pid > 0) {
+		&write_test_file("[+] Controller successfully started. PID $ctrl_pid\n", 
+		  $curr_test_file);
+	}
+	else {
+        &write_test_file("[-] Failed to start controller.\n", $curr_test_file);
+		return 0;
+	}
+	
+	### start fwknopd to ensure it connects to the controller
+	### and receives access data
+    my $fwknopd_parent_pid = &start_fwknopd($test_hr);
+    
+	
+	if (&is_fwknopd_running()) {
+        if ($test_hr->{'server_exec_err'}) {
+            &write_test_file("[-] server is running, but required server_exec_err.\n",
+                $curr_test_file);
+            &stop_fwknopd();
+            # return (0, 0, 0, 0);
+            return 0;
+        }
+        $rv = 1;
+        $access_data_received = 1;
+    }	
+	
+	return ($rv, $access_data_received);
 }
 
 sub spa_cycle() {
@@ -6025,17 +6492,39 @@ sub fw_check() {
                 "$default_server_conf_args --fw-flush $verbose_str",
                 $cmd_out_tmp, $curr_test_file);
         }
-        sleep 3;  ### allow time for rule time out.
+        
+        ### allow time for rule time out.
+        sleep 3;
+        for (my $ii = 0; $ii < 57; $ii++) {
+        	if (!&is_fw_rule_active($test_hr)) {
+	            &write_test_file("[+] new fw rule timed out.\n", $curr_test_file);
+	            $fw_rule_removed = 1;
+        		last;
+        	}
+        	elsif ($test_hr->{'fw_rule_removed'} eq $REQUIRE_NO_NEW_REMOVED) {
+        		last;
+        	}
+        	sleep 1;
+        }
+        
         if (&is_fw_rule_active($test_hr)) {
             if ($test_hr->{'fw_rule_removed'} ne $REQUIRE_NO_NEW_REMOVED) {
                 &write_test_file("[-] new fw rule not timed out, setting rv=0.\n",
                     $curr_test_file);
                 $rv = 0;
             }
-        } else {
-            &write_test_file("[+] new fw rule timed out.\n", $curr_test_file);
-            $fw_rule_removed = 1;
         }
+        
+        # if (&is_fw_rule_active($test_hr)) {
+        #     if ($test_hr->{'fw_rule_removed'} ne $REQUIRE_NO_NEW_REMOVED) {
+        #         &write_test_file("[-] new fw rule not timed out, setting rv=0.\n",
+        #             $curr_test_file);
+        #         $rv = 0;
+        #     }
+        # } else {
+        #     &write_test_file("[+] new fw rule timed out.\n", $curr_test_file);
+        #     $fw_rule_removed = 1;
+        # }
     }
 
     $rv = 0 unless &fw_rule_criteria($fw_rule_created,
@@ -6142,6 +6631,42 @@ sub process_output_matches() {
                 $MATCH_ANY, $APPEND_RESULTS, $server_test_file)) {
             &write_test_file(
                 "[-] server_negative_output_matches not met, setting rv=0\n",
+                $curr_test_file);
+            $rv = 0;
+        }
+    }
+
+    if ($test_hr->{'ctrl_positive_output_matches'}) {
+        unless (&file_find_regex(
+                $test_hr->{'ctrl_positive_output_matches'},
+                $MATCH_ALL, $APPEND_RESULTS, $ctrl_test_file)) {
+            &write_test_file(
+                "[-] ctrl_positive_output_matches not met, setting rv=0\n",
+                $curr_test_file);
+            $rv = 0;
+        }
+    }
+
+    if ($test_hr->{'ctrl_positive_num_matches'}) {
+        for my $hr (@{$test_hr->{'ctrl_positive_num_matches'}}) {
+            my $count = &file_find_num_matches($hr->{'re'},
+                    $APPEND_RESULTS, $ctrl_test_file);
+            unless ($count == $hr->{'num'}) {
+                &write_test_file(
+                    "[-] ctrl_positive_num_matches not met ($hr->{'re'} " .
+                    "match count = $count, expected $hr->{'num'}, " .
+                    "setting rv=0\n", $curr_test_file);
+                $rv = 0;
+            }
+        }
+    }
+
+    if ($test_hr->{'ctrl_negative_output_matches'}) {
+        if (&file_find_regex(
+                $test_hr->{'ctrl_negative_output_matches'},
+                $MATCH_ANY, $APPEND_RESULTS, $ctrl_test_file)) {
+            &write_test_file(
+                "[-] ctrl_negative_output_matches not met, setting rv=0\n",
                 $curr_test_file);
             $rv = 0;
         }
@@ -6993,6 +7518,89 @@ sub start_fwknopd() {
     return &do_fwknopd_cmd($test_hr->{'fwknopd_cmdline'});
 }
 
+sub do_controller_cmd() {
+    my $cmdline = shift;
+
+    my $pid = fork();
+    die "[*] Could not fork: $!" unless defined $pid;
+
+    if ($pid == 0) {
+
+        ### we are the child, so start controller
+        exit &run_cmd($cmdline, $controller_cmd_tmp, $ctrl_test_file);
+    }
+
+    ### look for 'SDP Controller running at port' as the indicator that controller
+    ### is ready 
+    my $tries = 0;
+
+    while (not -e $controller_cmd_tmp) {
+        $tries++;
+        sleep 1;
+        last if $tries == 5;
+    }
+
+    if (&file_find_regex([qr/SDP\sController\srunning\sat\sport/],
+            $MATCH_ALL, $NO_APPEND_RESULTS, $controller_cmd_tmp)) {
+        &write_test_file("[.] start_controller() found 'Controller running' string\n",
+            $curr_test_file);
+        sleep 1;
+    } else {
+        $tries = 0;
+        while (not &file_find_regex([qr/SDP\sController\srunning\sat\sport/],
+                $MATCH_ALL, $NO_APPEND_RESULTS, $controller_cmd_tmp)) {
+            &write_test_file("[.] start_controller() looking " .
+                "for 'Controller running', try: $tries\n",
+                $curr_test_file);
+            $tries++;
+            if ($tries == 10) {
+            	return 0;
+            }
+            sleep 1;
+        }
+    }
+
+    # the fork and run_cmd results in a child of a child
+    # will want to later kill the lowest child, not the middle man
+    $ctrl_ppid = $pid;
+    &find_ctrl_pid();
+    
+    return $ctrl_pid;
+}
+
+sub find_ctrl_pid() {
+    $ctrl_pid = 0;
+    
+    &write_test_file("Ctrl ppid: $ctrl_ppid\n", $curr_test_file);
+    my @ctrl_pids = map{ $_ =~ /(\d+)/; $1 }split("\n", `pgrep -P $ctrl_ppid` );
+    &write_test_file(
+        "pgrep found multiple processes with PPID $ctrl_ppid: @ctrl_pids\n", 
+        $curr_test_file) if @ctrl_pids > 1;   
+    &write_test_file(
+        "pgrep found one process with PPID $ctrl_ppid: ".$ctrl_pids[0]."\n", 
+        $curr_test_file) if @ctrl_pids == 1;
+    
+    $ctrl_pid = $ctrl_pids[0] if @ctrl_pids == 1;
+    
+    if ($ctrl_pid > 0) {
+        &write_test_file("Correct controller pid found: $ctrl_pid\n", 
+            $curr_test_file);
+    }
+    else {
+        &write_test_file("Controller pid NOT found\n", $curr_test_file);
+    }
+    
+    return $ctrl_pid;
+}
+
+sub start_controller() {
+    my $test_hr = shift;
+
+    &write_test_file("[+] TEST: $test_hr->{'msg'}\n", $ctrl_test_file);
+    
+    return &do_controller_cmd($controllerCmd);
+}
+
 sub write_key() {
     my ($key, $file) = @_;
 
@@ -7419,6 +8027,24 @@ sub init() {
         }
     } else {
         push @tests_to_exclude, qr/perl FKO module.*FUZZING/;
+    }
+    
+    if ($controller_path) {
+    	$node_path = &find_command('node') unless $node_path;
+    	$controllerCmd = "$node_path $controller_path $controller_test_config";
+    	&logr("[.] init() : controllerCmd set to: $controllerCmd\n");
+    	# push @tests_to_include, qr/controller/;
+    	
+    	&logr("\n\n[.] init() : Creating SDP controller database. Prepare to enter mysql root password.\n");
+    	if ( system $sql_create_cmd) {
+    		die "Failed to create SDP controller database. Password may have been wrong. Dying now.";
+    	}
+    	
+    	&logr("[.] init() : Succeeded in creating SDP controller database.\n");
+    	    	
+    } else {
+    	push @tests_to_exclude, qr/controller/;
+    	#die "Failed to set controllerCmd. Stopping now.";
     }
 
     $sudo_path    = &find_command('sudo') unless $sudo_path;
@@ -8249,7 +8875,7 @@ sub remove_permissions_warnings() {
 }
 
 sub rm_tmp_files() {
-    for my $file ($cmd_out_tmp, $server_cmd_tmp, $openssl_cmd_tmp) {
+    for my $file ($cmd_out_tmp, $server_cmd_tmp, $controller_cmd_tmp, $openssl_cmd_tmp) {
         unlink $file if -e $file;
     }
     return;

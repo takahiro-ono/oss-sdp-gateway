@@ -342,6 +342,24 @@ EXTRA_DIST = \
     test/conf/hmac_spa_destination5_access.conf \
     test/conf/spa_replay.pcap \
     test/conf/fcs_spa.pcap \
+    test/conf/sdp-ctrl-client/ca.crt \
+    test/conf/sdp-ctrl-client/ca.key \
+    test/conf/sdp-ctrl-client/ca.srl \
+    test/conf/sdp-ctrl-client/client.crt \
+    test/conf/sdp-ctrl-client/client.fwknoprc \
+    test/conf/sdp-ctrl-client/client.key \
+    test/conf/sdp-ctrl-client/client_sdp_ctrl_client.conf \
+    test/conf/sdp-ctrl-client/config.js \
+    test/conf/sdp-ctrl-client/fwknopd.conf \
+    test/conf/sdp-ctrl-client/mysql_login.conf \
+    test/conf/sdp-ctrl-client/sdp_test_cleanup.sql \
+    test/conf/sdp-ctrl-client/sdp_test_create.sql \
+    test/conf/sdp-ctrl-client/sdp_test_destroy.sql \
+    test/conf/sdp-ctrl-client/sdp_test_setup.sql \
+    test/conf/sdp-ctrl-client/server.crt \
+    test/conf/sdp-ctrl-client/server.fwknoprc \
+    test/conf/sdp-ctrl-client/server.key \
+    test/conf/sdp-ctrl-client/server_sdp_ctrl_client.conf \
     test/fko-wrapper/Makefile \
     test/fko-wrapper/fko_wrapper.c \
     test/fko-wrapper/fko_basic.c \
@@ -447,6 +465,7 @@ EXTRA_DIST = \
     test/tests/rijndael.pl \
     test/tests/rijndael_cmd_exec.pl \
     test/tests/rijndael_hmac_cmd_open_close.pl \
+    test/tests/sdp.pl \
     test/hardening-check \
     test/local_spa.key \
     test/invalid.key \

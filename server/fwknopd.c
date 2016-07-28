@@ -188,17 +188,20 @@ main(int argc, char **argv)
         */
         setup_pid(&opts);
 
-        // arriving here means the server received access data
-        // from the controller, they are still connected so go
-        // ahead and start the thread to continue listening
-        if(pthread_create( &(opts.ctrl_client_thread), NULL, control_client_thread_func, (void*)&opts))
+        if(strncasecmp(opts.config[CONF_DISABLE_SDP_CTRL_CLIENT], "N", 1) == 0)
         {
-            log_msg(LOG_ERR, "Failed to start SDP Control Client Thread. Aborting.");
-            clean_exit(&opts, FW_CLEANUP, EXIT_FAILURE);
-        }
-        else
-        {
-            log_msg(LOG_INFO, "Successfully started SDP Control Client Thread.");
+			// arriving here means the server received access data
+			// from the controller, they are still connected so go
+			// ahead and start the thread to continue listening
+			if(pthread_create( &(opts.ctrl_client_thread), NULL, control_client_thread_func, (void*)&opts))
+			{
+				log_msg(LOG_ERR, "Failed to start SDP Control Client Thread. Aborting.");
+				clean_exit(&opts, FW_CLEANUP, EXIT_FAILURE);
+			}
+			else
+			{
+				log_msg(LOG_INFO, "Successfully started SDP Control Client Thread.");
+			}
         }
 
         if(opts.verbose > 1 && opts.foreground)
@@ -342,13 +345,13 @@ static void get_access_data_from_controller(fko_srv_options_t *opts)
 
     if(process_access_msg(opts, action, jdata) != FWKNOPD_SUCCESS)
     {
-        json_object_put(jdata);
+    	if(jdata != NULL && json_object_get_type(jdata) != json_type_null) json_object_put(jdata);
         log_msg(LOG_ERR, "Failed to get access data from controller. Aborting.");
         sdp_ctrl_client_send_access_error(opts->ctrl_client);
         clean_exit(opts, FW_CLEANUP, EXIT_FAILURE);
     }
 
-    json_object_put(jdata);
+    if(jdata != NULL && json_object_get_type(jdata) != json_type_null) json_object_put(jdata);
     log_msg(LOG_INFO, "Succeeded in retrieving and installing access configuration");
     sdp_ctrl_client_send_access_ack(opts->ctrl_client);
 
@@ -380,8 +383,6 @@ static void *control_client_thread_func(void *arg)
         if((rv = sdp_ctrl_client_listen(opts->ctrl_client, 0, &action, (void**)&jdata)) != SDP_SUCCESS)
         {
             log_msg(LOG_ERR, "SDP Control Client thread failure. Aborting.");
-            // send kill signal for main thread to catch and exit safely
-            kill(getpid(), SIGTERM);
             break;
         }
 
@@ -389,19 +390,17 @@ static void *control_client_thread_func(void *arg)
         if((rv = process_access_msg(opts, action, jdata)) == FWKNOPD_ERROR_MUTEX)
         {
             log_msg(LOG_ERR, "SDP Control Client thread mutex error. Aborting.");
-            json_object_put(jdata);
 
-            // send kill signal for main thread to catch and exit safely
-            kill(getpid(), SIGTERM);
+            if(jdata != NULL && json_object_get_type(jdata) != json_type_null) json_object_put(jdata);
+
             break;
         }
         else if(rv == FKO_ERROR_MEMORY_ALLOCATION)
         {
             log_msg(LOG_ERR, "SDP Control Client thread memory allocation error. Aborting.");
-            json_object_put(jdata);
 
-            // send kill signal for main thread to catch and exit safely
-            kill(getpid(), SIGTERM);
+            if(jdata != NULL && json_object_get_type(jdata) != json_type_null) json_object_put(jdata);
+
             break;
         }
         else if(rv != FWKNOPD_SUCCESS)
@@ -420,8 +419,11 @@ static void *control_client_thread_func(void *arg)
             }
         }
 
-        json_object_put(jdata);
+        if(jdata != NULL && json_object_get_type(jdata) != json_type_null) json_object_put(jdata);
     }
+
+    // send kill signal for main thread to catch and exit safely
+    kill(getpid(), SIGTERM);
 
     return NULL;
 }

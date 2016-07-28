@@ -181,7 +181,7 @@ int  sdp_message_make(const char *action, const char *stage, char **r_out_msg)
 
     out_msg = strndup(json_object_to_json_string(jout_msg), SDP_MSG_MAX_LEN);
 
-    json_object_put(jout_msg);
+    if(jout_msg != NULL && json_object_get_type(jout_msg) != json_type_null) json_object_put(jout_msg);
 
     if(out_msg == NULL)
         return SDP_ERROR_MEMORY_ALLOCATION;
@@ -291,7 +291,7 @@ cleanup:
     // free the main json message object
     // if the message was good, jdata already
     // holds a ref to just the data portion
-    json_object_put(jmsg);
+	if(jmsg != NULL && json_object_get_type(jmsg) != json_type_null) json_object_put(jmsg);
 
     if(action != INVALID_CTRL_ACTION)
     {

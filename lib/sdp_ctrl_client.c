@@ -1646,7 +1646,8 @@ int  sdp_ctrl_client_save_credentials(sdp_ctrl_client_t client, sdp_creds_t cred
 
     // can only replace SPA keys if old ones were defined to search for
     // and if new ones were provided
-    if( client->com->spa_encryption_key != NULL &&
+    if( client->com->fwknoprc_file != NULL &&
+    	client->com->spa_encryption_key != NULL &&
         client->com->spa_hmac_key != NULL &&
         creds->encryption_key != NULL &&
         creds->hmac_key != NULL )
@@ -1665,24 +1666,20 @@ int  sdp_ctrl_client_save_credentials(sdp_ctrl_client_t client, sdp_creds_t cred
             return rv;
         }
 
-        // can only replace SPA keys in fwknoprc file if the file's location was given
-        if( client->com->fwknoprc_file != NULL )
-        {
-            // store SPA keys in fwknop config file
-            log_msg(LOG_DEBUG, "Storing SPA keys in fwknop config file");
-            if((rv = sdp_replace_spa_keys(
-                    client->com->fwknoprc_file,
-                    client->com->spa_encryption_key, creds->encryption_key, 1,
-                    client->com->spa_hmac_key, creds->hmac_key, 1
-                    )) != SDP_SUCCESS)
-            {
-                log_msg(LOG_ERR, "Failed to store SPA keys in fwknop config file");
-                sdp_restore_file(client->com->cert_file);
-                sdp_restore_file(client->com->key_file);
-                sdp_restore_file(client->config_file);
-                return rv;
-            }
-        }
+		// store SPA keys in fwknop config file
+		log_msg(LOG_DEBUG, "Storing SPA keys in fwknop config file");
+		if((rv = sdp_replace_spa_keys(
+				client->com->fwknoprc_file,
+				client->com->spa_encryption_key, creds->encryption_key, 1,
+				client->com->spa_hmac_key, creds->hmac_key, 1
+				)) != SDP_SUCCESS)
+		{
+			log_msg(LOG_ERR, "Failed to store SPA keys in fwknop config file");
+			sdp_restore_file(client->com->cert_file);
+			sdp_restore_file(client->com->key_file);
+			sdp_restore_file(client->config_file);
+			return rv;
+		}
     }
 
     log_msg(LOG_WARNING, "All new credentials stored successfully");
