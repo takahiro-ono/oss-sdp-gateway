@@ -2150,6 +2150,12 @@ process_access_msg(fko_srv_options_t *opts, int action, json_object *jdata)
     int access_array_len = 0;
     int is_err = 0;
 
+    if(jdata == NULL || json_object_get_type(jdata) == json_type_null)
+    {
+        log_msg(LOG_ERR, "process_access_msg(): jdata is invalid");
+        return FWKNOPD_ERROR_BAD_MSG;
+    }
+
     access_array_len = json_object_array_length(jdata);
     if(access_array_len <= 0)
     {

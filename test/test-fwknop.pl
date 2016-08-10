@@ -659,7 +659,7 @@ our %cf = (
     'server_ctrl_cert'             => "$conf_dir/sdp-ctrl-client/server.crt",
     'client_fwknoprc'              => "$conf_dir/sdp-ctrl-client/client.fwknoprc",
     'server_fwknoprc'              => "$conf_dir/sdp-ctrl-client/server.fwknoprc",
-    'sdp_fwknopd_conf'             => "$conf_dir/sdp-ctrl-client/fwknopd.conf"
+    'sdp_fwknopd_conf'             => "$conf_dir/sdp-ctrl-client/fwknopd.conf",
 );
 
 our $lib_view_str = "LD_LIBRARY_PATH=$lib_dir";
@@ -841,6 +841,8 @@ our $default_server_conf_args = "-c $cf{'def'} -a $cf{'def_access'} " .
 
 our $default_server_conf_args_sdp = "-c $cf{'sdp_fwknopd_conf'} " .
     "-d $default_digest_file -p $default_pid_file";
+
+our $server_conf_args_sdp = "-d $default_digest_file -p $default_pid_file";
 
 our $default_server_hmac_conf_args = "-c $cf{'def'} -a $cf{'hmac_access'} " .
     "-d $default_digest_file -p $default_pid_file";
@@ -1056,6 +1058,7 @@ my %test_keys = (
     'server_ctrl_conf' => $OPTIONAL,
     'server_ctrl_key' => $OPTIONAL,
     'server_ctrl_cert' => $OPTIONAL,
+    'skip_controller' => $OPTIONAL,
 );
 
 &validate_test_hashes();
@@ -3292,15 +3295,17 @@ sub server_controller_interaction() {
 	
 	my $access_data_received = 0;
 	
-	### start controller
-	&start_controller($test_hr);
-	if ($ctrl_pid > 0) {
-		&write_test_file("[+] Controller successfully started. PID $ctrl_pid\n", 
-		  $curr_test_file);
-	}
-	else {
-        &write_test_file("[-] Failed to start controller.\n", $curr_test_file);
-		return 0;
+	unless ($test_hr->{'skip_controller'}) {
+		### start controller
+		&start_controller($test_hr);
+		if ($ctrl_pid > 0) {
+			&write_test_file("[+] Controller successfully started. PID $ctrl_pid\n", 
+			  $curr_test_file);
+		}
+		else {
+	        &write_test_file("[-] Failed to start controller.\n", $curr_test_file);
+			return 0;
+		}
 	}
 	
 	### start fwknopd to ensure it connects to the controller
@@ -3318,7 +3323,12 @@ sub server_controller_interaction() {
         }
         $rv = 1;
         $access_data_received = 1;
-    }	
+    }
+    elsif ($test_hr->{'server_exec_err'}) {
+    	&write_test_file("[+] Server is NOT running. That's good in this case.\n",
+            $curr_test_file);
+    	$rv = 1;
+    }
 	
 	return ($rv, $access_data_received);
 }

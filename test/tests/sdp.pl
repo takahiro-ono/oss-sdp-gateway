@@ -38,4 +38,65 @@
              qr/Received access data acknowledgement/,
              qr/Found and removed SDP ID/],
     },
+    {
+        'category' => 'controller',
+        'subcategory' => 'server config',
+        'detail'   => 'bad ctrl client path',
+        'function' => \&controller_cycle,
+        'skip_controller' => 1,
+        'fwknopd_cmdline'  => "$fwknopdCmd $default_server_conf_args_sdp $intf_str " .
+            "--ctrl-client-conf ./bad/path/server_sdp_ctrl_client.conf",
+        'server_exec_err' => 1,
+        'server_positive_output_matches' => 
+            [qr/Config file.*was not found/,
+             qr/Failed to create new SDP ctrl client/],
+    },
+    {
+        'category' => 'controller',
+        'subcategory' => 'server config',
+        'detail'   => 'bad fwknoprc path',
+        'function' => \&controller_cycle,
+        'skip_controller' => 1,
+        'fwknopd_cmdline'  => "$fwknopdCmd $default_server_conf_args_sdp $intf_str " .
+            "--fwknop-client-conf ./bad/path/server.fwknoprc",
+        'server_exec_err' => 1,
+        'server_positive_output_matches' => 
+            [qr/fwknoprc file.*was not found/,
+             qr/Failed to create new SDP ctrl client/],
+    },
+    {
+        'category' => 'controller',
+        'subcategory' => 'server config',
+        'detail'   => 'min acc wait',
+        'function' => \&controller_cycle,
+        'fwknopd_cmdline'  => "$fwknopdCmd $default_server_conf_args_sdp $intf_str " .
+            "--max-acc-wait 1",
+        'server_exec_err' => 1,
+        'server_positive_output_matches' => 
+            [qr/Failed to get access data from controller.*Aborting/],
+    },
+    {
+        'category' => 'controller',
+        'subcategory' => 'server config',
+        'detail'   => 'zero acc wait',
+        'function' => \&controller_cycle,
+        'skip_controller' => 1,
+        'fwknopd_cmdline'  => "$fwknopdCmd $default_server_conf_args_sdp $intf_str " .
+            "--max-acc-wait 0",
+        'server_exec_err' => 1,
+        'server_positive_output_matches' => 
+            [qr/var MAX_WAIT_ACC_DATA value.*not in the range/],
+    },
+    {
+        'category' => 'controller',
+        'subcategory' => 'server config',
+        'detail'   => 'acc wait too big',
+        'function' => \&controller_cycle,
+        'skip_controller' => 1,
+        'fwknopd_cmdline'  => "$fwknopdCmd $default_server_conf_args_sdp $intf_str " .
+            "--max-acc-wait 61",
+        'server_exec_err' => 1,
+        'server_positive_output_matches' => 
+            [qr/var MAX_WAIT_ACC_DATA value.*not in the range/],
+    },
 );

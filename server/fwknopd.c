@@ -337,9 +337,16 @@ static void get_access_data_from_controller(fko_srv_options_t *opts)
         clean_exit(opts, FW_CLEANUP, EXIT_FAILURE);
     }
 
-    if((rv = sdp_ctrl_client_listen(opts->ctrl_client, wait_time, &action, (void**)&jdata)) != SDP_SUCCESS)
+    if((rv = sdp_ctrl_client_listen(opts->ctrl_client, wait_time, &action,
+    	(void**)&jdata)) != SDP_SUCCESS)
     {
-        log_msg(LOG_ERR, "Failed to retrieve access data from controller");
+        log_msg(LOG_ERR, "Failed to get access data from controller. Aborting.");
+        clean_exit(opts, FW_CLEANUP, EXIT_FAILURE);
+    }
+
+    if(jdata == NULL || json_object_get_type(jdata) == json_type_null)
+    {
+        log_msg(LOG_ERR, "Failed to get access data from controller. Aborting.");
         clean_exit(opts, FW_CLEANUP, EXIT_FAILURE);
     }
 
