@@ -660,6 +660,7 @@ our %cf = (
     'client_fwknoprc'              => "$conf_dir/sdp-ctrl-client/client.fwknoprc",
     'server_fwknoprc'              => "$conf_dir/sdp-ctrl-client/server.fwknoprc",
     'sdp_fwknopd_conf'             => "$conf_dir/sdp-ctrl-client/fwknopd.conf",
+    'client_ctrl_conf_bad_fwknop_path' => "$conf_dir/sdp-ctrl-client/client_sdp_ctrl_client.conf_bad_fwknop_path",
 );
 
 our $lib_view_str = "LD_LIBRARY_PATH=$lib_dir";

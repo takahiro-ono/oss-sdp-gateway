@@ -45,6 +45,7 @@ struct sdp_com{
 	char *spa_encryption_key;
 	char *spa_hmac_key;
 	uint32_t sdp_id;
+	char *fwknop_path;
 	char *fwknoprc_file;
 
 	char *key_file;

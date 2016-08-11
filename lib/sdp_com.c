@@ -130,8 +130,8 @@ static int sdp_com_default_send_spa(sdp_com_t com)
     memset(fwknop_argv, 0x0, sizeof(fwknop_argv));
 
     // set up fwknop options
-    snprintf(fwknop_cmd, SDP_COM_MAX_FWKNOP_CMD_LEN, "fwknop --disable-ctrl-client --rc-file %s -n %s",
-             com->fwknoprc_file, com->ctrl_stanza);
+    snprintf(fwknop_cmd, SDP_COM_MAX_FWKNOP_CMD_LEN, "%s --disable-ctrl-client --rc-file %s -n %s",
+             com->fwknop_path, com->fwknoprc_file, com->ctrl_stanza);
 
     log_msg(LOG_DEBUG, "fwknop command string: %s", fwknop_cmd);
 
@@ -511,6 +511,9 @@ void sdp_com_destroy(sdp_com_t com)
 
     if(com->ctrl_stanza != NULL)
         free(com->ctrl_stanza);
+
+    if(com->fwknop_path != NULL)
+    	free(com->fwknop_path);
 
     if(com->fwknoprc_file != NULL)
         free(com->fwknoprc_file);

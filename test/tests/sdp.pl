@@ -31,7 +31,9 @@
             [qr/All new credentials stored successfully/],
         'server_positive_output_matches' => 
             [qr/Succeeded in retrieving and installing access configuration/,
-             qr/Succeeded in modifying access data/],
+             qr/Succeeded in modifying access data/,
+             qr/dpt:80/,   # this is the fw rule created if the gate gets the client spa for service access 
+             qr/dpt:5000/],   # this is the fw rule created if the gate gets the client spa for controller access 
         'ctrl_positive_output_matches' => 
             [qr/New credentials successfully created/,
              qr/Successfully stored new keys/,
@@ -98,5 +100,28 @@
         'server_exec_err' => 1,
         'server_positive_output_matches' => 
             [qr/var MAX_WAIT_ACC_DATA value.*not in the range/],
+    },
+    {
+        'category' => 'controller',
+        'subcategory' => 'client config',
+        'detail'   => 'bad fwknop path', # service SPA will work, not controller SPA
+        'function' => \&controller_cycle,
+        'cmdline'  => $default_client_args_sdp,
+        'client_ctrl_conf' => $cf{'client_ctrl_conf_bad_fwknop_path'},
+        'fwknopd_cmdline'  => "$fwknopdCmd $default_server_conf_args_sdp $intf_str",
+        'fw_rule_created' => $NEW_RULE_REQUIRED,
+        'client_positive_output_matches' =>
+            [qr/sdp_com.*Failed to send SPA/],
+        'server_positive_output_matches' => 
+            [qr/Succeeded in retrieving and installing access configuration/,
+             qr/dpt:80/],   # this is the fw rule created if the gate gets the client spa for service access 
+        'server_negative_output_matches' =>
+            [qr/Succeeded in modifying access data/,
+             qr/dpt:5000/],   # this is the fw rule created if the gate gets the client spa for controller access 
+        'ctrl_positive_output_matches' => 
+            [qr/New credentials successfully created/,
+             qr/Successfully stored new keys/,
+             qr/Received access data acknowledgement/,
+             qr/Found and removed SDP ID/],
     },
 );

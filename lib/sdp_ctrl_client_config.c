@@ -14,6 +14,7 @@
 #include "sdp_log_msg.h"
 
 const char *sdp_ctrl_client_default_pid_file = "/var/run/sdp_ctrl_client.pid";
+const char *sdp_ctrl_client_default_fwknop_path = "fwknop";
 
 
 // this must always be updated in conjunction with the
@@ -22,6 +23,7 @@ const char *sdp_ctrl_client_config_map[SDP_CTRL_CLIENT_CONFIG_ENTRIES] = {
     "CTRL_PORT",
     "CTRL_ADDR",
     "USE_SPA",
+	"FWKNOP_PATH",
     "CTRL_STANZA",
     "REMAIN_CONNECTED",
     "FOREGROUND",
@@ -82,6 +84,16 @@ static int finalize_config(sdp_ctrl_client_t client)
     {
         log_msg(LOG_ERR, "Key file not specified");
         return SDP_ERROR_CONFIG;
+    }
+
+    if(!(client->com->fwknop_path))
+    {
+        client->com->fwknop_path = strndup(sdp_ctrl_client_default_fwknop_path, PATH_MAX);
+        if(client->com->fwknop_path == NULL)
+        {
+            sdp_ctrl_client_destroy(client);
+            return(SDP_ERROR_MEMORY_ALLOCATION);
+        }
     }
 
     if(client->com->use_spa && client->com->fwknoprc_file == NULL)
@@ -355,6 +367,13 @@ int sdp_ctrl_client_set_config_entry(sdp_ctrl_client_t client, int var, const ch
         case SDP_CTRL_CLIENT_CONFIG_USE_SPA:
             client->com->use_spa = yes_or_no(val);
             break;
+
+        case SDP_CTRL_CLIENT_CONFIG_FWKNOP_PATH:
+            if((rv = sdp_make_absolute_path(val, &(client->com->fwknop_path))) != SDP_SUCCESS)
+            {
+                log_msg(LOG_ERR, "Error storing fwknop executable path");
+            }
+        	break;
 
         case SDP_CTRL_CLIENT_CONFIG_CTRL_STANZA:
             client->com->ctrl_stanza = strndup(val, SDP_MAX_LINE_LEN);
