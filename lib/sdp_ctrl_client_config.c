@@ -176,7 +176,8 @@ static int finalize_config(sdp_ctrl_client_t client)
 }
 
 
-int sdp_ctrl_client_config_init(sdp_ctrl_client_t client, const char *config_file, const char *fwknoprc_file)
+int sdp_ctrl_client_config_init(sdp_ctrl_client_t client, const char *config_file,
+								const char *fwknoprc_file, const int foreground)
 {
     int             rv = SDP_SUCCESS;
     FILE           *cfile_ptr;
@@ -323,6 +324,10 @@ int sdp_ctrl_client_config_init(sdp_ctrl_client_t client, const char *config_fil
                 var, config_file
             );
     }
+
+    // only override the config file if this variable is set to zero
+    if(!foreground)
+    	client->foreground = 0;
 
     rv = finalize_config(client);
 

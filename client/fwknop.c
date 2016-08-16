@@ -1425,7 +1425,7 @@ run_sdp_ctrl_client(fko_cli_options_t *options)
 	sdp_ctrl_client_t client = NULL;
 
 	int rv = sdp_ctrl_client_new(options->sdp_ctrl_client_config_file,
-				options->rc_file, &client);
+				options->rc_file, 1, &client);
 
 	if(rv != SDP_SUCCESS)
 	{

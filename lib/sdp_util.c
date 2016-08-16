@@ -480,11 +480,11 @@ int  sdp_replace_spa_keys(const char *file_path,
     else
     {
     	rv = SDP_SUCCESS;
-    	log_msg(LOG_INFO, "Minimum match requirement successfully met:");
+    	log_msg(LOG_DEBUG, "Minimum match requirement successfully met:");
     }
 
-	log_msg(LOG_INFO, "  Key 1 - Required: %d, Matched: %d", min_key1_matches, count1);
-	log_msg(LOG_INFO, "  Key 2 - Required: %d, Matched: %d", min_key2_matches, count2);
+	log_msg(LOG_DEBUG, "  Key 1 - Required: %d, Matched: %d", min_key1_matches, count1);
+	log_msg(LOG_DEBUG, "  Key 2 - Required: %d, Matched: %d", min_key2_matches, count2);
 
 
 cleanup:

@@ -124,7 +124,8 @@ static int  sdp_ctrl_client_restart_myself(sdp_ctrl_client_t client);
  *
  * @return SDP_SUCCESS if the object is successfully created, an error code otherwise.
  */
-int sdp_ctrl_client_new(const char *config_file, const char *fwknoprc_file, sdp_ctrl_client_t *r_client)
+int sdp_ctrl_client_new(const char *config_file, const char *fwknoprc_file,
+						const int foreground, sdp_ctrl_client_t *r_client)
 {
     sdp_ctrl_client_t client = NULL;
     int rv = SDP_SUCCESS;
@@ -139,7 +140,7 @@ int sdp_ctrl_client_new(const char *config_file, const char *fwknoprc_file, sdp_
         return sdp_ctrl_client_clean_exit(client, rv);
 
 
-    if((rv = sdp_ctrl_client_config_init(client, config_file, fwknoprc_file)) != SDP_SUCCESS)
+    if((rv = sdp_ctrl_client_config_init(client, config_file, fwknoprc_file, foreground)) != SDP_SUCCESS)
         return sdp_ctrl_client_clean_exit(client, rv);
 
     *r_client = client;
@@ -1743,6 +1744,7 @@ int sdp_ctrl_client_restart_myself(sdp_ctrl_client_t client)
     int rv = SDP_SUCCESS;
     char *config_file = NULL;
     char *fwknoprc_file = NULL;
+    int foreground = client->foreground;
 
     // disconnect
     sdp_com_disconnect(client->com);
@@ -1772,7 +1774,7 @@ int sdp_ctrl_client_restart_myself(sdp_ctrl_client_t client)
     if((rv = sdp_com_new(&(client->com))) != SDP_SUCCESS)
         return sdp_ctrl_client_clean_exit(client, rv);
 
-    if((rv = sdp_ctrl_client_config_init(client, config_file, fwknoprc_file)) != SDP_SUCCESS)
+    if((rv = sdp_ctrl_client_config_init(client, config_file, fwknoprc_file, foreground)) != SDP_SUCCESS)
         return sdp_ctrl_client_clean_exit(client, rv);
 
     sdp_ctrl_client_describe(client);

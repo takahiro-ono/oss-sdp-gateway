@@ -331,6 +331,7 @@ static void get_access_data_from_controller(fko_srv_options_t *opts)
 
     if((rv = sdp_ctrl_client_new(opts->config[CONF_SDP_CTRL_CLIENT_CONF],
                                  opts->config[CONF_FWKNOP_CLIENT_CONF],
+								 opts->foreground,
                                  &(opts->ctrl_client))) != SDP_SUCCESS)
     {
         log_msg(LOG_ERR, "Failed to create new SDP ctrl client");

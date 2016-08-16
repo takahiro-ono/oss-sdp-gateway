@@ -138,7 +138,7 @@ struct sdp_ctrl_client{
 
 typedef struct sdp_ctrl_client *sdp_ctrl_client_t;
 
-int  sdp_ctrl_client_new(const char *config_file, const char *fwknoprc_file, sdp_ctrl_client_t *r_client);
+int  sdp_ctrl_client_new(const char *config_file, const char *fwknoprc_file, const int foreground, sdp_ctrl_client_t *r_client);
 void sdp_ctrl_client_destroy(sdp_ctrl_client_t client);
 int  sdp_ctrl_client_listen(sdp_ctrl_client_t client, int max_time, int *r_action, void **r_data);
 int  sdp_ctrl_client_start(sdp_ctrl_client_t client, pid_t *r_child_pid);

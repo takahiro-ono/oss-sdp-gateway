@@ -76,7 +76,8 @@ enum {
 
 
 
-int sdp_ctrl_client_config_init(sdp_ctrl_client_t client, const char *config_file, const char *fwknoprc_file);
+int sdp_ctrl_client_config_init(sdp_ctrl_client_t client, const char *config_file,
+								const char *fwknoprc_file, const int foreground);
 int sdp_ctrl_client_set_config_entry(sdp_ctrl_client_t client, int var, const char *val);
 int sdp_ctrl_client_ssl_ctx_init(SSL_CTX **ssl_ctx);
 int sdp_ctrl_client_load_certs(SSL_CTX* ctx, char* cert_file, char* key_file);
