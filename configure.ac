@@ -528,6 +528,7 @@ AS_IF([test "x$WGET_EXE" != x],
 
 dnl Check for ssl
 dnl
+AC_CHECK_HEADER(openssl/ssl.h, , [ AC_MSG_ERROR( [did not find openssl/ssl.h] ) ] )
 AC_SEARCH_LIBS([SSL_library_init], [ssl],
   ,
   [ AC_MSG_ERROR([libfko needs ssl])]
@@ -542,9 +543,10 @@ AC_SEARCH_LIBS([X509_get_subject_name], [crypto],
 
 dnl Check for json
 dnl
-AC_SEARCH_LIBS([json_tokener_parse], [json],
+AC_CHECK_HEADER(json-c/json.h, , [ AC_MSG_ERROR( [did not find json-c/json.h] ) ] )
+AC_SEARCH_LIBS([json_tokener_parse], [json0, json-c],
   ,
-  [ AC_MSG_ERROR([libfko and fwknopd need libjson0 and libjson0-dev])]
+  [ AC_MSG_ERROR([libfko and fwknopd need json-c (libjson0 and libjson0-dev on linux)])]
 )
 
 dnl THIS NEEDS FIXING TO HANDLE WINDOWS

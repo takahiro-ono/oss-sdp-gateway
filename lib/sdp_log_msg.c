@@ -11,7 +11,7 @@
 #include "sdp_errors.h"
 #include <stdio.h>
 #include <string.h>
-#include <malloc.h>
+#include <stdlib.h>
 
 static int  logging_state = LOGGING_NOT_INITIALIZED;
 

@@ -38,7 +38,7 @@
 #include "replay_cache.h"
 #include "tcp_server.h"
 #include "udp_server.h"
-#include <json/json.h>
+#include <json-c/json.h>
 #include "fwknopd_errors.h"
 #include "sdp_ctrl_client.h"
 #include "sdp_message.h"

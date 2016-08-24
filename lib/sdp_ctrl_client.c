@@ -12,14 +12,14 @@
 #include <stdio.h>
 #include <errno.h>
 #include <unistd.h>
-#include <malloc.h>
+#include <stdlib.h>
 #include <string.h>
 #include <resolv.h>
 #include <netdb.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <fcntl.h>
-#include <json/json.h>
+#include <json-c/json.h>
 #include <pthread.h>
 
 #ifndef HAVE_STAT

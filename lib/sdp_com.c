@@ -11,7 +11,7 @@
 #include "sdp_log_msg.h"
 #include <netdb.h>
 #include <unistd.h>
-#include <malloc.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/time.h>
 #include <sys/wait.h>
@@ -766,7 +766,7 @@ int sdp_com_get_msg(sdp_com_t com, char **r_msg, int *r_bytes)
 {
     int bytes = 0;
     int total_bytes = 0;
-    char *msg = '\0';
+    char *msg = NULL;
 
     if(com == NULL || !com->initialized)
         return SDP_ERROR_UNINITIALIZED;

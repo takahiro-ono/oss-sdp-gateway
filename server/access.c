@@ -42,7 +42,7 @@
 #include "log_msg.h"
 #include "cmd_cycle.h"
 #include "bstrlib.h"
-#include <json/json.h>
+#include <json-c/json.h>
 #include "fwknopd_errors.h"
 #include "sdp_ctrl_client.h"
 
@@ -1928,6 +1928,11 @@ make_acc_stanza_from_json(fko_srv_options_t *opts, json_object *jdata, acc_stanz
             rv = FWKNOPD_ERROR_BAD_STANZA_DATA;
             goto cleanup;
         }
+        if((rv = add_acc_force_nat(stanza, tmp)) != FWKNOPD_SUCCESS)
+        {
+            free(tmp);
+            goto cleanup;
+        }
 #elif FIREWALL_IPTABLES
         if(strncasecmp(opts->config[CONF_ENABLE_IPT_FORWARDING], "Y", 1) !=0
             && (strncasecmp(opts->config[CONF_ENABLE_IPT_LOCAL_NAT], "Y", 1) !=0 ))
@@ -1938,6 +1943,11 @@ make_acc_stanza_from_json(fko_srv_options_t *opts, json_object *jdata, acc_stanz
             rv = FWKNOPD_ERROR_BAD_STANZA_DATA;
             goto cleanup;
         }
+        if((rv = add_acc_force_nat(stanza, tmp)) != FWKNOPD_SUCCESS)
+        {
+            free(tmp);
+            goto cleanup;
+        }
 #else
         log_msg(LOG_ERR,
             "[*] FORCE_NAT not supported.");
@@ -1945,11 +1955,6 @@ make_acc_stanza_from_json(fko_srv_options_t *opts, json_object *jdata, acc_stanz
         rv = FWKNOPD_ERROR_BAD_STANZA_DATA;
         goto cleanup;
 #endif
-        if((rv = add_acc_force_nat(stanza, tmp)) != FWKNOPD_SUCCESS)
-        {
-            free(tmp);
-            goto cleanup;
-        }
         free(tmp);
     }
 
@@ -1965,6 +1970,11 @@ make_acc_stanza_from_json(fko_srv_options_t *opts, json_object *jdata, acc_stanz
             rv = FWKNOPD_ERROR_BAD_STANZA_DATA;
             goto cleanup;
         }
+        if((rv = add_acc_force_snat(stanza, tmp)) != FWKNOPD_SUCCESS)
+        {
+            free(tmp);
+            goto cleanup;
+        }
 #elif FIREWALL_IPTABLES
         if(strncasecmp(opts->config[CONF_ENABLE_IPT_FORWARDING], "Y", 1) !=0
             && (strncasecmp(opts->config[CONF_ENABLE_IPT_LOCAL_NAT], "Y", 1) !=0 ))
@@ -1975,6 +1985,11 @@ make_acc_stanza_from_json(fko_srv_options_t *opts, json_object *jdata, acc_stanz
             rv = FWKNOPD_ERROR_BAD_STANZA_DATA;
             goto cleanup;
         }
+        if((rv = add_acc_force_snat(stanza, tmp)) != FWKNOPD_SUCCESS)
+        {
+            free(tmp);
+            goto cleanup;
+        }
 #else
         log_msg(LOG_ERR,
             "[*] FORCE_SNAT not supported.");
@@ -1982,11 +1997,6 @@ make_acc_stanza_from_json(fko_srv_options_t *opts, json_object *jdata, acc_stanz
         rv = FWKNOPD_ERROR_BAD_STANZA_DATA;
         goto cleanup;
 #endif
-        if((rv = add_acc_force_snat(stanza, tmp)) != FWKNOPD_SUCCESS)
-        {
-            free(tmp);
-            goto cleanup;
-        }
         free(tmp);
     }
 
@@ -2686,6 +2696,11 @@ parse_access_file(fko_srv_options_t *opts)
                 fclose(file_ptr);
                 clean_exit(opts, NO_FW_CLEANUP, EXIT_FAILURE);
             }
+            if(add_acc_force_nat(curr_acc, val) != FWKNOPD_SUCCESS)
+            {
+                fclose(file_ptr);
+                clean_exit(opts, NO_FW_CLEANUP, EXIT_FAILURE);
+            }
 #elif FIREWALL_IPTABLES
             if(strncasecmp(opts->config[CONF_ENABLE_IPT_FORWARDING], "Y", 1) !=0
                 && (strncasecmp(opts->config[CONF_ENABLE_IPT_LOCAL_NAT], "Y", 1) !=0 ))
@@ -2695,17 +2710,17 @@ parse_access_file(fko_srv_options_t *opts)
                 fclose(file_ptr);
                 clean_exit(opts, NO_FW_CLEANUP, EXIT_FAILURE);
             }
+            if(add_acc_force_nat(curr_acc, val) != FWKNOPD_SUCCESS)
+            {
+                fclose(file_ptr);
+                clean_exit(opts, NO_FW_CLEANUP, EXIT_FAILURE);
+            }
 #else
             log_msg(LOG_ERR,
                 "[*] FORCE_NAT not supported.");
             fclose(file_ptr);
             clean_exit(opts, NO_FW_CLEANUP, EXIT_FAILURE);
 #endif
-            if(add_acc_force_nat(curr_acc, val) != FWKNOPD_SUCCESS)
-            {
-                fclose(file_ptr);
-                clean_exit(opts, NO_FW_CLEANUP, EXIT_FAILURE);
-            }
         }
         else if(CONF_VAR_IS(var, "FORCE_SNAT"))
         {
@@ -2718,6 +2733,11 @@ parse_access_file(fko_srv_options_t *opts)
                 fclose(file_ptr);
                 clean_exit(opts, NO_FW_CLEANUP, EXIT_FAILURE);
             }
+            if(add_acc_force_snat(curr_acc, val) != FWKNOPD_SUCCESS)
+            {
+                fclose(file_ptr);
+                clean_exit(opts, NO_FW_CLEANUP, EXIT_FAILURE);
+            }
 #elif FIREWALL_IPTABLES
             if(strncasecmp(opts->config[CONF_ENABLE_IPT_FORWARDING], "Y", 1) !=0
                 && (strncasecmp(opts->config[CONF_ENABLE_IPT_LOCAL_NAT], "Y", 1) !=0 ))
@@ -2727,17 +2747,17 @@ parse_access_file(fko_srv_options_t *opts)
                 fclose(file_ptr);
                 clean_exit(opts, NO_FW_CLEANUP, EXIT_FAILURE);
             }
+            if(add_acc_force_snat(curr_acc, val) != FWKNOPD_SUCCESS)
+            {
+                fclose(file_ptr);
+                clean_exit(opts, NO_FW_CLEANUP, EXIT_FAILURE);
+            }
 #else
             log_msg(LOG_ERR,
                 "[*] FORCE_SNAT not supported.");
             fclose(file_ptr);
             clean_exit(opts, NO_FW_CLEANUP, EXIT_FAILURE);
 #endif
-            if(add_acc_force_snat(curr_acc, val) != FWKNOPD_SUCCESS)
-            {
-                fclose(file_ptr);
-                clean_exit(opts, NO_FW_CLEANUP, EXIT_FAILURE);
-            }
         }
         else if(CONF_VAR_IS(var, "FORCE_MASQUERADE"))
         {

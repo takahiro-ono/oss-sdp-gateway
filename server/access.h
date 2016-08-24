@@ -28,7 +28,7 @@
  *
  ******************************************************************************
 */
-#include <json/json.h>
+#include <json-c/json.h>
 
 #ifndef ACCESS_H
 #define ACCESS_H

@@ -8,7 +8,7 @@
 #ifndef SDP_MESSAGE_H_
 #define SDP_MESSAGE_H_
 
-#include <json/json.h>
+#include <json-c/json.h>
 
 typedef enum {
     INVALID_CTRL_ACTION,

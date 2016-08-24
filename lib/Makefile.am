@@ -26,7 +26,8 @@ libfko_la_LDFLAGS   = -version-info 2:3:0 $(GPGME_LIBS) \
 else
 if APPLE_PLATFORM
 libfko_la_LDFLAGS   = -version-info 2:3:0 $(GPGME_LIBS)  \
-                      -export-symbols-regex '^(fko|sdp)_'
+                      -export-symbols-regex '^(fko|sdp)_' \
+                      -L/usr/local/lib/openssl
 else
 libfko_la_LDFLAGS   = -version-info 2:3:0 $(GPGME_LIBS)  \
                       -export-symbols-regex '^(fko|sdp)_' \

@@ -8,7 +8,7 @@
 #include "sdp_ctrl_client.h"
 
 #include <unistd.h>
-#include <json/json.h>
+#include <json-c/json.h>
 #include <string.h>
 #include "sdp_message.h"
 #include "sdp_log_msg.h"

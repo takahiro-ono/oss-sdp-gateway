@@ -568,7 +568,7 @@ main(int argc, char **argv)
     // before checking result of the packet send, start the SDP control
     // client if configured to do so
     if( !options.disable_sdp_ctrl_client
-    		&& options.sdp_ctrl_client_config_file != NULL
+    		//&& options.sdp_ctrl_client_config_file != NULL
 			&& options.sdp_ctrl_client_config_file[0] != '\0')
     {
     	if(run_sdp_ctrl_client(&options) == 0)
