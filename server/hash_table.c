@@ -411,7 +411,7 @@ void *hash_table_get(hash_table_t *tbl, void *key)
  * 		 for each populated node that's found. This returns 0 or prints an error
  * 		 and returns the value returned by the callback function.
  */
-int hash_table_traverse(hash_table_t *tbl, hash_table_traverse_cb traverse_cb)
+int hash_table_traverse(hash_table_t *tbl, hash_table_traverse_cb traverse_cb, void *cb_arg)
 {
     int i = 0;
     int rc = 0;
@@ -424,7 +424,7 @@ int hash_table_traverse(hash_table_t *tbl, hash_table_traverse_cb traverse_cb)
         {
         	// in case the callback is deleting nodes
             next = node->next;
-            rc = traverse_cb(node);
+            rc = traverse_cb(node, cb_arg);
             if(rc != 0) return rc;
             node = next;
         }

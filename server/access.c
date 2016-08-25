@@ -1011,7 +1011,7 @@ expand_one_acc_ent_list(acc_stanza_t *acc)
 
 
 static int
-traverse_expand_hash_cb(hash_table_node_t *node)
+traverse_expand_hash_cb(hash_table_node_t *node, void *arg)
 {
     int res = SUCCESS;
     acc_stanza_t *acc = (acc_stanza_t *)(node->data);
@@ -1043,7 +1043,7 @@ expand_acc_ent_lists(fko_srv_options_t *opts)
     else
     {
         // hash_table_traverse returns 0 for success, unlike the functions in this file
-        if( hash_table_traverse(opts->acc_stanza_hash_tbl, traverse_expand_hash_cb)    != 0 )
+        if( hash_table_traverse(opts->acc_stanza_hash_tbl, traverse_expand_hash_cb, NULL)    != 0 )
             clean_exit(opts, NO_FW_CLEANUP, EXIT_FAILURE);
     }
 
@@ -1086,11 +1086,11 @@ destroy_hash_node_cb(hash_table_node_t *node)
 }
 
 static int
-traverse_dump_hash_cb(hash_table_node_t *node)
+traverse_dump_hash_cb(hash_table_node_t *node, void *dest)
 {
     acc_stanza_t *acc = (acc_stanza_t *)(node->data);
 
-    fprintf(stdout,
+    fprintf((FILE*)dest,
         "SDP_CLIENT_ID:  %"PRIu32"\n"
         "==============================================================\n"
         "                     SOURCE:  %s\n"
@@ -1138,10 +1138,10 @@ traverse_dump_hash_cb(hash_table_node_t *node)
         (acc->open_ports == NULL) ? "<not set>" : acc->open_ports,
         (acc->restrict_ports == NULL) ? "<not set>" : acc->restrict_ports,
         (acc->key == NULL) ? "<not set>" : "<HIDDEN>",
-        (acc->key_base64 == NULL) ? "<not set>" : "<HIDDEN>",
+        (acc->key_base64 == NULL) ? "<not set>" : acc->key_base64, //"<HIDDEN>",
         acc->key_len ? acc->key_len : 0,
         (acc->hmac_key == NULL) ? "<not set>" : "<HIDDEN>",
-        (acc->hmac_key_base64 == NULL) ? "<not set>" : "<HIDDEN>",
+        (acc->hmac_key_base64 == NULL) ? "<not set>" : acc->hmac_key_base64, //"<HIDDEN>",
         acc->hmac_key_len ? acc->hmac_key_len : 0,
         acc->hmac_type,
         acc->fw_access_timeout,
@@ -1174,7 +1174,7 @@ traverse_dump_hash_cb(hash_table_node_t *node)
         (acc->gpg_remote_fpr == NULL) ? "<not set>" : acc->gpg_remote_fpr
     );
 
-    fprintf(stdout, "\n");
+    fprintf((FILE*)dest, "\n");
 
     return 0;
 }
@@ -1370,7 +1370,7 @@ set_one_acc_defaults(acc_stanza_t *acc)
 }
 
 static int
-traverse_set_acc_defaults_cb(hash_table_node_t *node)
+traverse_set_acc_defaults_cb(hash_table_node_t *node, void *arg)
 {
     acc_stanza_t *acc = (acc_stanza_t *)(node->data);
     if(acc)
@@ -1399,7 +1399,7 @@ set_acc_defaults(fko_srv_options_t *opts)
     }
     else
     {
-        hash_table_traverse(opts->acc_stanza_hash_tbl, traverse_set_acc_defaults_cb);
+        hash_table_traverse(opts->acc_stanza_hash_tbl, traverse_set_acc_defaults_cb, NULL);
     }
 
     access_opts_g = NULL;
@@ -2973,24 +2973,48 @@ dump_access_list(fko_srv_options_t *opts)
 
     acc_stanza_t    *acc = opts->acc_stanzas;
 
-    fprintf(stdout, "Current fwknopd access settings:\n");
+    int opened = 0;
+    FILE *dest = NULL;
+
+    if(opts->config[CONF_CONFIG_DUMP_OUTPUT_PATH] != NULL &&
+       opts->foreground == 0)
+    {
+    	dest = fopen(opts->config[CONF_CONFIG_DUMP_OUTPUT_PATH], "a");
+        if(dest == NULL)
+        {
+        	fprintf(stdout, "ERROR opening file for dump_config output: %s\n",
+        			opts->config[CONF_CONFIG_DUMP_OUTPUT_PATH]);
+        	dest = stdout;
+        }
+        else
+        {
+        	opened = 1;
+        }
+    }
+    else
+    {
+    	dest = stdout;
+    }
+
+
+    fprintf(dest, "Current fwknopd access settings:\n");
 
     if(strncasecmp(opts->config[CONF_DISABLE_SDP_MODE], "N", 1) == 0)
     {
         if(! opts->acc_stanza_hash_tbl)
         {
-            fprintf(stderr, "\n    ** No Access Settings Defined **\n\n");
+            fprintf(dest, "\n    ** No Access Settings Defined **\n\n");
             return;
         }
 
         // lock the hash table mutex
         if(pthread_mutex_lock(&(opts->acc_hash_tbl_mutex)))
         {
-            log_msg(LOG_ERR, "Mutex lock error.");
+        	fprintf(dest, "Mutex lock error.");
             return;
         }
 
-        hash_table_traverse(opts->acc_stanza_hash_tbl, traverse_dump_hash_cb);
+        hash_table_traverse(opts->acc_stanza_hash_tbl, traverse_dump_hash_cb, dest);
 
         pthread_mutex_unlock(&(opts->acc_hash_tbl_mutex));
     }
@@ -2998,13 +3022,13 @@ dump_access_list(fko_srv_options_t *opts)
     {
         if(!acc)
         {
-            fprintf(stderr, "\n    ** No Access Settings Defined **\n\n");
+            fprintf(dest, "\n    ** No Access Settings Defined **\n\n");
             return;
         }
 
         while(acc)
         {
-            fprintf(stdout,
+            fprintf(dest,
                 "SOURCE (%i):  %s\n"
                 "==============================================================\n"
                 "                DESTINATION:  %s\n"
@@ -3087,14 +3111,19 @@ dump_access_list(fko_srv_options_t *opts)
                 (acc->gpg_remote_fpr == NULL) ? "<not set>" : acc->gpg_remote_fpr
             );
 
-            fprintf(stdout, "\n");
+            fprintf(dest, "\n");
 
             acc = acc->next;
         }
     }
 
-    fprintf(stdout, "\n");
-    fflush(stdout);
+    fprintf(dest, "\n");
+    fflush(dest);
+
+    if(opened)
+    {
+    	fclose(dest);
+    }
 
 }  // END dump_access_list
 

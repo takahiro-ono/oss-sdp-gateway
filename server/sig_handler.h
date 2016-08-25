@@ -44,7 +44,7 @@ extern sig_atomic_t got_sigchld;
 
 void sig_handler(int sig);
 int set_sig_handlers(void);
-int sig_do_stop(void);
+int sig_do_stop(fko_srv_options_t * const opts);
 
 #endif /* SIG_HANDLER_H */
 

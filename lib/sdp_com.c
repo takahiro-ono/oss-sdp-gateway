@@ -325,6 +325,7 @@ static int sdp_com_socket_connect(sdp_com_t com)
     if(!conn_success)
     {
         close(sd);
+        log_msg(LOG_ERR, "Socket connect failed");
         return SDP_ERROR_CONN_FAIL;
     }
 

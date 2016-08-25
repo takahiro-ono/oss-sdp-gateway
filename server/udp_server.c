@@ -146,7 +146,7 @@ run_udp_server(fko_srv_options_t *opts)
     */
     while(1)
     {
-        if(sig_do_stop())
+        if(sig_do_stop(opts))
         {
             if(opts->verbose)
                 log_msg(LOG_INFO,

@@ -263,7 +263,7 @@ pcap_capture(fko_srv_options_t *opts)
             got_sigchld = 0;
         }
 
-        if(sig_do_stop())
+        if(sig_do_stop(opts))
         {
             pcap_breakloop(pcap);
             pending_break = 1;

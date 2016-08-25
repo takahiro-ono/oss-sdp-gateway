@@ -36,6 +36,7 @@
 #include "utils.h"
 #include "log_msg.h"
 #include <pthread.h>
+#include <time.h>
 
 #if FIREWALL_FIREWALLD
   #include "fw_util_firewalld.h"
@@ -1304,6 +1305,9 @@ config_init(fko_srv_options_t *opts, int argc, char **argv)
                     clean_exit(opts, NO_FW_CLEANUP, EXIT_FAILURE);
                 }
                 break;
+            case CONFIG_DUMP_OUTPUT_PATH:
+            	set_config_entry(opts, CONF_CONFIG_DUMP_OUTPUT_PATH, optarg);
+            	break;
             case 'd':
 #if USE_FILE_CACHE
                 set_config_entry(opts, CONF_DIGEST_FILE, optarg);
@@ -1471,18 +1475,48 @@ void
 dump_config(const fko_srv_options_t *opts)
 {
     int i;
+    int opened = 0;
+    FILE *dest = NULL;
+    time_t curtime = time(NULL);
+    struct tm *loctime = localtime(&curtime);
 
-    fprintf(stdout, "Current fwknopd config settings:\n");
+    if(opts->config[CONF_CONFIG_DUMP_OUTPUT_PATH] != NULL &&
+       opts->foreground == 0)
+    {
+    	dest = fopen(opts->config[CONF_CONFIG_DUMP_OUTPUT_PATH], "a");
+        if(dest == NULL)
+        {
+        	fprintf(stderr, "ERROR opening file for dump_config output: %s\n",
+        			opts->config[CONF_CONFIG_DUMP_OUTPUT_PATH]);
+        	dest = stdout;
+        }
+        else
+        {
+        	opened = 1;
+        }
+    }
+    else
+    {
+    	dest = stdout;
+    }
+
+    fprintf(dest, "\n\n\n%s", asctime(loctime));
+    fprintf(dest, "Current fwknopd config settings:\n");
 
     for(i=0; i<NUMBER_OF_CONFIG_ENTRIES; i++)
-        fprintf(stdout, "%3i. %-28s =  '%s'\n",
+        fprintf(dest, "%3i. %-28s =  '%s'\n",
             i,
             config_map[i],
             (opts->config[i] == NULL) ? "<not set>" : opts->config[i]
         );
 
-    fprintf(stdout, "\n");
-    fflush(stdout);
+    fprintf(dest, "\n");
+    fflush(dest);
+
+    if(opened)
+    {
+    	fclose(dest);
+    }
 }
 
 /* Print usage message...

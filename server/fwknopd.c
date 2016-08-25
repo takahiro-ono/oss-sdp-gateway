@@ -60,6 +60,7 @@ static int status_fwknopd(fko_srv_options_t * const opts);
 static int restart_fwknopd(fko_srv_options_t * const opts);
 static int write_pid_file(fko_srv_options_t *opts);
 static int handle_signals(fko_srv_options_t *opts);
+static int signal_to_dump_config(fko_srv_options_t * const opts);
 static void setup_pid(fko_srv_options_t *opts);
 static void init_digest_cache(fko_srv_options_t *opts);
 static void set_locale(fko_srv_options_t *opts);
@@ -156,6 +157,16 @@ main(int argc, char **argv)
         {
             fprintf(stdout, "Deleting any existing firewall rules...\n");
             clean_exit(&opts, FW_CLEANUP, EXIT_SUCCESS);
+        }
+
+        /* If everything is configured to run SDP CTRL CLIENT and user asked for dump config
+         * just send signal to hopefully running gateway and exit.
+        */
+        if(opts.dump_config == 1 &&
+           strncasecmp(opts.config[CONF_DISABLE_SDP_CTRL_CLIENT], "N", 1) == 0)
+        {
+        	fprintf(stdout, "Signaling to fwknopd to dump config...\n");
+        	clean_exit(&opts, FW_CLEANUP, signal_to_dump_config(&opts));
         }
 
         // if SDP control client is disabled
@@ -729,6 +740,14 @@ static int handle_signals(fko_srv_options_t *opts)
             log_msg(LOG_WARNING, "Got SIGTERM. Exiting...");
             got_sigterm = 0;
         }
+        else if(got_sigusr1)
+        {
+        	log_msg(LOG_INFO, "Got SIGUSR1. Dumping config...");
+        	rv = 0;
+        	got_sigusr1 = 0;
+            dump_config(opts);
+            dump_access_list(opts);
+        }
         else
         {
             log_msg(LOG_WARNING,
@@ -748,6 +767,28 @@ static int handle_signals(fko_srv_options_t *opts)
             "Capture ended without signal. Exiting...");
     }
     return rv;
+}
+
+static int signal_to_dump_config(fko_srv_options_t * const opts)
+{
+    int      res = 0;
+    pid_t    old_pid;
+
+    old_pid = get_running_pid(opts);
+
+    if(old_pid > 0)
+    {
+        res    = kill(old_pid, SIGUSR1);
+
+        if(res == 0)
+        {
+            fprintf(stdout, "Signaled to fwknopd (pid: %i) to dump config.\n", old_pid);
+            return EXIT_SUCCESS;
+        }
+    }
+
+    fprintf(stdout, "FAILED to signal fwknopd to dump config. fwknopd may not be running.\n");
+    return EXIT_FAILURE;
 }
 
 static int stop_fwknopd(fko_srv_options_t * const opts)
