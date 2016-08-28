@@ -165,8 +165,8 @@ main(int argc, char **argv)
         if(opts.dump_config == 1 &&
            strncasecmp(opts.config[CONF_DISABLE_SDP_CTRL_CLIENT], "N", 1) == 0)
         {
-        	fprintf(stdout, "Signaling to fwknopd to dump config...\n");
-        	clean_exit(&opts, FW_CLEANUP, signal_to_dump_config(&opts));
+            fprintf(stdout, "Signaling to fwknopd to dump config...\n");
+            clean_exit(&opts, FW_CLEANUP, signal_to_dump_config(&opts));
         }
 
         // if SDP control client is disabled
@@ -201,18 +201,18 @@ main(int argc, char **argv)
 
         if(strncasecmp(opts.config[CONF_DISABLE_SDP_CTRL_CLIENT], "N", 1) == 0)
         {
-			// arriving here means the server received access data
-			// from the controller, they are still connected so go
-			// ahead and start the thread to continue listening
-			if(pthread_create( &(opts.ctrl_client_thread), NULL, control_client_thread_func, (void*)&opts))
-			{
-				log_msg(LOG_ERR, "Failed to start SDP Control Client Thread. Aborting.");
-				clean_exit(&opts, FW_CLEANUP, EXIT_FAILURE);
-			}
-			else
-			{
-				log_msg(LOG_INFO, "Successfully started SDP Control Client Thread.");
-			}
+            // arriving here means the server received access data
+            // from the controller, they are still connected so go
+            // ahead and start the thread to continue listening
+            if(pthread_create( &(opts.ctrl_client_thread), NULL, control_client_thread_func, (void*)&opts))
+            {
+                log_msg(LOG_ERR, "Failed to start SDP Control Client Thread. Aborting.");
+                clean_exit(&opts, FW_CLEANUP, EXIT_FAILURE);
+            }
+            else
+            {
+                log_msg(LOG_INFO, "Successfully started SDP Control Client Thread.");
+            }
         }
 
         if(opts.verbose > 1 && opts.foreground)
@@ -342,7 +342,7 @@ static void get_access_data_from_controller(fko_srv_options_t *opts)
 
     if((rv = sdp_ctrl_client_new(opts->config[CONF_SDP_CTRL_CLIENT_CONF],
                                  opts->config[CONF_FWKNOP_CLIENT_CONF],
-								 opts->foreground,
+                                 opts->foreground,
                                  &(opts->ctrl_client))) != SDP_SUCCESS)
     {
         log_msg(LOG_ERR, "Failed to create new SDP ctrl client");
@@ -350,7 +350,7 @@ static void get_access_data_from_controller(fko_srv_options_t *opts)
     }
 
     if((rv = sdp_ctrl_client_listen(opts->ctrl_client, wait_time, &action,
-    	(void**)&jdata)) != SDP_SUCCESS)
+        (void**)&jdata)) != SDP_SUCCESS)
     {
         log_msg(LOG_ERR, "Failed to get access data from controller. Aborting.");
         clean_exit(opts, FW_CLEANUP, EXIT_FAILURE);
@@ -364,7 +364,7 @@ static void get_access_data_from_controller(fko_srv_options_t *opts)
 
     if(process_access_msg(opts, action, jdata) != FWKNOPD_SUCCESS)
     {
-    	if(jdata != NULL && json_object_get_type(jdata) != json_type_null) json_object_put(jdata);
+        if(jdata != NULL && json_object_get_type(jdata) != json_type_null) json_object_put(jdata);
         log_msg(LOG_ERR, "Failed to get access data from controller. Aborting.");
         sdp_ctrl_client_send_access_error(opts->ctrl_client);
         clean_exit(opts, FW_CLEANUP, EXIT_FAILURE);
@@ -723,6 +723,20 @@ static int handle_signals(fko_srv_options_t *opts)
         if(got_sighup)
         {
             log_msg(LOG_WARNING, "Got SIGHUP. Re-reading configs.");
+            if(opts->ctrl_client != NULL)
+            {
+                if(opts->ctrl_client_thread > 0)
+                {
+                    log_msg(LOG_WARNING, "Canceling ctrl client thread...");
+                    pthread_cancel(opts->ctrl_client_thread);
+                    log_msg(LOG_WARNING, "Joining ctrl client thread...");
+                    pthread_join(opts->ctrl_client_thread, NULL);
+                    log_msg(LOG_WARNING, "Ctrl client thread joined.");
+                    opts->ctrl_client_thread = 0;
+                }
+                sdp_ctrl_client_destroy(opts->ctrl_client);
+                opts->ctrl_client = NULL;
+            }
             free_configs(opts);
             if(opts->tcp_server_pid > 0)
                 kill(opts->tcp_server_pid, SIGTERM);
@@ -742,9 +756,9 @@ static int handle_signals(fko_srv_options_t *opts)
         }
         else if(got_sigusr1)
         {
-        	log_msg(LOG_INFO, "Got SIGUSR1. Dumping config...");
-        	rv = 0;
-        	got_sigusr1 = 0;
+            log_msg(LOG_INFO, "Got SIGUSR1. Dumping config...");
+            rv = 0;
+            got_sigusr1 = 0;
             dump_config(opts);
             dump_access_list(opts);
         }

@@ -125,7 +125,7 @@ static int  sdp_ctrl_client_restart_myself(sdp_ctrl_client_t client);
  * @return SDP_SUCCESS if the object is successfully created, an error code otherwise.
  */
 int sdp_ctrl_client_new(const char *config_file, const char *fwknoprc_file,
-						const int foreground, sdp_ctrl_client_t *r_client)
+                        const int foreground, sdp_ctrl_client_t *r_client)
 {
     sdp_ctrl_client_t client = NULL;
     int rv = SDP_SUCCESS;
@@ -1648,7 +1648,7 @@ int  sdp_ctrl_client_save_credentials(sdp_ctrl_client_t client, sdp_creds_t cred
     // can only replace SPA keys if old ones were defined to search for
     // and if new ones were provided
     if( client->com->fwknoprc_file != NULL &&
-    	client->com->spa_encryption_key != NULL &&
+        client->com->spa_encryption_key != NULL &&
         client->com->spa_hmac_key != NULL &&
         creds->encryption_key != NULL &&
         creds->hmac_key != NULL )
@@ -1667,38 +1667,39 @@ int  sdp_ctrl_client_save_credentials(sdp_ctrl_client_t client, sdp_creds_t cred
             return rv;
         }
 
-		// store SPA keys in fwknop config file
-		log_msg(LOG_DEBUG, "Storing SPA keys in fwknop config file");
-		if((rv = sdp_replace_spa_keys(
-				client->com->fwknoprc_file,
-				client->com->spa_encryption_key, creds->encryption_key, 1,
-				client->com->spa_hmac_key, creds->hmac_key, 1
-				)) != SDP_SUCCESS)
-		{
-			log_msg(LOG_ERR, "Failed to store SPA keys in fwknop config file");
-			sdp_restore_file(client->com->cert_file);
-			sdp_restore_file(client->com->key_file);
-			sdp_restore_file(client->config_file);
-			return rv;
-		}
+        // store SPA keys in fwknop config file
+        log_msg(LOG_DEBUG, "Storing SPA keys in fwknop config file");
+        if((rv = sdp_replace_spa_keys(
+                client->com->fwknoprc_file,
+                client->com->spa_encryption_key, creds->encryption_key, 1,
+                client->com->spa_hmac_key, creds->hmac_key, 1
+                )) != SDP_SUCCESS)
+        {
+            log_msg(LOG_ERR, "Failed to store SPA keys in fwknop config file");
+            sdp_restore_file(client->com->cert_file);
+            sdp_restore_file(client->com->key_file);
+            sdp_restore_file(client->config_file);
+            return rv;
+        }
+
+        // Now that the keys are stored, save them in com
+        free(client->com->spa_encryption_key);
+        if((client->com->spa_encryption_key = strndup(creds->encryption_key, SDP_MAX_B64_KEY_LEN)) == NULL)
+        {
+            log_msg(LOG_ERR, "Memory error while swapping keys in com module. Still saved in relevant files.");
+            return SDP_ERROR_MEMORY_ALLOCATION;
+        }
+
+        free(client->com->spa_hmac_key);
+        if((client->com->spa_hmac_key = strndup(creds->hmac_key, SDP_MAX_B64_KEY_LEN)) == NULL)
+        {
+            log_msg(LOG_ERR, "Memory error while swapping keys in com module. Still saved in relevant files.");
+            return SDP_ERROR_MEMORY_ALLOCATION;
+        }
+
     }
 
     log_msg(LOG_WARNING, "All new credentials stored successfully");
-
-    // Now that the keys are stored, save them in com
-    free(client->com->spa_encryption_key);
-    if((client->com->spa_encryption_key = strndup(creds->encryption_key, SDP_MAX_B64_KEY_LEN)) == NULL)
-    {
-        log_msg(LOG_ERR, "Memory error while swapping keys in com module. Still saved in relevant files.");
-        return SDP_ERROR_MEMORY_ALLOCATION;
-    }
-
-    free(client->com->spa_hmac_key);
-    if((client->com->spa_hmac_key = strndup(creds->hmac_key, SDP_MAX_B64_KEY_LEN)) == NULL)
-    {
-        log_msg(LOG_ERR, "Memory error while swapping keys in com module. Still saved in relevant files.");
-        return SDP_ERROR_MEMORY_ALLOCATION;
-    }
 
     return rv;
 }

@@ -381,17 +381,14 @@ clean_exit(fko_srv_options_t *opts, unsigned int fw_cleanup_flag, unsigned int e
 
     if(opts->ctrl_client != NULL)
     {
-    	if(pthread_cancel(opts->ctrl_client_thread))
-    		log_msg(LOG_DEBUG, "pthread_cancel returned error. This is normal if the SDP Control Client initiated the shutdown.");
-    	else
-    		log_msg(LOG_DEBUG, "pthread_cancel returned success");
+        if(opts->ctrl_client_thread > 0)
+        {
+            pthread_cancel(opts->ctrl_client_thread);
+            pthread_join(opts->ctrl_client_thread, NULL);
+            opts->ctrl_client_thread = 0;
+        }
 
-		if(pthread_join(opts->ctrl_client_thread, NULL))
-			log_msg(LOG_DEBUG, "Call to pthread_join (wait for SDP Control Client thread) returned error.");
-		else
-			log_msg(LOG_DEBUG, "pthread_join returned success");
-
-    	sdp_ctrl_client_destroy(opts->ctrl_client);
+        sdp_ctrl_client_destroy(opts->ctrl_client);
     }
 
     free_logging();
