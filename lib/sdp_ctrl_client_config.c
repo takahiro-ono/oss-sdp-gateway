@@ -56,9 +56,11 @@ static int is_conf_var(const char *map_var, const char *var)
 static void set_defaults(sdp_ctrl_client_t client)
 {
     client->com->use_spa = DEFAULT_USE_SPA;
+    client->com->max_conn_attempts = DEFAULT_MAX_CONN_ATTEMPTS;
     client->use_syslog = DEFAULT_USE_SYSLOG;
     client->remain_connected = DEFAULT_REMAIN_CONNECTED;
     client->foreground = DEFAULT_FOREGROUND;
+    client->verbosity = LOG_DEFAULT_VERBOSITY;
 }
 
 
@@ -128,9 +130,6 @@ static int finalize_config(sdp_ctrl_client_t client)
 
     if( !(client->com->initial_conn_attempt_interval))
         client->com->initial_conn_attempt_interval = DEFAULT_INTERVAL_INITIAL_RETRY_SECONDS;
-
-    if( !(client->com->max_conn_attempts))
-        client->com->max_conn_attempts = DEFAULT_MAX_CONN_ATTEMPTS;
 
     if((rv = sdp_com_init(client->com)) != SDP_SUCCESS)
         return rv;
@@ -477,7 +476,7 @@ int sdp_ctrl_client_set_config_entry(sdp_ctrl_client_t client, int var, const ch
 
         case SDP_CTRL_CLIENT_CONFIG_INIT_CONN_RETRY_INTERVAL:
             client->com->initial_conn_attempt_interval = sdp_strtol_wrapper(val, 0,
-                    INT32_MAX, &rv);
+            		SDP_COM_MAX_RETRY_INTERVAL_SECONDS, &rv);
             break;
 
         case SDP_CTRL_CLIENT_CONFIG_KEEP_ALIVE_INTERVAL:
@@ -492,7 +491,7 @@ int sdp_ctrl_client_set_config_entry(sdp_ctrl_client_t client, int var, const ch
 
         case SDP_CTRL_CLIENT_CONFIG_INIT_REQUEST_RETRY_INTERVAL:
             client->initial_req_retry_interval = sdp_strtol_wrapper(val, 0,
-                    INT32_MAX, &rv);
+            		SDP_COM_MAX_RETRY_INTERVAL_SECONDS, &rv);
             break;
 
         case SDP_CTRL_CLIENT_CONFIG_PID_FILE:

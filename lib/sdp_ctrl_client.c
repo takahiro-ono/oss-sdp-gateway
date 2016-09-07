@@ -588,7 +588,7 @@ int sdp_ctrl_client_check_inbox(sdp_ctrl_client_t client, int *r_action, void **
         switch(action)
         {
             case CTRL_ACTION_CREDENTIALS_GOOD:
-                log_msg(LOG_INFO, "Credentials-good message received");
+                log_msg(LOG_NOTICE, "Credentials-good message received");
                 client->controller_ready = 1;
                 break;
 
@@ -598,7 +598,7 @@ int sdp_ctrl_client_check_inbox(sdp_ctrl_client_t client, int *r_action, void **
                 break;
 
             case CTRL_ACTION_CREDENTIAL_UPDATE:
-                log_msg(LOG_INFO, "Credential update received");
+                log_msg(LOG_NOTICE, "Credential update received");
                 client->controller_ready = 1;
 
                 // Process new credentials
@@ -610,20 +610,20 @@ int sdp_ctrl_client_check_inbox(sdp_ctrl_client_t client, int *r_action, void **
                 break;
 
             case CTRL_ACTION_ACCESS_REFRESH:
-                log_msg(LOG_INFO, "Access data refresh received");
+                log_msg(LOG_NOTICE, "Access data refresh received");
                 client->last_access_refresh = time(NULL);
                 *r_action = action;
                 *r_data = data;
                 goto cleanup;
 
             case CTRL_ACTION_ACCESS_UPDATE:
-                log_msg(LOG_INFO, "Access data update received");
+                log_msg(LOG_NOTICE, "Access data update received");
                 *r_action = action;
                 *r_data = data;
                 goto cleanup;
 
             case CTRL_ACTION_ACCESS_REMOVE:
-                log_msg(LOG_INFO, "Access data remove received");
+                log_msg(LOG_NOTICE, "Access data remove received");
                 *r_action = action;
                 *r_data = data;
                 goto cleanup;
@@ -1453,6 +1453,8 @@ int sdp_ctrl_client_consider_keep_alive(sdp_ctrl_client_t client)
             {
                 client->client_state = SDP_CTRL_CLIENT_STATE_KEEP_ALIVE_UNFULFILLED;
                 client->req_retry_interval *= 2;
+                if(client->req_retry_interval > SDP_COM_MAX_RETRY_INTERVAL_SECONDS)
+                	client->req_retry_interval = SDP_COM_MAX_RETRY_INTERVAL_SECONDS;
                 log_msg(LOG_DEBUG, "It is time to retry an unfulfilled keep alive request.");
                 rv = sdp_ctrl_client_request_keep_alive(client);
             }
@@ -1470,12 +1472,17 @@ int sdp_ctrl_client_consider_keep_alive(sdp_ctrl_client_t client)
     }
 
 
-    // arriving here means we attempted to send the message
-    // the only error we want to pass up the chain at this point is the fatal memory allocation error
-    if(rv != SDP_ERROR_MEMORY_ALLOCATION)
-        rv = SDP_SUCCESS;
+    if(rv == SDP_ERROR_SOCKET_WRITE)
+    {
+    	sdp_com_disconnect(client->com);
+    }
 
-    log_msg(LOG_DEBUG, "Exiting function sdp_ctrl_client_consider_keep_alive");
+    if(rv != SDP_ERROR_MEMORY_ALLOCATION)
+    {
+    	return SDP_SUCCESS;
+    }
+
+    // Should only get here if there was a memory allocation error
     return rv;
 }
 
@@ -1521,6 +1528,8 @@ int sdp_ctrl_client_consider_cred_update(sdp_ctrl_client_t client)
             {
                 client->client_state = SDP_CTRL_CLIENT_STATE_CRED_UNFULFILLED;
                 client->req_retry_interval *= 2;
+                if(client->req_retry_interval > SDP_COM_MAX_RETRY_INTERVAL_SECONDS)
+                	client->req_retry_interval = SDP_COM_MAX_RETRY_INTERVAL_SECONDS;
                 log_msg(LOG_DEBUG, "It is time to retry an unfulfilled credential update request.");
                 rv = sdp_ctrl_client_request_cred_update(client);
             }
@@ -1537,7 +1546,17 @@ int sdp_ctrl_client_consider_cred_update(sdp_ctrl_client_t client)
         return SDP_SUCCESS;
     }
 
-    log_msg(LOG_DEBUG, "Exiting function ctrl_client_consider_cred_update");
+    if(rv == SDP_ERROR_SOCKET_WRITE)
+    {
+    	sdp_com_disconnect(client->com);
+    }
+
+    if(rv != SDP_ERROR_MEMORY_ALLOCATION)
+    {
+    	return SDP_SUCCESS;
+    }
+
+    // Should only get here if there was a memory allocation error
     return rv;
 }
 
@@ -1584,6 +1603,8 @@ int sdp_ctrl_client_consider_access_refresh(sdp_ctrl_client_t client)
             {
                 client->client_state = SDP_CTRL_CLIENT_STATE_ACCESS_REFRESH_UNFULFILLED;
                 client->req_retry_interval *= 2;
+                if(client->req_retry_interval > SDP_COM_MAX_RETRY_INTERVAL_SECONDS)
+                	client->req_retry_interval = SDP_COM_MAX_RETRY_INTERVAL_SECONDS;
                 log_msg(LOG_DEBUG, "It is time to retry an unfulfilled access data refresh request.");
                 rv = sdp_ctrl_client_request_access_refresh(client);
             }
@@ -1600,7 +1621,17 @@ int sdp_ctrl_client_consider_access_refresh(sdp_ctrl_client_t client)
         return SDP_SUCCESS;
     }
 
-    log_msg(LOG_DEBUG, "Exiting function sdp_ctrl_client_consider_access_refresh");
+    if(rv == SDP_ERROR_SOCKET_WRITE)
+    {
+    	sdp_com_disconnect(client->com);
+    }
+
+    if(rv != SDP_ERROR_MEMORY_ALLOCATION)
+    {
+    	return SDP_SUCCESS;
+    }
+
+    // Should only get here if there was a memory allocation error
     return rv;
 }
 

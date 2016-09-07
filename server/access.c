@@ -2081,7 +2081,7 @@ remove_access_stanzas(hash_table_t *acc_table, int access_array_len, json_object
         }
         else
         {
-            log_msg(LOG_INFO, "Removed access stanza for SDP ID %d from access list.", sdp_id);
+            log_msg(LOG_NOTICE, "Removed access stanza for SDP ID %d from access list.", sdp_id);
         }
 
         bdestroy(key);
@@ -2133,7 +2133,7 @@ modify_access_table(fko_srv_options_t *opts, int access_array_len, json_object *
             return FKO_ERROR_MEMORY_ALLOCATION;
         }
 
-        log_msg(LOG_INFO, "Added access entry for SDP ID %d", new_acc->sdp_client_id);
+        log_msg(LOG_NOTICE, "Added access entry for SDP ID %d", new_acc->sdp_client_id);
         nodes++;
     }
 
@@ -2188,7 +2188,7 @@ process_access_msg(fko_srv_options_t *opts, int action, json_object *jdata)
         if(opts->acc_stanza_hash_tbl == NULL)
         {
             //table is not initialized, nothing to do
-            log_msg(LOG_INFO, "Received access remove message, but access table not "
+            log_msg(LOG_WARNING, "Received access remove message, but access table not "
                     "initialized. Nothing to do.");
             pthread_mutex_unlock(&(opts->acc_hash_tbl_mutex));
             return FWKNOPD_ERROR_UNTIMELY_MSG;

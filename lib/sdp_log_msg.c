@@ -76,10 +76,7 @@ int init_logging(int foreground, int use_syslog, char *log_facility, int new_ver
         }
     }
 
-    if(new_verbosity)
-    	log_verbosity = new_verbosity;
-    else
-    	log_verbosity = LOG_DEFAULT_VERBOSITY;
+    log_verbosity = new_verbosity;
 
     logging_state = LOGGING_INITIALIZED;
 

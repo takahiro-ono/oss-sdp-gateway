@@ -367,7 +367,7 @@ static int sdp_com_socket_connect(sdp_com_t com)
         return SDP_ERROR_SSL_HANDSHAKE;
     }
 
-    log_msg(LOG_INFO, "Connected with %s encryption", SSL_get_cipher(com->ssl));
+    log_msg(LOG_NOTICE, "Connected with %s encryption", SSL_get_cipher(com->ssl));
     if((rv = sdp_com_show_certs(com)) != SDP_SUCCESS)
     {
         sdp_com_disconnect(com);
@@ -573,7 +573,7 @@ int sdp_com_state_get(sdp_com_t com, int *state)
 int sdp_com_connect(sdp_com_t com)
 {
     int rv = SDP_SUCCESS;
-    int interval;
+    uint32_t interval;
     int attempts_remaining;
     char *plural;
 
@@ -586,7 +586,7 @@ int sdp_com_connect(sdp_com_t com)
     {
         com->conn_attempts += 1;
 
-        log_msg(LOG_INFO, "Starting connection attempt %d", com->conn_attempts);
+        log_msg(LOG_NOTICE, "Starting connection attempt %d", com->conn_attempts);
 
         // if SPA required, send SPA
         if(com->use_spa)
@@ -605,27 +605,39 @@ int sdp_com_connect(sdp_com_t com)
         // connect
         if((rv = sdp_com_socket_connect(com)) != SDP_SUCCESS)
         {
-            if((attempts_remaining = com->max_conn_attempts - com->conn_attempts) == 1)
-                plural = "";
-            else
-                plural = "s";
+        	if(com->max_conn_attempts == 0)
+        	{
+                log_msg(LOG_WARNING,
+                        "Connection attempt %d failed, unlimited attempts remaining",
+                        com->conn_attempts );
+        	}
+        	else
+        	{
+				if((attempts_remaining = com->max_conn_attempts - com->conn_attempts) == 1)
+					plural = "";
+				else
+					plural = "s";
 
-            log_msg(LOG_WARNING,
-                    "Connection attempt %d failed, %d attempt%s remaining",
-                    com->conn_attempts, attempts_remaining, plural );
+				log_msg(LOG_WARNING,
+						"Connection attempt %d failed, %d attempt%s remaining",
+						com->conn_attempts, attempts_remaining, plural );
 
-            if(com->conn_attempts >= com->max_conn_attempts)
-            {
-                log_msg(LOG_ERR,
-                        "Too many failed connection attempts. Exiting now");
-                break;
-            }
+				if(com->conn_attempts >= com->max_conn_attempts)
+				{
+					log_msg(LOG_ERR,
+							"Too many failed connection attempts. Exiting now");
+					break;
+				}
+        	}
 
             log_msg(LOG_WARNING,
                     "Waiting %d seconds until retry",
                     interval);
             sleep(interval);
+
             interval *= 2;
+            if(interval > SDP_COM_MAX_RETRY_INTERVAL_SECONDS)
+            	interval = SDP_COM_MAX_RETRY_INTERVAL_SECONDS;
         }
         else
         {
@@ -687,12 +699,12 @@ int sdp_com_show_certs(sdp_com_t com)
     if ( cert != NULL )
     {
         rv = SDP_SUCCESS;
-        log_msg(LOG_INFO, "Server certificates:");
+        log_msg(LOG_NOTICE, "Server certificates:");
         line = X509_NAME_oneline(X509_get_subject_name(cert), 0, 0);
-        log_msg(LOG_INFO, "Subject: %s", line);
+        log_msg(LOG_NOTICE, "Subject: %s", line);
         free(line);       /* free the malloc'ed string */
         line = X509_NAME_oneline(X509_get_issuer_name(cert), 0, 0);
-        log_msg(LOG_INFO, "Issuer: %s", line);
+        log_msg(LOG_NOTICE, "Issuer: %s", line);
         free(line);       /* free the malloc'ed string */
         X509_free(cert);     /* free the malloc'ed certificate copy */
     }
