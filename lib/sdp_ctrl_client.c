@@ -1444,10 +1444,10 @@ int sdp_ctrl_client_consider_keep_alive(sdp_ctrl_client_t client)
         {
             if(client->req_attempts >= client->max_req_attempts)
             {
-                log_msg(LOG_ERR, "Too many failed keep alive requests. Exiting.");
+                log_msg(LOG_ERR, "Too many failed keep alive requests. Attempting reconnect.");
                 sdp_com_disconnect(client->com);
-                client->client_state = SDP_CTRL_CLIENT_STATE_TIME_TO_QUIT;
-                return SDP_ERROR_MANY_FAILED_REQS;
+                client->req_attempts = 0;
+                return SDP_SUCCESS;
             }
             else
             {
@@ -1519,10 +1519,10 @@ int sdp_ctrl_client_consider_cred_update(sdp_ctrl_client_t client)
         {
             if(client->req_attempts >= client->max_req_attempts)
             {
-                log_msg(LOG_ERR, "Too many failed credential requests. Exiting.");
+                log_msg(LOG_ERR, "Too many failed credential requests. Attempting reconnect.");
                 sdp_com_disconnect(client->com);
-                client->client_state = SDP_CTRL_CLIENT_STATE_TIME_TO_QUIT;
-                return SDP_ERROR_MANY_FAILED_REQS;
+                client->req_attempts = 0;
+                return SDP_SUCCESS;
             }
             else
             {
@@ -1594,10 +1594,10 @@ int sdp_ctrl_client_consider_access_refresh(sdp_ctrl_client_t client)
         {
             if(client->req_attempts >= client->max_req_attempts)
             {
-                log_msg(LOG_ERR, "Too many failed access refresh requests. Exiting.");
+                log_msg(LOG_ERR, "Too many failed access refresh requests. Attempting reconnect.");
                 sdp_com_disconnect(client->com);
-                client->client_state = SDP_CTRL_CLIENT_STATE_TIME_TO_QUIT;
-                return SDP_ERROR_MANY_FAILED_REQS;
+                client->req_attempts = 0;
+                return SDP_SUCCESS;
             }
             else
             {
