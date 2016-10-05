@@ -982,6 +982,7 @@ my %test_keys = (
     'key_file'        => $OPTIONAL,
     'exec_err'        => $OPTIONAL,
     'server_exec_err' => $OPTIONAL,
+    'server_exec_err_possible' => $OPTIONAL,
     'fw_rule_created' => $OPTIONAL,
     'fw_rule_removed' => $OPTIONAL,
     'sudo_test'       => $OPTIONAL,
@@ -3178,15 +3179,15 @@ sub sdp_test_cleanup() {
     }
     
     $ctrl_was_stopped = &stop_ctrl();
-
+    
 	# clean out the sdp_test database
 	&run_cmd($sql_cleanup_cmd, $cmd_out_tmp, $curr_test_file);
 	
-    # delete all the temp config files
+	# delete all the temp config files
     if (-d $sdp_tmp_dir) {
         rmtree $sdp_tmp_dir or die $!;
     }
-
+    
 	return ($server_was_stopped, $ctrl_was_stopped);
 }
 
@@ -3264,14 +3265,18 @@ sub controller_cycle() {
             = &fw_check($rv, $fw_rule_created, $fw_rule_removed, $test_hr);
     }
 
+    # &write_test_file("[.] calling sdp_test_cleanup...\n", $curr_test_file);
     ($server_was_stopped, $ctrl_was_stopped) = &sdp_test_cleanup();
+    # &write_test_file("[.] returned from sdp_test_cleanup\n", $curr_test_file);
+    
 
-    unless ($server_was_stopped || $test_hr->{'server_exec_err'}) {
+    unless ($server_was_stopped || $test_hr->{'server_exec_err'} || $test_hr->{'server_exec_err_possible'}) {
         &write_test_file("[-] server_was_stopped=0, so setting rv=0.\n",
             $curr_test_file);
         $rv = 0;
     }
 
+    # &write_test_file("[.] processing output matches...\n", $curr_test_file);
     $rv = 0 unless &process_output_matches($test_hr);
     
     &write_test_file("\n\n[.] controller_cycle() summary: \n " .
@@ -3314,6 +3319,17 @@ sub server_controller_interaction() {
     my $fwknopd_parent_pid = &start_fwknopd($test_hr);
     
 	
+    my $tries = 1;
+    while ($tries < 10 ) {
+    	if (&is_fwknopd_running()) {
+    		$tries = 10;
+    	}
+    	else {
+    		$tries++;
+    		sleep 1;
+    	}
+    }
+    
 	if (&is_fwknopd_running()) {
         if ($test_hr->{'server_exec_err'}) {
             &write_test_file("[-] server is running, but required server_exec_err.\n",
@@ -3325,7 +3341,7 @@ sub server_controller_interaction() {
         $rv = 1;
         $access_data_received = 1;
     }
-    elsif ($test_hr->{'server_exec_err'}) {
+    elsif ($test_hr->{'server_exec_err'} || $test_hr->{'server_exec_err_possible'}) {
     	&write_test_file("[+] Server is NOT running. That's good in this case.\n",
             $curr_test_file);
     	$rv = 1;

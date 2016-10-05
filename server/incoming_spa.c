@@ -442,8 +442,6 @@ replay_check(fko_srv_options_t *opts, spa_pkt_info_t *spa_pkt, char **raw_digest
         */
         if(get_raw_digest(raw_digest, (char *)spa_pkt->packet_data) != FKO_SUCCESS)
         {
-            if (*raw_digest != NULL)
-                free(*raw_digest);
             return 0;
         }
         if (*raw_digest == NULL)
@@ -451,7 +449,6 @@ replay_check(fko_srv_options_t *opts, spa_pkt_info_t *spa_pkt, char **raw_digest
 
         if (is_replay(opts, *raw_digest) != SPA_MSG_SUCCESS)
         {
-            free(*raw_digest);
             return 0;
         }
     }

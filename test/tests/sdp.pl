@@ -73,7 +73,7 @@
         'function' => \&controller_cycle,
         'fwknopd_cmdline'  => "$fwknopdCmd $default_server_conf_args_sdp $intf_str " .
             "--max-acc-wait 1",
-        'server_exec_err' => 1,
+        'server_exec_err_possible' => 1,
         'server_positive_output_matches' => 
             [qr/(Failed to get access data from controller.*Aborting|Succeeded in retrieving and installing access configuration)/],
     },
