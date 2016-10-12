@@ -32,8 +32,10 @@
         'server_positive_output_matches' => 
             [qr/Succeeded in retrieving and installing access configuration/,
              qr/Succeeded in modifying access data/,
-             qr/dpt:80/,   # this is the fw rule created if the gate gets the client spa for service access 
-             qr/dpt:5000/],   # this is the fw rule created if the gate gets the client spa for controller access 
+             qr/ACCEPT.*?tcp dpt:80 \/\* _exp_\d{10} \*\//,
+             qr/ACCEPT.*?tcp dpt:5000 \/\* _exp_\d{10} \*\//,
+             qr/CONNMARK.*?tcp dpt:80 \/\* _exp_\d{10} \*\/ CONNMARK set 0x/,
+             qr/CONNMARK.*?tcp dpt:5000 \/\* _exp_\d{10} \*\/ CONNMARK set 0x/],
         'ctrl_positive_output_matches' => 
             [qr/New credentials successfully created/,
              qr/Successfully stored new keys/,

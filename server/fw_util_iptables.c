@@ -68,7 +68,8 @@ rule_exists_no_chk_support(const fko_srv_options_t * const opts,
         const unsigned int port,
         const char * const natip,
         const unsigned int nat_port,
-        const unsigned int exp_ts)
+        const unsigned int exp_ts,
+		const uint32_t mark)
 {
     int     rule_exists=0;
     char    ipt_line_buf[CMD_BUFSIZE]    = {0};
@@ -80,6 +81,7 @@ rule_exists_no_chk_support(const fko_srv_options_t * const opts,
     char    port_search[CMD_BUFSIZE]     = {0};
     char    nat_port_search[CMD_BUFSIZE] = {0};
     char    exp_ts_search[CMD_BUFSIZE]   = {0};
+    char    mark_search[CMD_BUFSIZE]     = {0};
     char    *ndx = NULL;
 
 #if CODE_COVERAGE
@@ -109,7 +111,13 @@ rule_exists_no_chk_support(const fko_srv_options_t * const opts,
 
     snprintf(port_search, CMD_BUFSIZE-1, "dpt:%u ", port);
     snprintf(nat_port_search, CMD_BUFSIZE-1, ":%u", nat_port);
-    snprintf(target_search, CMD_BUFSIZE-1, " %s ", fwc->target);
+    if(mark == 0)
+    	snprintf(target_search, CMD_BUFSIZE-1, " %s ", fwc->target);
+    else
+    {
+    	snprintf(target_search, CMD_BUFSIZE-1, " CONNMARK ");
+    	snprintf(mark_search, CMD_BUFSIZE-1, " set %#lx", (unsigned long)mark);
+    }
 
     if (srcip != NULL)
         snprintf(srcip_search, CMD_BUFSIZE-1, " %s ", srcip);
@@ -139,7 +147,8 @@ rule_exists_no_chk_support(const fko_srv_options_t * const opts,
             && ((dstip == NULL) ? 1 : (strstr(ipt_line_buf, dstip_search) != NULL))
             && ((natip == NULL) ? 1 : (strstr(ipt_line_buf, natip_search) != NULL))
             && (strstr(ipt_line_buf, target_search) != NULL)
-            && ((port == ANY_PORT) ? 1 : (strstr(ipt_line_buf, port_search) != NULL)))
+            && ((port == ANY_PORT) ? 1 : (strstr(ipt_line_buf, port_search) != NULL))
+			&& ((mark == 0) ? 1 : (strstr(ipt_line_buf, mark_search) != NULL)))
         {
             rule_exists = 1;
         }
@@ -232,7 +241,8 @@ rule_exists(const fko_srv_options_t * const opts,
         const unsigned int port,
         const char * const nat_ip,
         const unsigned int nat_port,
-        const unsigned int exp_ts)
+        const unsigned int exp_ts,
+		const uint32_t mark)
 {
     int rule_exists = 0;
 
@@ -241,7 +251,7 @@ rule_exists(const fko_srv_options_t * const opts,
     else
         rule_exists = rule_exists_no_chk_support(opts, fwc, proto, srcip,
                 (opts->fw_config->use_destination ? dstip : NULL), port,
-                nat_ip, nat_port, exp_ts);
+                nat_ip, nat_port, exp_ts, mark);
 
     if(rule_exists == 1)
         log_msg(LOG_DEBUG, "rule_exists() Rule : '%s' in %s already exists",
@@ -1016,6 +1026,73 @@ create_rule(const fko_srv_options_t * const opts,
 }
 
 static void
+connmark_rule(const fko_srv_options_t * const opts,
+        const char * const complete_rule_buf,
+        const char * const fw_rule_macro,
+        const char * const srcip,
+        const char * const dstip,
+        const unsigned int proto,
+        const unsigned int port,
+        const char * const nat_ip,
+        const unsigned int nat_port,
+        struct fw_chain * const chain,
+        const uint32_t mark,
+        const unsigned int exp_ts,
+        const time_t now,
+        const char * const msg,
+        const char * const access_msg)
+{
+    char rule_buf[CMD_BUFSIZE] = {0};
+
+    if(complete_rule_buf != NULL && complete_rule_buf[0] != 0x0)
+    {
+        strlcpy(rule_buf, complete_rule_buf, CMD_BUFSIZE-1);
+    }
+    else
+    {
+        memset(rule_buf, 0, CMD_BUFSIZE);
+
+        snprintf(rule_buf, CMD_BUFSIZE-1, fw_rule_macro,
+            chain->table,
+            proto,
+            srcip,
+            dstip,
+            port,
+            exp_ts,
+            mark
+        );
+    }
+
+    /* Check to make sure that the chain and jump rule exist
+    */
+    mk_chain(opts, chain->type);
+
+    if(rule_exists(opts, chain, rule_buf, proto, srcip,
+                dstip, port, nat_ip, nat_port, exp_ts, mark) == 0)
+    {
+        if(create_rule(opts, chain->to_chain, rule_buf))
+        {
+            log_msg(LOG_INFO, "Added %s rule to %s for %s -> %s %s, expires at %u",
+                msg, chain->to_chain, srcip, (dstip == NULL) ? IPT_ANY_IP : dstip,
+                access_msg, exp_ts
+            );
+
+            chain->active_rules++;
+
+            /* Reset the next expected expire time for this chain if it
+            * is warranted.
+            */
+            if(chain->next_expire < now || exp_ts < chain->next_expire)
+                chain->next_expire = exp_ts;
+        }
+    }
+
+    return;
+}
+
+
+
+static void
 ipt_rule(const fko_srv_options_t * const opts,
         const char * const complete_rule_buf,
         const char * const fw_rule_macro,
@@ -1057,7 +1134,7 @@ ipt_rule(const fko_srv_options_t * const opts,
     mk_chain(opts, chain->type);
 
     if(rule_exists(opts, chain, rule_buf, proto, srcip,
-                dstip, port, nat_ip, nat_port, exp_ts) == 0)
+                dstip, port, nat_ip, nat_port, exp_ts, 0) == 0)
     {
         if(create_rule(opts, chain->to_chain, rule_buf))
         {
@@ -1098,6 +1175,25 @@ static void forward_access_rule(const fko_srv_options_t * const opts,
 
     if(acc->forward_all)
     {
+    	if(strncasecmp(opts->config[CONF_DISABLE_SDP_CTRL_CLIENT], "N", 1) == 0)
+    	{
+    		/* Create connmark rule to enable connection tracking
+    		 */
+            memset(rule_buf, 0, CMD_BUFSIZE);
+
+            snprintf(rule_buf, CMD_BUFSIZE-1, IPT_CONNMARK_ALL_ARGS,
+                fwd_chain->table,
+                spadat->use_src_ip,
+                exp_ts,
+				spadat->sdp_client_id
+            );
+
+            connmark_rule(opts, rule_buf, NULL, spadat->use_src_ip,
+            	NULL, ANY_PROTO, ANY_PORT, NULL, NAT_ANY_PORT,
+				fwd_chain, spadat->sdp_client_id, exp_ts, now, "connmark",
+				"*/*");
+    	}
+
         memset(rule_buf, 0, CMD_BUFSIZE);
 
         snprintf(rule_buf, CMD_BUFSIZE-1, IPT_FWD_ALL_RULE_ARGS,
@@ -1115,6 +1211,16 @@ static void forward_access_rule(const fko_srv_options_t * const opts,
     }
     else
     {
+    	if(strncasecmp(opts->config[CONF_DISABLE_SDP_CTRL_CLIENT], "N", 1) == 0)
+    	{
+    		/* Create connmark rule to enable connection tracking
+    		 */
+			connmark_rule(opts, NULL, IPT_CONNMARK_ARGS, spadat->use_src_ip,
+				nat_ip, fst_proto, nat_port, NULL, NAT_ANY_PORT,
+				fwd_chain, spadat->sdp_client_id, exp_ts, now, "connmark",
+				spadat->spa_message_remain);
+    	}
+
         /* Make the FORWARD access rule
         */
         ipt_rule(opts, NULL, IPT_FWD_RULE_ARGS, spadat->use_src_ip,
@@ -1390,6 +1496,17 @@ process_spa_request(const fko_srv_options_t * const opts,
         if(spadat->message_type == FKO_LOCAL_NAT_ACCESS_MSG
                 || spadat->message_type == FKO_CLIENT_TIMEOUT_LOCAL_NAT_ACCESS_MSG)
         {
+        	if(strncasecmp(opts->config[CONF_DISABLE_SDP_CTRL_CLIENT], "N", 1) == 0)
+        	{
+        		/* Create connmark rule to enable connection tracking
+        		 */
+				connmark_rule(opts, NULL, IPT_CONNMARK_ARGS, spadat->use_src_ip,
+					(fwc.use_destination ? spadat->pkt_destination_ip : IPT_ANY_IP),
+					fst_proto, nat_port, nat_ip, nat_port,
+					in_chain, spadat->sdp_client_id, exp_ts, now, "connmark",
+					spadat->spa_message_remain);
+        	}
+
             ipt_rule(opts, NULL, IPT_RULE_ARGS, spadat->use_src_ip,
                 (fwc.use_destination ? spadat->pkt_destination_ip : IPT_ANY_IP),
                 fst_proto, nat_port, nat_ip, nat_port, in_chain, exp_ts,
@@ -1398,6 +1515,7 @@ process_spa_request(const fko_srv_options_t * const opts,
         else if(strlen(fwd_chain->to_chain))
         {
             /* FORWARD access rule
+             * note - connmark rule handled inside this function
             */
             forward_access_rule(opts, acc, fwd_chain, nat_ip,
                     nat_port, fst_proto, fst_port, spadat, exp_ts, now);
@@ -1421,6 +1539,17 @@ process_spa_request(const fko_srv_options_t * const opts,
         */
         while(ple != NULL)
         {
+        	if(strncasecmp(opts->config[CONF_DISABLE_SDP_CTRL_CLIENT], "N", 1) == 0)
+        	{
+        		/* Create connmark rule to enable connection tracking
+        		 */
+				connmark_rule(opts, NULL, IPT_CONNMARK_ARGS, spadat->use_src_ip,
+					(fwc.use_destination ? spadat->pkt_destination_ip : IPT_ANY_IP),
+					ple->proto, ple->port, NULL, NAT_ANY_PORT,
+					in_chain, spadat->sdp_client_id, exp_ts, now, "connmark",
+					spadat->spa_message_remain);
+        	}
+
             ipt_rule(opts, NULL, IPT_RULE_ARGS, spadat->use_src_ip,
                 (fwc.use_destination ? spadat->pkt_destination_ip : IPT_ANY_IP),
                 ple->proto, ple->port, NULL, NAT_ANY_PORT,

@@ -31,6 +31,8 @@
 #ifndef FW_UTIL_IPTABLES_H
 #define FW_UTIL_IPTABLES_H
 
+#include <inttypes.h>
+
 #define SNAT_TARGET_BUFSIZE         64
 
 #if HAVE_EXECVPE
@@ -42,9 +44,11 @@
 /* iptables command args
 */
 #define IPT_CHK_RULE_ARGS       "-C %s %s" /* the other macros add SH_REDIR if necessary */
+#define IPT_CONNMARK_ARGS       "-t %s -p %i -s %s -d %s --dport %i -m comment --comment " EXPIRE_COMMENT_PREFIX "%u -j CONNMARK --set-mark %" PRIu32 SH_REDIR
 #define IPT_RULE_ARGS           "-t %s -p %i -s %s -d %s --dport %i -m comment --comment " EXPIRE_COMMENT_PREFIX "%u -j %s" SH_REDIR
-#define IPT_OUT_RULE_ARGS       "-t %s -p %i -d %s -s %s --sport %i -m comment --comment " EXPIRE_COMMENT_PREFIX "%u -j %s" SH_REDIR
 #define IPT_FWD_RULE_ARGS       "-t %s -p %i -s %s -d %s --dport %i -m comment --comment " EXPIRE_COMMENT_PREFIX "%u -j %s" SH_REDIR
+#define IPT_OUT_RULE_ARGS       "-t %s -p %i -d %s -s %s --sport %i -m comment --comment " EXPIRE_COMMENT_PREFIX "%u -j %s" SH_REDIR
+#define IPT_CONNMARK_ALL_ARGS   "-t %s -s %s -m comment --comment " EXPIRE_COMMENT_PREFIX "%u -j CONNMARK --set-mark %" PRIu32 SH_REDIR
 #define IPT_FWD_ALL_RULE_ARGS   "-t %s -s %s -m comment --comment " EXPIRE_COMMENT_PREFIX "%u -j %s" SH_REDIR
 #define IPT_DNAT_RULE_ARGS      "-t %s -p %i -s %s -d %s --dport %i -m comment --comment " EXPIRE_COMMENT_PREFIX "%u -j %s --to-destination %s:%i" SH_REDIR
 #define IPT_DNAT_ALL_RULE_ARGS  "-t %s -s %s -d %s -m comment --comment " EXPIRE_COMMENT_PREFIX "%u -j %s --to-destination %s" SH_REDIR
