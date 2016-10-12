@@ -1175,7 +1175,7 @@ static void forward_access_rule(const fko_srv_options_t * const opts,
 
     if(acc->forward_all)
     {
-    	if(strncasecmp(opts->config[CONF_DISABLE_SDP_CTRL_CLIENT], "N", 1) == 0)
+    	if(strncasecmp(opts->config[CONF_DISABLE_CONNECTION_TRACKING], "N", 1) == 0)
     	{
     		/* Create connmark rule to enable connection tracking
     		 */
@@ -1211,7 +1211,7 @@ static void forward_access_rule(const fko_srv_options_t * const opts,
     }
     else
     {
-    	if(strncasecmp(opts->config[CONF_DISABLE_SDP_CTRL_CLIENT], "N", 1) == 0)
+    	if(strncasecmp(opts->config[CONF_DISABLE_CONNECTION_TRACKING], "N", 1) == 0)
     	{
     		/* Create connmark rule to enable connection tracking
     		 */
@@ -1496,7 +1496,7 @@ process_spa_request(const fko_srv_options_t * const opts,
         if(spadat->message_type == FKO_LOCAL_NAT_ACCESS_MSG
                 || spadat->message_type == FKO_CLIENT_TIMEOUT_LOCAL_NAT_ACCESS_MSG)
         {
-        	if(strncasecmp(opts->config[CONF_DISABLE_SDP_CTRL_CLIENT], "N", 1) == 0)
+        	if(strncasecmp(opts->config[CONF_DISABLE_CONNECTION_TRACKING], "N", 1) == 0)
         	{
         		/* Create connmark rule to enable connection tracking
         		 */
@@ -1539,7 +1539,7 @@ process_spa_request(const fko_srv_options_t * const opts,
         */
         while(ple != NULL)
         {
-        	if(strncasecmp(opts->config[CONF_DISABLE_SDP_CTRL_CLIENT], "N", 1) == 0)
+        	if(strncasecmp(opts->config[CONF_DISABLE_CONNECTION_TRACKING], "N", 1) == 0)
         	{
         		/* Create connmark rule to enable connection tracking
         		 */

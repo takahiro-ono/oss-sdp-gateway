@@ -1003,6 +1003,18 @@ validate_options(fko_srv_options_t *opts)
 		set_config_entry(opts, CONF_DISABLE_SDP_CTRL_CLIENT, "Y");
 	}
 
+    if(opts->config[CONF_DISABLE_CONNECTION_TRACKING] == NULL)
+    {
+    	if(strncmp(opts->config[CONF_DISABLE_SDP_CTRL_CLIENT], "N", 1) == 0)
+		{
+			set_config_entry(opts, CONF_DISABLE_CONNECTION_TRACKING, DEF_DISABLE_CONNECTION_TRACKING);
+		}
+    	else
+    	{
+			set_config_entry(opts, CONF_DISABLE_CONNECTION_TRACKING, "Y");
+    	}
+    }
+
     if(opts->config[CONF_MAX_WAIT_ACC_DATA] == NULL)
     {
     	set_config_entry(opts, CONF_MAX_WAIT_ACC_DATA, DEF_MAX_WAIT_ACC_DATA);
@@ -1324,6 +1336,9 @@ config_init(fko_srv_options_t *opts, int argc, char **argv)
             case DISABLE_SDP_CTRL_CLIENT:
             	set_config_entry(opts, CONF_DISABLE_SDP_CTRL_CLIENT, "Y");
             	break;
+            case DISABLE_CONNECTION_TRACKING:
+				set_config_entry(opts, CONF_DISABLE_CONNECTION_TRACKING, "Y");
+        		break;
             case MAX_WAIT_ACC_DATA:
             	set_config_entry(opts, CONF_MAX_WAIT_ACC_DATA, optarg);
             	break;
