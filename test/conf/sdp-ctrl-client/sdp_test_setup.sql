@@ -24,6 +24,26 @@ USE `sdp_test`;
 -- --------------------------------------------------------
 
 --
+-- Table structure for table `connections`
+--
+
+CREATE TABLE IF NOT EXISTS `connections` (
+  `gateway_sdpid` int(11) NOT NULL,
+  `client_sdpid` int(11) NOT NULL,
+  `start_timestamp` bigint(20) NOT NULL,
+  `end_timestamp` bigint(20) NOT NULL,
+  `source_ip` tinytext COLLATE utf8_bin NOT NULL,
+  `source_port` int(11) NOT NULL,
+  `destination_ip` tinytext COLLATE utf8_bin NOT NULL,
+  `destination_port` int(11) NOT NULL,
+  PRIMARY KEY (`gateway_sdpid`,`client_sdpid`,`start_timestamp`,`source_port`),
+  KEY `gateway_sdpid` (`gateway_sdpid`),
+  KEY `client_sdpid` (`client_sdpid`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
+
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `controller`
 --
 

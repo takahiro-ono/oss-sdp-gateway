@@ -32,6 +32,7 @@
 #include "config_init.h"
 #include "fw_util.h"
 #include "cmd_cycle.h"
+#include "connection_tracker.h"
 
 #include <stdarg.h>
 
@@ -371,6 +372,8 @@ clean_exit(fko_srv_options_t *opts, unsigned int fw_cleanup_flag, unsigned int e
         fiu_disable(opts->config[CONF_FAULT_INJECTION_TAG]);
     }
 #endif
+
+    destroy_connection_tracker(opts);
 
     if(!opts->test && opts->enable_fw && (fw_cleanup_flag == FW_CLEANUP))
         fw_cleanup(opts);

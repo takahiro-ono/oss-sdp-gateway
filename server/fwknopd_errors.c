@@ -81,13 +81,20 @@ fwknopd_errstr(const int err_code)
             return("General SPA message processing error");
 
         case FW_RULE_ADD_ERROR:
-            return("An error occurred while tring to add a firewall rule");
+            return("An error occurred while trying to add a firewall rule");
 
         case FW_RULE_DELETE_ERROR:
-            return("An error occurred while tring to delete a firewall rule");
+            return("An error occurred while trying to delete a firewall rule");
 
         case FW_RULE_UNKNOWN_ERROR:
             return("Unknown/unclassified firewall rule processing error");
+
+        case FWKNOPD_ERROR_MEMORY_ALLOCATION:
+            return("Unable to allocate memory");
+
+        case FWKNOPD_ERROR_CONNTRACK:
+        	return("An error occurred while trying to manage current connections");
+
     }
 
     return("Undefined/unknown fwknopd Error");

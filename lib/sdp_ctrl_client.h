@@ -146,6 +146,8 @@ int  sdp_ctrl_client_stop(sdp_ctrl_client_t client);
 int  sdp_ctrl_client_restart(sdp_ctrl_client_t client);
 int  sdp_ctrl_client_connect(sdp_ctrl_client_t client);
 int  sdp_ctrl_client_disconnect(sdp_ctrl_client_t client);
+int  sdp_ctrl_client_connection_status(sdp_ctrl_client_t client);
+int  sdp_ctrl_client_controller_status(sdp_ctrl_client_t client);
 int  sdp_ctrl_client_status(sdp_ctrl_client_t client);
 void sdp_ctrl_client_describe(sdp_ctrl_client_t client);
 int  sdp_ctrl_client_get_port(sdp_ctrl_client_t client, int *r_port);
@@ -161,5 +163,6 @@ int  sdp_ctrl_client_consider_cred_update(sdp_ctrl_client_t client);
 int  sdp_ctrl_client_consider_access_refresh(sdp_ctrl_client_t client);
 int  sdp_ctrl_client_send_access_ack(sdp_ctrl_client_t client);
 int  sdp_ctrl_client_send_access_error(sdp_ctrl_client_t client);
+int  sdp_ctrl_client_send_message(sdp_ctrl_client_t client, char *action, json_object *data);
 
 #endif /* SDP_CTRL_CLIENT_H_ */

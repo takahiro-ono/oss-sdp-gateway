@@ -4,6 +4,7 @@
 USE `sdp_test`;
 
 SET FOREIGN_KEY_CHECKS=0;
+DROP TABLE IF EXISTS `connections`;
 DROP TABLE IF EXISTS `controller`;
 DROP TABLE IF EXISTS `environment`;
 DROP TABLE IF EXISTS `gateway`;

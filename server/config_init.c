@@ -415,6 +415,18 @@ validate_options(fko_srv_options_t *opts)
     if(opts->config[CONF_ACCESS_FILE] == NULL)
         set_config_entry(opts, CONF_ACCESS_FILE, DEF_ACCESS_FILE);
 
+    /* If no last_conn_id.conf path was specified on the command line or set in
+     * the config file, use the default.
+    */
+    if(opts->config[CONF_CONN_ID_FILE] == NULL)
+        set_config_entry(opts, CONF_CONN_ID_FILE, DEF_CONN_ID_FILE);
+
+    /* If connection report interval was not specified on the command line or set in
+     * the config file, use the default.
+    */
+    if(opts->config[CONF_CONN_REPORT_INTERVAL] == NULL)
+        set_config_entry(opts, CONF_CONN_REPORT_INTERVAL, DEF_CONN_REPORT_INTERVAL);
+
     /* If the pid and digest cache files where not set in the config file or
      * via command-line, then grab the defaults. Start with RUN_DIR as the
      * files may depend on that.
@@ -1338,6 +1350,12 @@ config_init(fko_srv_options_t *opts, int argc, char **argv)
             	break;
             case DISABLE_CONNECTION_TRACKING:
 				set_config_entry(opts, CONF_DISABLE_CONNECTION_TRACKING, "Y");
+        		break;
+            case CONN_ID_FILE:
+				set_config_entry(opts, CONF_CONN_ID_FILE, optarg);
+        		break;
+            case CONF_CONN_REPORT_INTERVAL:
+				set_config_entry(opts, CONF_CONN_REPORT_INTERVAL, optarg);
         		break;
             case MAX_WAIT_ACC_DATA:
             	set_config_entry(opts, CONF_MAX_WAIT_ACC_DATA, optarg);

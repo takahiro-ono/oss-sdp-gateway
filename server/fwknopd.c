@@ -43,6 +43,8 @@
 #include "sdp_ctrl_client.h"
 #include "sdp_message.h"
 #include "dbg.h"
+#include "connection_tracker.h"
+#include "control_client.h"
 #include <pthread.h>
 
 #if USE_LIBPCAP
@@ -65,8 +67,8 @@ static void setup_pid(fko_srv_options_t *opts);
 static void init_digest_cache(fko_srv_options_t *opts);
 static void set_locale(fko_srv_options_t *opts);
 static pid_t get_running_pid(const fko_srv_options_t *opts);
-static void get_access_data_from_controller(fko_srv_options_t *opts);
-static void *control_client_thread_func(void *arg);
+//static void get_access_data_from_controller(fko_srv_options_t *opts);
+//static void *control_client_thread_func(void *arg);
 #if AFL_FUZZING
 static void afl_enc_pkt_from_file(fko_srv_options_t *opts);
 static void afl_pkt_from_stdin(fko_srv_options_t *opts);
@@ -181,8 +183,8 @@ main(int argc, char **argv)
         else
         {
             // connect to controller and get access list
-            get_access_data_from_controller(&opts);
-
+            if(get_access_data_from_controller(&opts) != FWKNOPD_SUCCESS)
+            	clean_exit(&opts, FW_CLEANUP, EXIT_FAILURE);
         }
 
         /* Show config (including access.conf vars) and exit dump config was
@@ -349,6 +351,7 @@ main(int argc, char **argv)
 
 
 
+/*
 static void get_access_data_from_controller(fko_srv_options_t *opts)
 {
     int rv = FWKNOPD_SUCCESS;
@@ -396,6 +399,44 @@ static void get_access_data_from_controller(fko_srv_options_t *opts)
     return;
 }
 
+
+static int handle_access_msg(fko_srv_options_t *opts, int action, json_object *jdata)
+{
+	int rv = FWKNOPD_SUCCESS;
+
+    // if an access data message is received, process that
+    if((rv = process_access_msg(opts, action, jdata)) == FWKNOPD_ERROR_MUTEX)
+    {
+        log_msg(LOG_ERR, "SDP Control Client thread mutex error. Aborting.");
+
+        return rv;
+    }
+    else if(rv == FKO_ERROR_MEMORY_ALLOCATION)
+    {
+        log_msg(LOG_ERR, "SDP Control Client thread memory allocation error. Aborting.");
+
+        return rv;
+    }
+    else if(rv != FWKNOPD_SUCCESS)
+    {
+        log_msg(LOG_ERR, "Error processing access data from controller. Carrying on.");
+        sdp_ctrl_client_send_access_error(opts->ctrl_client);
+    }
+    else
+    {
+        log_msg(LOG_INFO, "Succeeded in modifying access data.");
+        sdp_ctrl_client_send_access_ack(opts->ctrl_client);
+
+        if(opts->verbose > 1 && opts->foreground)
+        {
+            dump_access_list(opts);
+        }
+    }
+
+    return FWKNOPD_SUCCESS;
+}
+
+
 static void *control_client_thread_func(void *arg)
 {
     int rv = FWKNOPD_SUCCESS;
@@ -417,7 +458,70 @@ static void *control_client_thread_func(void *arg)
 
     while(1)
     {
+        // connect if necessary
+        if(sdp_ctrl_client_connection_status(opts->ctrl_client) == SDP_COM_DISCONNECTED)
+        {
+            if((rv = sdp_ctrl_client_connect(opts->ctrl_client)) != SDP_SUCCESS)
+            {
+                break;
+            }
+        }
+
+        // check for incoming messages
+        if((rv = sdp_ctrl_client_check_inbox(opts->ctrl_client, &action, (void**)&jdata)) != SDP_SUCCESS)
+            break;
+
+        // if data was returned, process it
+        if(jdata != NULL)
+        {
+            log_msg(LOG_DEBUG, "sdp_ctrl_client_check_inbox returned access data, processing");
+
+            rv = handle_access_msg(opts, action, jdata);
+
+            if(jdata != NULL && json_object_get_type(jdata) != json_type_null)
+            {
+            	json_object_put(jdata);
+            	jdata = NULL;
+            }
+
+            if(rv != FWKNOPD_SUCCESS)
+                break;
+
+    		if(strncmp(opts->config[CONF_DISABLE_CONNECTION_TRACKING], "N", 1) == 0)
+    		{
+    			if((rv = validate_connections(opts)) != FWKNOPD_SUCCESS)
+    				break;
+    		}
+        }
+
+        // do not begin sending requests until controller is ready
+        if( !(sdp_ctrl_client_controller_status(opts->ctrl_client)) )
+            continue;
+
+        // if new connection or just time, update credentials
+        if((rv = sdp_ctrl_client_consider_cred_update(opts->ctrl_client)) != SDP_SUCCESS)
+            break;
+
+        // if built for remote gateway, handle access updates
+        if((rv = sdp_ctrl_client_consider_access_refresh(opts->ctrl_client)) != SDP_SUCCESS)
+            break;
+
+        // is a keep alive due
+        if((rv = sdp_ctrl_client_consider_keep_alive(opts->ctrl_client)) != SDP_SUCCESS)
+            break;
+
+		// If connection tracking is enabled
+		if(strncmp(opts->config[CONF_DISABLE_CONNECTION_TRACKING], "N", 1) == 0)
+		{
+			if((rv = update_connections(opts)) != FWKNOPD_SUCCESS)
+				break;
+
+			if((rv = consider_reporting_connections(opts)) != FWKNOPD_SUCCESS)
+				break;
+		}
+
         // listen indefinitely
+
         if((rv = sdp_ctrl_client_listen(opts->ctrl_client, 0, &action, (void**)&jdata)) != SDP_SUCCESS)
         {
             log_msg(LOG_ERR, "SDP Control Client thread failure. Aborting.");
@@ -458,6 +562,9 @@ static void *control_client_thread_func(void *arg)
         }
 
         if(jdata != NULL && json_object_get_type(jdata) != json_type_null) json_object_put(jdata);
+        *****
+
+        sleep(1);
     }
 
     // send kill signal for main thread to catch and exit safely
@@ -465,7 +572,7 @@ static void *control_client_thread_func(void *arg)
 
     return NULL;
 }
-
+*/
 
 static void set_locale(fko_srv_options_t *opts)
 {

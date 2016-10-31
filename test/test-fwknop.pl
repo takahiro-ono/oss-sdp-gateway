@@ -6521,7 +6521,7 @@ sub fw_check() {
         }
         
         ### allow time for rule time out.
-        sleep 3;
+        sleep 20;
         for (my $ii = 0; $ii < 57; $ii++) {
         	if (!&is_fw_rule_active($test_hr)) {
 	            &write_test_file("[+] new fw rule timed out.\n", $curr_test_file);

@@ -489,6 +489,64 @@ strtol_wrapper(const char * const str, const int min,
     return val;
 }
 
+uint64_t
+strtoull_wrapper(const char * const str, const uint64_t min,
+    const uint64_t max, const int exit_upon_err, int *err)
+{
+    uint64_t val;
+
+    errno = 0;
+    *err = FKO_SUCCESS;
+
+    val = strtoull(str, (char **) NULL, 10);
+
+    if ((errno == ERANGE || (errno != 0 && val == 0)))
+    {
+        *err = errno;
+        if(exit_upon_err == EXIT_UPON_ERR)
+        {
+            perror("strtol");
+            fprintf(stderr, "[*] Value %"PRIu64" out of range [(%"PRIu64")-(%"PRIu64")]\n",
+                val, min, max);
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    if(val < min)
+    {
+        *err = FKO_ERROR_INVALID_DATA_UTIL_STRTOULL_LT_MIN;
+        if(exit_upon_err == EXIT_UPON_ERR)
+        {
+            fprintf(stderr, "[*] Value %"PRIu64" out of range [(%"PRIu64")-(%"PRIu64")]\n",
+                val, min, max);
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    /* allow max == -1 to be an exception where we don't care about the
+     * maximum - note that the ERANGE check is still in place above
+    */
+    if((max >= 0) && (val > max))
+    {
+        *err = FKO_ERROR_INVALID_DATA_UTIL_STRTOULL_GT_MAX;
+        if(exit_upon_err == EXIT_UPON_ERR)
+        {
+            fprintf(stderr, "[*] Value %"PRIu64" out of range [(%"PRIu64")-(%"PRIu64")]\n",
+                val, min, max);
+            exit(EXIT_FAILURE);
+        }
+    }
+
+#if HAVE_LIBFIU
+    fiu_return_on("strtoull_wrapper_lt_min",
+            FKO_ERROR_INVALID_DATA_UTIL_STRTOULL_LT_MIN);
+    fiu_return_on("strtoull_wrapper_gt_max",
+            FKO_ERROR_INVALID_DATA_UTIL_STRTOULL_GT_MAX);
+#endif
+
+    return val;
+}
+
 /* zero out a buffer before free()
 */
 int zero_free(char *buf, int len)

@@ -425,10 +425,19 @@ int sdp_ctrl_client_restart(sdp_ctrl_client_t client)
  */
 int sdp_ctrl_client_connect(sdp_ctrl_client_t client)
 {
+	int res = SDP_SUCCESS;
+
     if(client == NULL || !client->initialized)
         return SDP_ERROR_UNINITIALIZED;
 
-    return sdp_com_connect(client->com);
+    res = sdp_com_connect(client->com);
+
+    if(res == SDP_SUCCESS)
+    {
+    	client->initial_conn_time = client->last_contact = time(NULL);
+    }
+
+    return res;
 }
 
 
@@ -445,6 +454,32 @@ int sdp_ctrl_client_disconnect(sdp_ctrl_client_t client)
         return SDP_ERROR_UNINITIALIZED;
 
     return sdp_com_disconnect(client->com);
+}
+
+
+/**
+ * @brief Check whether an sdp ctrl client is currently connected
+ *
+ * @param client - sdp_ctrl_client_t object.
+ *
+ * @return SDP_COM_CONNECTED or SDP_COM_DISCONNECTED.
+ */
+int sdp_ctrl_client_connection_status(sdp_ctrl_client_t client)
+{
+	return client->com->conn_state;
+}
+
+
+/**
+ * @brief Check whether controller is ready for requests
+ *
+ * @param client - sdp_ctrl_client_t object.
+ *
+ * @return 1 for yes, 0 for no.
+ */
+int sdp_ctrl_client_controller_status(sdp_ctrl_client_t client)
+{
+	return client->controller_ready;
 }
 
 
@@ -900,7 +935,30 @@ cleanup:
 }
 
 
+int  sdp_ctrl_client_send_message(sdp_ctrl_client_t client, char *action, json_object *data)
+{
+    int rv = SDP_SUCCESS;
+    char *msg = NULL;
 
+    // Make the message
+    if((rv = sdp_message_make(action, data, &msg)) != SDP_SUCCESS)
+    {
+        log_msg(LOG_ERR, "Failed to make ctrl message.");
+        goto cleanup;
+    }
+
+    if((rv = sdp_com_send_msg(client->com, msg)) != SDP_SUCCESS)
+    {
+        log_msg(LOG_ERR, "Failed to send ctrl message.");
+        goto cleanup;
+    }
+
+cleanup:
+    log_msg(LOG_DEBUG, "Freeing memory before exiting function");
+
+    free(msg);
+    return rv;
+}
 
 // PRIVATE FUNCTION DEFINITIONS
 // ======================================================================================
@@ -920,7 +978,7 @@ int sdp_ctrl_client_clean_exit(sdp_ctrl_client_t client, int status)
 
 int sdp_ctrl_client_setup_pid(sdp_ctrl_client_t client, pid_t *r_pid)
 {
-    pid_t    pid, old_pid = 0;
+    pid_t    pid = 0, old_pid = 0;
     int rv;
 
     if(client == NULL || !client->initialized)
@@ -972,7 +1030,8 @@ int sdp_ctrl_client_setup_pid(sdp_ctrl_client_t client, pid_t *r_pid)
 //
 int sdp_ctrl_client_daemonize(sdp_ctrl_client_t client, pid_t *r_pid)
 {
-    pid_t pid, old_pid;
+    pid_t pid, old_pid = 0;
+    int rv = SDP_SUCCESS;
 
     if(client == NULL || !client->initialized)
         return SDP_ERROR_UNINITIALIZED;
@@ -999,7 +1058,9 @@ int sdp_ctrl_client_daemonize(sdp_ctrl_client_t client, pid_t *r_pid)
     setsid();
 
     // Create the PID file (or be blocked by an existing one).
-    sdp_ctrl_client_write_pid_file(client, &old_pid);
+    if((rv = sdp_ctrl_client_write_pid_file(client, &old_pid)) != SDP_SUCCESS)
+        return rv;
+
     if(old_pid > 0)
     {
         log_msg(LOG_ERR,
@@ -1750,13 +1811,22 @@ void sdp_ctrl_client_destroy_internals(sdp_ctrl_client_t client)
         return;
 
     if(client->config_file != NULL)
+    {
         free(client->config_file);
+        client->config_file = NULL;
+    }
 
     if(client->pid_file != NULL)
+    {
         free(client->pid_file);
+        client->pid_file = NULL;
+    }
 
     if(client->com != NULL)
+    {
         sdp_com_destroy(client->com);
+        client->com = NULL;
+    }
 }
 
 
@@ -1785,7 +1855,8 @@ int sdp_ctrl_client_restart_myself(sdp_ctrl_client_t client)
     if((config_file = strndup(client->config_file, PATH_MAX)) == NULL)
     {
         log_msg(LOG_ERR, "Error copying config file path");
-        return SDP_ERROR_MEMORY_ALLOCATION;
+        rv = SDP_ERROR_MEMORY_ALLOCATION;
+        goto cleanup;
     }
 
     if(client->com->fwknoprc_file != NULL)
@@ -1793,7 +1864,8 @@ int sdp_ctrl_client_restart_myself(sdp_ctrl_client_t client)
         if((fwknoprc_file = strndup(client->com->fwknoprc_file, PATH_MAX)) == NULL)
         {
             log_msg(LOG_ERR, "Error copying fwknoprc file path");
-            return SDP_ERROR_MEMORY_ALLOCATION;
+            rv = SDP_ERROR_MEMORY_ALLOCATION;
+            goto cleanup;
         }
     }
 
@@ -1804,14 +1876,18 @@ int sdp_ctrl_client_restart_myself(sdp_ctrl_client_t client)
 
     // create new com object
     if((rv = sdp_com_new(&(client->com))) != SDP_SUCCESS)
-        return sdp_ctrl_client_clean_exit(client, rv);
+        goto cleanup;
 
     if((rv = sdp_ctrl_client_config_init(client, config_file, fwknoprc_file, foreground)) != SDP_SUCCESS)
-        return sdp_ctrl_client_clean_exit(client, rv);
+        goto cleanup;
 
     sdp_ctrl_client_describe(client);
 
-    // client loop will now carry on
+cleanup:
+	free(config_file);
+	free(fwknoprc_file);
+
+    // if no errors, client loop will now carry on
     return rv;
 }
 

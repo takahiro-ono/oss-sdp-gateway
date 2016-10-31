@@ -29,6 +29,7 @@ const char *sdp_action_access_update          = "access_update";
 const char *sdp_action_access_remove          = "access_remove";
 const char *sdp_action_access_ack             = "access_ack";
 const char *sdp_action_bad_message            = "bad_message";
+const char *sdp_action_connection_update      = "connection_update";
 
 const char *sdp_stage_error                   = "error";
 const char *sdp_stage_fulfilling              = "fulfilling";
@@ -163,7 +164,7 @@ static int sdp_get_message_action(json_object *jmsg, ctrl_action_t *r_action)
 }
 
 
-int  sdp_message_make(const char *action, const char *stage, char **r_out_msg)
+int  sdp_message_make(const char *action, const json_object *data, char **r_out_msg)
 {
     char *out_msg = NULL;
     json_object *jout_msg = json_object_new_object();
@@ -176,8 +177,8 @@ int  sdp_message_make(const char *action, const char *stage, char **r_out_msg)
 
     json_object_object_add(jout_msg, sdp_key_action,  json_object_new_string(action));
 
-    if(stage != NULL)
-        json_object_object_add(jout_msg, sdp_key_stage, json_object_new_string(stage));
+    if(data != NULL)
+        json_object_object_add(jout_msg, sdp_key_data, data);
 
     out_msg = strndup(json_object_to_json_string(jout_msg), SDP_MSG_MAX_LEN);
 

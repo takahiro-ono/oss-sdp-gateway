@@ -59,6 +59,7 @@ extern const char *sdp_action_access_update;
 extern const char *sdp_action_access_remove;
 extern const char *sdp_action_access_ack;
 extern const char *sdp_action_bad_message;
+extern const char *sdp_action_connection_update;
 
 extern const char *sdp_stage_error;
 extern const char *sdp_stage_fulfilling;
@@ -73,7 +74,7 @@ extern const char *sdp_msg_cred_unfulfilled;
 
 int  sdp_get_json_string_field(const char *key, json_object *jdata, char **r_field);
 int  sdp_get_json_int_field(const char *key, json_object *jdata, int *r_field);
-int  sdp_message_make(const char *subject, const char *stage, char **r_out_msg);
+int  sdp_message_make(const char *subject, const json_object *data, char **r_out_msg);
 int  sdp_message_process(const char *msg, ctrl_action_t *r_action, void **r_data); //json_object **r_jdata);
 int  sdp_message_parse_cred_fields(json_object *jdata, void **r_creds);
 void sdp_message_destroy_creds(sdp_creds_t creds);
