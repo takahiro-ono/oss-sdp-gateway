@@ -82,7 +82,7 @@
             "--max-acc-wait 1",
         'server_exec_err_possible' => 1,
         'server_positive_output_matches' => 
-            [qr/(Failed to get access data from controller.*Aborting|Succeeded in retrieving and installing access configuration)/],
+            [qr/(Failed to get access data from controller|Succeeded in retrieving and installing access configuration)/],
     },
     {
         'category' => 'controller',
