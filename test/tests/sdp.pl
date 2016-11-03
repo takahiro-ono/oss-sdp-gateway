@@ -27,6 +27,8 @@
         'fwknopd_cmdline'  => "$fwknopdCmd $default_server_conf_args_sdp $intf_str",
         # 'server_sending_spa' => 1,
         'fw_rule_created' => $NEW_RULE_REQUIRED,
+        'no_ip_check' => 1,
+        'wait_for_conn_close' => 1,
         'client_positive_output_matches' =>
             [qr/All new credentials stored successfully/],
         'server_positive_output_matches' => 
@@ -35,11 +37,14 @@
              qr/ACCEPT.*?tcp dpt:80 \/\* _exp_\d{10} \*\//,
              qr/ACCEPT.*?tcp dpt:5000 \/\* _exp_\d{10} \*\//,
              qr/CONNMARK.*?tcp dpt:80 \/\* _exp_\d{10} \*\/ CONNMARK set 0x/,
-             qr/CONNMARK.*?tcp dpt:5000 \/\* _exp_\d{10} \*\/ CONNMARK set 0x/],
+             qr/CONNMARK.*?tcp dpt:5000 \/\* _exp_\d{10} \*\/ CONNMARK set 0x/,
+             qr/New connections from SDP ID/,
+             qr/connections closed for SDP ID/],
         'ctrl_positive_output_matches' => 
             [qr/New credentials successfully created/,
              qr/Successfully stored new keys/,
              qr/Received access data acknowledgement/,
+             qr/Successfully stored connection data/,
              qr/Found and removed SDP ID/],
     },
     {
@@ -111,6 +116,7 @@
         'cmdline'  => $default_client_args_sdp,
         'client_ctrl_conf' => $cf{'client_ctrl_conf_bad_fwknop_path'},
         'fwknopd_cmdline'  => "$fwknopdCmd $default_server_conf_args_sdp $intf_str",
+        'no_ip_check' => 1,
         'fw_rule_created' => $NEW_RULE_REQUIRED,
         'client_positive_output_matches' =>
             [qr/sdp_com.*Failed to send SPA/],

@@ -2,7 +2,7 @@
 
 [sdp_ctrl_gate]
 SDP_CLIENT_ID               333
-ALLOW_IP                    127.0.0.2 
+ALLOW_IP                    127.0.0.1
 ACCESS                      tcp/5000
 SPA_SERVER                  127.0.0.1
 KEY_BASE64                  Xpee90NZMvAyKJ5fxQIRALNdETK8w3pTR60NJBJy5Bw=
@@ -12,7 +12,7 @@ USE_HMAC                    Y
 
 [service_gate]
 SDP_CLIENT_ID               333
-ALLOW_IP                    127.0.0.2 
+ALLOW_IP                    127.0.0.1 
 ACCESS                      tcp/80
 SPA_SERVER                  127.0.0.1
 KEY_BASE64                  Xpee90NZMvAyKJ5fxQIRALNdETK8w3pTR60NJBJy5Bw=

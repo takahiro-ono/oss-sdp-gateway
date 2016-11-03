@@ -1061,6 +1061,7 @@ my %test_keys = (
     'server_ctrl_key' => $OPTIONAL,
     'server_ctrl_cert' => $OPTIONAL,
     'skip_controller' => $OPTIONAL,
+    'wait_for_conn_close' => $OPTIONAL,
 );
 
 &validate_test_hashes();
@@ -3263,6 +3264,8 @@ sub controller_cycle() {
         ### check to see if the SPA packet resulted in a new fw access rule
         ($rv, $fw_rule_created, $fw_rule_removed)
             = &fw_check($rv, $fw_rule_created, $fw_rule_removed, $test_hr);
+            
+        sleep 120 if $test_hr->{'wait_for_conn_close'};
     }
 
     # &write_test_file("[.] calling sdp_test_cleanup...\n", $curr_test_file);

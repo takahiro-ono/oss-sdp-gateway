@@ -33,6 +33,15 @@ static time_t next_ctrl_msg_due = 0;
 
 static void print_connection_item(connection_t this_conn)
 {
+	char start_str[100] = {0};
+	char end_str[100] = {0};
+
+	memcpy(start_str, ctime( &(this_conn->start_time) ), 100);
+
+	memcpy(end_str,
+		   this_conn->end_time ? ctime( &(this_conn->end_time)) : "connection open\n",
+		   100);
+
     log_msg(LOG_WARNING,
             "    Conn ID:  %"PRIu64"\n"
             "     SDP ID:  %"PRIu32"\n"
@@ -49,9 +58,10 @@ static void print_connection_item(connection_t this_conn)
             this_conn->src_port,
             this_conn->dst_ip_str,
             this_conn->dst_port,
-            ctime( &(this_conn->start_time) ),
-            this_conn->end_time ? ctime( &(this_conn->end_time)) : "connection open\n",
+			start_str, //ctime( &(this_conn->start_time) ),
+			end_str, //this_conn->end_time ? ctime( &(this_conn->end_time)) : "connection open\n",
             this_conn->next );
+
 }
 
 
@@ -720,6 +730,7 @@ static int traverse_compare_latest_cb(hash_table_node_t *node, void *arg)
     connection_t copy_current_conns = NULL;
     time_t *end_time = (time_t*)arg;
     connection_t closed_conns = NULL;
+    connection_t temp_conn = NULL;
     bstring key = (bstring)node->key;
 
     // just a safety check, shouldn't be possible
@@ -735,6 +746,14 @@ static int traverse_compare_latest_cb(hash_table_node_t *node, void *arg)
     // check whether this SDP ID still has any current connections
     if( (current_conns = hash_table_get(latest_connection_hash_tbl, key)) == NULL)
     {
+        // update each conn item with the closing time
+    	temp_conn = known_conns;
+        while(temp_conn != NULL)
+        {
+        	temp_conn->end_time = *end_time;
+        	temp_conn = temp_conn->next;
+        }
+
         log_msg(LOG_WARNING, "All connections closed for SDP ID %"PRIu32":",
 				known_conns->sdp_id);
         print_connection_list(known_conns);
@@ -745,13 +764,6 @@ static int traverse_compare_latest_cb(hash_table_node_t *node, void *arg)
                 != FWKNOPD_SUCCESS)
         {
             goto cleanup;
-        }
-
-        // update each conn item with the closing time
-        while(known_conns != NULL)
-        {
-            known_conns->end_time = *end_time;
-            known_conns = known_conns->next;
         }
 
         // set node->data to NULL so the list is not deleted with the node
@@ -815,7 +827,15 @@ static int traverse_compare_latest_cb(hash_table_node_t *node, void *arg)
     // add closed conns to the ctrl message list
     if(closed_conns != NULL)
     {
-        log_msg(LOG_WARNING, "Connections closed for SDP ID %"PRIu32":",
+        // update each conn item with the closing time
+    	temp_conn = closed_conns;
+        while(temp_conn != NULL)
+        {
+        	temp_conn->end_time = *end_time;
+        	temp_conn = temp_conn->next;
+        }
+
+        log_msg(LOG_WARNING, "Following connections closed for SDP ID %"PRIu32":",
 				closed_conns->sdp_id);
         print_connection_list(closed_conns);
 
@@ -825,12 +845,6 @@ static int traverse_compare_latest_cb(hash_table_node_t *node, void *arg)
             goto cleanup;
         }
 
-        // update each conn item with the closing time
-        while(closed_conns != NULL)
-        {
-            closed_conns->end_time = *end_time;
-            closed_conns = closed_conns->next;
-        }
     }
 
     return rv;
@@ -919,6 +933,7 @@ static int traverse_validate_connections_cb(hash_table_node_t *node, void *arg)
     connection_t this_conn = (connection_t)(node->data);
     connection_t prev_conn = NULL;
     connection_t next_conn = NULL;
+    connection_t temp_conn = NULL;
     int conn_valid = 0;
     char criteria[CRITERIA_BUF_LEN];
     time_t now = time(NULL);
@@ -944,17 +959,19 @@ static int traverse_validate_connections_cb(hash_table_node_t *node, void *arg)
             return rv;
         }
 
+        // set the end time for all of the connections
+        temp_conn = this_conn;
+		while(temp_conn != NULL)
+		{
+			temp_conn->end_time = now;
+			temp_conn = temp_conn->next;
+		}
+
+
         // print the closed conns
-        log_msg(LOG_WARNING, "Connections closed for SDP ID %"PRIu32":",
+        log_msg(LOG_WARNING, "All connections closed for SDP ID %"PRIu32":",
         		this_conn->sdp_id);
         print_connection_list(this_conn);
-
-        // set the end time for all of the connections
-		while(this_conn != NULL)
-		{
-			this_conn->end_time = now;
-			this_conn = this_conn->next;
-		}
 
 		// pin the whole list onto the ctrl message list
 		if( (rv = add_to_connection_list(&msg_conn_list, node->data)) != FWKNOPD_SUCCESS)
@@ -1319,8 +1336,6 @@ int update_connections(fko_srv_options_t *opts)
     {
         return FWKNOPD_ERROR_CONNTRACK;
     }
-
-    //hash_table_destroy(latest_connection_hash_tbl);
 
     if(verbosity >= LOG_DEBUG)
     {
