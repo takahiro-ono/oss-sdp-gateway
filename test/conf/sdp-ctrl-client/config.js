@@ -61,5 +61,10 @@ module.exports = {
     'maxBadMessages': 3,
     
     // retry interval (milliseconds) for database failures
-    'databaseRetryInterval': 5000
+    'databaseRetryInterval': 5000,
+    'databaseMaxRetries': 5,
+    
+    // interval (milliseconds) to check database for changes
+    // that require sending updates to gateways
+    'databaseMonitorInterval': 3000
 };

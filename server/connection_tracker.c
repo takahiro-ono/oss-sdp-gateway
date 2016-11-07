@@ -390,7 +390,7 @@ static int close_connections(fko_srv_options_t *opts, char *criteria)
     	return FWKNOPD_ERROR_CONNTRACK;
     }
 
-    log_msg(LOG_WARNING, "Successfully closed any connections meeting the following criteria:\n"
+    log_msg(LOG_WARNING, "Gateway closed connections meeting the following criteria:\n"
     		             "     %s \n", criteria);
 
     return res;
@@ -969,7 +969,7 @@ static int traverse_validate_connections_cb(hash_table_node_t *node, void *arg)
 
 
         // print the closed conns
-        log_msg(LOG_WARNING, "All connections closed for SDP ID %"PRIu32":",
+        log_msg(LOG_WARNING, "Gateway closed the following (i.e. all) connections from SDP ID %"PRIu32":",
         		this_conn->sdp_id);
         print_connection_list(this_conn);
 
@@ -982,7 +982,7 @@ static int traverse_validate_connections_cb(hash_table_node_t *node, void *arg)
 		// make sure the hash table node no longer points to the
 		// connection list
         node->data = NULL;
-
+        this_conn = NULL;
     }
 
     while(this_conn != NULL)
@@ -1022,7 +1022,7 @@ static int traverse_validate_connections_cb(hash_table_node_t *node, void *arg)
             }
 
             // print closed connection
-            log_msg(LOG_WARNING, "Connection closed for SDP ID %"PRIu32":",
+            log_msg(LOG_WARNING, "Gateway closed the following connection from SDP ID %"PRIu32":",
             		this_conn->sdp_id);
             print_connection_list(this_conn);
 

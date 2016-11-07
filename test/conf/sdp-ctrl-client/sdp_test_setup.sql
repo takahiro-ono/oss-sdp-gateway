@@ -24,10 +24,10 @@ USE `sdp_test`;
 -- --------------------------------------------------------
 
 --
--- Table structure for table `connections`
+-- Table structure for table `connection`
 --
 
-CREATE TABLE IF NOT EXISTS `connections` (
+CREATE TABLE IF NOT EXISTS `connection` (
   `gateway_sdpid` int(11) NOT NULL,
   `client_sdpid` int(11) NOT NULL,
   `start_timestamp` bigint(20) NOT NULL,
@@ -42,7 +42,7 @@ CREATE TABLE IF NOT EXISTS `connections` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
 
 --
--- RELATIONS FOR TABLE `connections`:
+-- RELATIONS FOR TABLE `connection`:
 --   `client_sdpid`
 --       `sdpid` -> `sdpid`
 --   `gateway_sdpid`
@@ -171,6 +171,20 @@ CREATE TABLE IF NOT EXISTS `group` (
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin AUTO_INCREMENT=1 ;
 
+--
+-- Triggers `group`
+--
+DROP TRIGGER IF EXISTS `group_after_delete`;
+DELIMITER //
+CREATE TRIGGER `group_after_delete` AFTER DELETE ON `group`
+ FOR EACH ROW BEGIN
+    INSERT INTO refresh_trigger
+    SET table_name = 'group',
+        event = 'delete';
+END
+//
+DELIMITER ;
+
 -- --------------------------------------------------------
 
 --
@@ -194,6 +208,54 @@ CREATE TABLE IF NOT EXISTS `group_service` (
 --       `group` -> `id`
 --
 
+--
+-- Triggers `group_service`
+--
+DROP TRIGGER IF EXISTS `group_service_after_delete`;
+DELIMITER //
+CREATE TRIGGER `group_service_after_delete` AFTER DELETE ON `group_service`
+ FOR EACH ROW BEGIN
+    INSERT INTO refresh_trigger
+    SET table_name = 'group_service',
+        event = 'delete';
+END
+//
+DELIMITER ;
+DROP TRIGGER IF EXISTS `group_service_after_insert`;
+DELIMITER //
+CREATE TRIGGER `group_service_after_insert` AFTER INSERT ON `group_service`
+ FOR EACH ROW BEGIN
+    INSERT INTO refresh_trigger
+    SET table_name = 'group_service',
+        event = 'insert';
+END
+//
+DELIMITER ;
+DROP TRIGGER IF EXISTS `group_service_after_update`;
+DELIMITER //
+CREATE TRIGGER `group_service_after_update` AFTER UPDATE ON `group_service`
+ FOR EACH ROW BEGIN
+    INSERT INTO refresh_trigger
+    SET table_name = 'group_service',
+        event = 'update';
+END
+//
+DELIMITER ;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `refresh_trigger`
+--
+
+CREATE TABLE IF NOT EXISTS `refresh_trigger` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `timestamp` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `table_name` tinytext COLLATE utf8_bin NOT NULL,
+  `event` tinytext COLLATE utf8_bin NOT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB  DEFAULT CHARSET=utf8 COLLATE=utf8_bin AUTO_INCREMENT=2 ;
+
 -- --------------------------------------------------------
 
 --
@@ -202,6 +264,7 @@ CREATE TABLE IF NOT EXISTS `group_service` (
 
 CREATE TABLE IF NOT EXISTS `sdpid` (
   `sdpid` int(11) NOT NULL AUTO_INCREMENT,
+  `valid` tinyint(1) NOT NULL DEFAULT '1',
   `type` enum('client','gateway','controller') COLLATE utf8_bin NOT NULL DEFAULT 'client',
   `country` varchar(128) COLLATE utf8_bin NOT NULL,
   `state` varchar(128) COLLATE utf8_bin NOT NULL,
@@ -234,12 +297,39 @@ CREATE TABLE IF NOT EXISTS `sdpid` (
 -- Dumping data for table `sdpid`
 --
 
-INSERT INTO `sdpid` (`sdpid`, `type`, `country`, `state`, `locality`, `org`, `org_unit`, `alt_name`, `email`, `encrypt_key`, `hmac_key`, `serial`, `last_cred_update`, `cred_update_due`, `user_id`, `environment_id`) VALUES
-(111, 'controller', 'US', 'Virginia', 'Waterford', 'Waverley Labs, LLC', 'R&D', NULL, 'email@email.com', NULL, NULL, '0', '0000-00-00 00:00:00', '0000-00-00 00:00:00', NULL, NULL),
-(333, 'client', 'US', 'Virginia', 'Leesburg', 'Waverley Labs, LLC', 'R&D', NULL, 'email@email.com', 'Xpee90NZMvAyKJ5fxQIRALNdETK8w3pTR60NJBJy5Bw=', 'PRxnFcl+rUFpg2R6sHyuAiCs0imvVP1wn0Qweqokd9XZweOwmRABWtpxehbahY7QuMKhbE690ln5E6VtqQJBAIOEtHE+oqFe5kPL3oUGP+y+YvIFcr/iWYhmRJ+HHBRjiToNQIUO7n2xPehBlOseFYRT27XK0Cyn6BtHBCM21Wc=', '00AF8F8EAC509B9321', '2016-07-14 21:30:08', '2016-08-14 04:00:00', 1, NULL),
-(222, 'gateway', 'US', 'Virginia', 'Waterford', 'Waverley Labs, LLC', 'R&D', NULL, 'email@email.com', 'z8ngq6MaidxxStiUHk0CECm0CBSuYUvyD8zb99oliV4=', '60stItDmZeQNWz8ODvz1fdchhYp3h+finZieSO6vKUdSSUkPyglKVv9heFc23Yh7vbRp+jvX2eIN+rAa8QJBAOJ7GALaqWPbE/DUu+UIzLbJvNzvCPLj+iUe/td+ot6jVNGOMrIitsEt1r9gf66eGq6WZJ6lY60USIndz0NrdMA=', 'AF9F9DBA208EF44F', '2016-07-14 21:44:15', '2016-08-14 04:00:00', NULL, NULL),
-(444, 'gateway', 'US', 'Virginia', 'Leesburg', 'Waverley Labs, LLC', 'R&D', NULL, 'email@email.com', 'cRUukYanhaY7pcbS0QIRAOxuP4MfXB1YcLN1gWxEPD8=', 'wYnVbpwtCgfsxJb7zmRURPN1pw9OPKFBRP77pz8ILY2Ey4l5tqvPV8Q0dPGN5NkF6RMuYd7r5i+PmEEep/sCQC/ejhPAGPrrgLAc1/OAVYSTh6lLYx4N7vjJqSEnmhy/FQVAvNv2WWoOT0GCyNjWfoO16W2hFtC++1+5I8AIuy8=', '00AF8F8EAC509B9323', '2016-07-14 21:28:40', '2016-08-14 04:00:00', NULL, NULL),
-(555, 'client', 'US', 'Florida', 'Miami', 'Waverley Labs, LLC', 'R&D', NULL, 'email@email.com', 'someencryptkey', 'somehmackey', '00AF8F8EAC509B9324', '0000-00-00 00:00:00', '0000-00-00 00:00:00', 2, NULL);
+INSERT INTO `sdpid` (`sdpid`, `valid`, `type`, `country`, `state`, `locality`, `org`, `org_unit`, `alt_name`, `email`, `encrypt_key`, `hmac_key`, `serial`, `last_cred_update`, `cred_update_due`, `user_id`, `environment_id`) VALUES
+(111, 1, 'controller', 'US', 'Virginia', 'Waterford', 'Waverley Labs, LLC', 'R&D', NULL, 'email@email.com', NULL, NULL, '0', '0000-00-00 00:00:00', '0000-00-00 00:00:00', NULL, NULL),
+(333, 1, 'client', 'US', 'Virginia', 'Leesburg', 'Waverley Labs, LLC', 'R&D', NULL, 'email@email.com', 'Xpee90NZMvAyKJ5fxQIRALNdETK8w3pTR60NJBJy5Bw=', 'PRxnFcl+rUFpg2R6sHyuAiCs0imvVP1wn0Qweqokd9XZweOwmRABWtpxehbahY7QuMKhbE690ln5E6VtqQJBAIOEtHE+oqFe5kPL3oUGP+y+YvIFcr/iWYhmRJ+HHBRjiToNQIUO7n2xPehBlOseFYRT27XK0Cyn6BtHBCM21Wc=', '00AF8F8EAC509B9321', '2016-07-14 21:30:08', '2016-08-14 04:00:00', 1, NULL),
+(222, 1, 'gateway', 'US', 'Virginia', 'Waterford', 'Waverley Labs, LLC', 'R&D', NULL, 'email@email.com', 'z8ngq6MaidxxStiUHk0CECm0CBSuYUvyD8zb99oliV4=', '60stItDmZeQNWz8ODvz1fdchhYp3h+finZieSO6vKUdSSUkPyglKVv9heFc23Yh7vbRp+jvX2eIN+rAa8QJBAOJ7GALaqWPbE/DUu+UIzLbJvNzvCPLj+iUe/td+ot6jVNGOMrIitsEt1r9gf66eGq6WZJ6lY60USIndz0NrdMA=', 'AF9F9DBA208EF44F', '2016-07-14 21:44:15', '2016-08-14 04:00:00', NULL, NULL),
+(444, 1, 'gateway', 'US', 'Virginia', 'Leesburg', 'Waverley Labs, LLC', 'R&D', NULL, 'email@email.com', 'cRUukYanhaY7pcbS0QIRAOxuP4MfXB1YcLN1gWxEPD8=', 'wYnVbpwtCgfsxJb7zmRURPN1pw9OPKFBRP77pz8ILY2Ey4l5tqvPV8Q0dPGN5NkF6RMuYd7r5i+PmEEep/sCQC/ejhPAGPrrgLAc1/OAVYSTh6lLYx4N7vjJqSEnmhy/FQVAvNv2WWoOT0GCyNjWfoO16W2hFtC++1+5I8AIuy8=', '00AF8F8EAC509B9323', '2016-07-14 21:28:40', '2016-08-14 04:00:00', NULL, NULL),
+(555, 1, 'client', 'US', 'Florida', 'Miami', 'Waverley Labs, LLC', 'R&D', NULL, 'email@email.com', 'someencryptkey', 'somehmackey', '00AF8F8EAC509B9324', '0000-00-00 00:00:00', '0000-00-00 00:00:00', 2, NULL);
+
+--
+-- Triggers `sdpid`
+--
+DROP TRIGGER IF EXISTS `sdpid_after_delete`;
+DELIMITER //
+CREATE TRIGGER `sdpid_after_delete` AFTER DELETE ON `sdpid`
+ FOR EACH ROW BEGIN
+    INSERT INTO refresh_trigger
+    SET table_name = 'sdpid',
+        event = 'delete';
+END
+//
+DELIMITER ;
+DROP TRIGGER IF EXISTS `sdpid_after_update`;
+DELIMITER //
+CREATE TRIGGER `sdpid_after_update` AFTER UPDATE ON `sdpid`
+ FOR EACH ROW BEGIN
+IF OLD.user_id != NEW.user_id OR
+   OLD.valid != NEW.valid THEN
+    INSERT INTO refresh_trigger
+    SET table_name = 'sdpid',
+        event = 'update';
+END IF;
+END
+//
+DELIMITER ;
 
 -- --------------------------------------------------------
 
@@ -277,6 +367,40 @@ INSERT INTO `sdpid_service` (`id`, `sdpid`, `service_id`) VALUES
 (5, 555, 1),
 (6, 444, 1);
 
+--
+-- Triggers `sdpid_service`
+--
+DROP TRIGGER IF EXISTS `sdpid_service_after_delete`;
+DELIMITER //
+CREATE TRIGGER `sdpid_service_after_delete` AFTER DELETE ON `sdpid_service`
+ FOR EACH ROW BEGIN
+    INSERT INTO refresh_trigger
+    SET table_name = 'sdpid_service',
+        event = 'delete';
+END
+//
+DELIMITER ;
+DROP TRIGGER IF EXISTS `sdpid_service_after_insert`;
+DELIMITER //
+CREATE TRIGGER `sdpid_service_after_insert` AFTER INSERT ON `sdpid_service`
+ FOR EACH ROW BEGIN
+    INSERT INTO refresh_trigger
+    SET table_name = 'sdpid_service',
+        event = 'insert';
+END
+//
+DELIMITER ;
+DROP TRIGGER IF EXISTS `sdpid_service_after_update`;
+DELIMITER //
+CREATE TRIGGER `sdpid_service_after_update` AFTER UPDATE ON `sdpid_service`
+ FOR EACH ROW BEGIN
+    INSERT INTO refresh_trigger
+    SET table_name = 'sdpid_service',
+        event = 'update';
+END
+//
+DELIMITER ;
+
 -- --------------------------------------------------------
 
 --
@@ -300,6 +424,20 @@ INSERT INTO `service` (`id`, `name`, `description`) VALUES
 (2, 'gate2 ssh', 'ssh service on gate2'),
 (3, 'mail', 'mail server'),
 (4, 'gate2.com', 'website');
+
+--
+-- Triggers `service`
+--
+DROP TRIGGER IF EXISTS `service_after_delete`;
+DELIMITER //
+CREATE TRIGGER `service_after_delete` AFTER DELETE ON `service`
+ FOR EACH ROW BEGIN
+    INSERT INTO refresh_trigger
+    SET table_name = 'service',
+        event = 'delete';
+END
+//
+DELIMITER ;
 
 -- --------------------------------------------------------
 
@@ -336,6 +474,40 @@ INSERT INTO `service_gateway` (`id`, `service_id`, `gateway_sdpid`, `protocol_po
 (3, 3, 222, 'tcp/25', '192.168.1.250:54321'),
 (4, 4, 222, 'tcp/80', '192.168.1.201:80');
 
+--
+-- Triggers `service_gateway`
+--
+DROP TRIGGER IF EXISTS `service_gateway_after_delete`;
+DELIMITER //
+CREATE TRIGGER `service_gateway_after_delete` AFTER DELETE ON `service_gateway`
+ FOR EACH ROW BEGIN
+    INSERT INTO refresh_trigger
+    SET table_name = 'service_gateway',
+        event = 'delete';
+END
+//
+DELIMITER ;
+DROP TRIGGER IF EXISTS `service_gateway_after_insert`;
+DELIMITER //
+CREATE TRIGGER `service_gateway_after_insert` AFTER INSERT ON `service_gateway`
+ FOR EACH ROW BEGIN
+    INSERT INTO refresh_trigger
+    SET table_name = 'service_gateway',
+        event = 'insert';
+END
+//
+DELIMITER ;
+DROP TRIGGER IF EXISTS `service_gateway_after_update`;
+DELIMITER //
+CREATE TRIGGER `service_gateway_after_update` AFTER UPDATE ON `service_gateway`
+ FOR EACH ROW BEGIN
+    INSERT INTO refresh_trigger
+    SET table_name = 'service_gateway',
+        event = 'update';
+END
+//
+DELIMITER ;
+
 -- --------------------------------------------------------
 
 --
@@ -364,6 +536,20 @@ INSERT INTO `user` (`id`, `last_name`, `first_name`, `country`, `state`, `locali
 (1, 'Last', 'First', '', '', '', '', '', '', 'email@email.com'),
 (2, 'Otherlast', 'Otherfirst', 'US', 'Florida', 'Miami', 'Waverley Labs, LLC', 'R&D', NULL, 'email@email.com');
 
+--
+-- Triggers `user`
+--
+DROP TRIGGER IF EXISTS `user_after_delete`;
+DELIMITER //
+CREATE TRIGGER `user_after_delete` AFTER DELETE ON `user`
+ FOR EACH ROW BEGIN
+    INSERT INTO refresh_trigger
+    SET table_name = 'user',
+        event = 'delete';
+END
+//
+DELIMITER ;
+
 -- --------------------------------------------------------
 
 --
@@ -388,15 +574,49 @@ CREATE TABLE IF NOT EXISTS `user_group` (
 --
 
 --
+-- Triggers `user_group`
+--
+DROP TRIGGER IF EXISTS `user_group_after_delete`;
+DELIMITER //
+CREATE TRIGGER `user_group_after_delete` AFTER DELETE ON `user_group`
+ FOR EACH ROW BEGIN
+    INSERT INTO refresh_trigger
+    SET table_name = 'user_group',
+        event = 'delete';
+END
+//
+DELIMITER ;
+DROP TRIGGER IF EXISTS `user_group_after_insert`;
+DELIMITER //
+CREATE TRIGGER `user_group_after_insert` AFTER INSERT ON `user_group`
+ FOR EACH ROW BEGIN
+    INSERT INTO refresh_trigger
+    SET table_name = 'user_group',
+        event = 'insert';
+END
+//
+DELIMITER ;
+DROP TRIGGER IF EXISTS `user_group_after_update`;
+DELIMITER //
+CREATE TRIGGER `user_group_after_update` AFTER UPDATE ON `user_group`
+ FOR EACH ROW BEGIN
+    INSERT INTO refresh_trigger
+    SET table_name = 'user_group',
+        event = 'update';
+END
+//
+DELIMITER ;
+
+--
 -- Constraints for dumped tables
 --
 
 --
--- Constraints for table `connections`
+-- Constraints for table `connection`
 --
-ALTER TABLE `connections`
-  ADD CONSTRAINT `connections_ibfk_2` FOREIGN KEY (`client_sdpid`) REFERENCES `sdpid` (`sdpid`) ON UPDATE CASCADE,
-  ADD CONSTRAINT `connections_ibfk_1` FOREIGN KEY (`gateway_sdpid`) REFERENCES `sdpid` (`sdpid`) ON UPDATE CASCADE;
+ALTER TABLE `connection`
+  ADD CONSTRAINT `connection_ibfk_2` FOREIGN KEY (`client_sdpid`) REFERENCES `sdpid` (`sdpid`) ON DELETE NO ACTION ON UPDATE CASCADE,
+  ADD CONSTRAINT `connection_ibfk_1` FOREIGN KEY (`gateway_sdpid`) REFERENCES `sdpid` (`sdpid`) ON DELETE NO ACTION ON UPDATE CASCADE;
 
 --
 -- Constraints for table `controller`

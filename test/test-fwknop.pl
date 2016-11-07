@@ -91,12 +91,15 @@ our $ctrl_pid           = 0;
 our $ctrl_ppid          = 0;
 our $controller_test_config = cwd() . '/conf/sdp-ctrl-client/config.js';
 our $destroy_database   = 0;
+our $save_sdp_test_database = 0;
 our $sql_run_cmd        = "mysql --defaults-file=/root/mysql_login.conf";
 our $sql_create_file = './conf/sdp-ctrl-client/sdp_test_create.sql';
 our $sql_create_user_file = './conf/sdp-ctrl-client/sdp_test_create_user.sql';
 our $sql_setup_file = './conf/sdp-ctrl-client/sdp_test_setup.sql';
 our $sql_cleanup_file = './conf/sdp-ctrl-client/sdp_test_cleanup.sql';
 our $sql_destroy_file = './conf/sdp-ctrl-client/sdp_test_destroy.sql';
+our $sql_disable_sdpid_file = './conf/sdp-ctrl-client/disable_sdpid.sql';
+our $sql_drop_service_access_file = './conf/sdp-ctrl-client/drop_service_access.sql';
 
 our $sql_create_cmd = "mysql -u root -p < $sql_create_file";
 our $sql_create_user_cmd = "mysql -u root -p < $sql_create_user_file";
@@ -105,6 +108,8 @@ our $sql_setup_cmd = "mysql -u sdp_test < $sql_setup_file";
 # our $sql_cleanup_cmd = "mysql -u sdp_test -psdptestpassword < $sql_cleanup_file";
 our $sql_cleanup_cmd = "mysql -u sdp_test < $sql_cleanup_file";
 our $sql_destroy_cmd = "mysql -u root -p < $sql_destroy_file";
+our $sql_disable_sdpid_cmd = "mysql -u sdp_test < $sql_disable_sdpid_file";
+our $sql_drop_service_access_cmd = "mysql -u sdp_test < $sql_drop_service_access_file";
 
 
 our $tmp_server_rc = "$sdp_tmp_dir/server.fwknoprc";
@@ -398,6 +403,7 @@ exit 1 unless GetOptions(
     'disable-sdp'       => \$sdp_disabled,
     'controller-path=s' => \$controller_path,
     'destroy-db'        => \$destroy_database,
+    'save-db'           => \$save_sdp_test_database,
     'enable-broken'     => \$run_broken_tests,
     'lib-dir=s'         => \$lib_dir,  ### for LD_LIBRARY_PATH
     'loopback-intf=s'   => \$loopback_intf,
@@ -1062,6 +1068,8 @@ my %test_keys = (
     'server_ctrl_cert' => $OPTIONAL,
     'skip_controller' => $OPTIONAL,
     'wait_for_conn_close' => $OPTIONAL,
+    'disable_sdp_id' => $OPTIONAL,
+    'remove_service_access' => $OPTIONAL,
 );
 
 &validate_test_hashes();
@@ -1116,7 +1124,7 @@ if ($enable_valgrind) {
 ### print a summary of how many test buckets will be run
 my $test_buckets = 0;
 for my $test_hr (@tests) {
-	my $msg = &get_msg($test_hr);
+    my $msg = &get_msg($test_hr);
     next unless &process_include_exclude($msg);
     next if ($test_hr->{'broken_flag'} and !$run_broken_tests);
     next if ($test_hr->{'skip_if_sdp'} and !$sdp_disabled);
@@ -1155,7 +1163,7 @@ if ($controller_path && $destroy_database) {
         &logr("[*] Failed to destroy SDP controller database. \n");
     }
     else {
-    	&logr("[.] Succeeded in destroying SDP controller database.\n");
+        &logr("[.] Succeeded in destroying SDP controller database.\n");
     }
 }
    
@@ -1260,15 +1268,15 @@ sub run_test() {
     return unless &process_include_exclude($msg);
     
     if ( $test_hr->{'skip_if_sdp'} )
-	{
-		return unless $sdp_disabled;
-	}
-	
-	if ( $test_hr->{'broken_flag'} )
-	{
-		return unless $run_broken_tests;
-	}
-	
+    {
+        return unless $sdp_disabled;
+    }
+    
+    if ( $test_hr->{'broken_flag'} )
+    {
+        return unless $run_broken_tests;
+    }
+    
     &dots_print($msg);
 
     $executed++;
@@ -2693,11 +2701,11 @@ sub client_send_spa_packet() {
 sub _client_send_spa_packet() {
     my ($test_hr, $cycle_ctr, $server_receive_check) = @_;
 
-	my $latest_rv = 0;
+    my $latest_rv = 0;
     my $rv = 1;
 
-	&write_test_file("[.] _client_send_spa_packet() : cycle_ctr: $cycle_ctr\n", $curr_test_file);
-	
+    &write_test_file("[.] _client_send_spa_packet() : cycle_ctr: $cycle_ctr\n", $curr_test_file);
+    
     if ($test_hr->{'get_key'}) {
         &write_key($test_hr->{'get_key'}->{'key'},
             $test_hr->{'get_key'}->{'file'});
@@ -2722,15 +2730,15 @@ sub _client_send_spa_packet() {
             $server_receive_re = $test_hr->{'server_receive_re'}
                 if $test_hr->{'server_receive_re'};
 
-			&write_test_file("[.] _client_send_spa_packet() : " .
-				"server_receive_re: $server_receive_re \n", 
+            &write_test_file("[.] _client_send_spa_packet() : " .
+                "server_receive_re: $server_receive_re \n", 
                 $curr_test_file);
                 
             my $matches = &file_find_num_matches($server_receive_re,
                 $NO_APPEND_RESULTS, $server_cmd_tmp);
                 
-			&write_test_file("[.] _client_send_spa_packet() : " .
-				"matches: $matches \n", $curr_test_file);
+            &write_test_file("[.] _client_send_spa_packet() : " .
+                "matches: $matches \n", $curr_test_file);
                 
             if ($test_hr->{'weak_server_receive_check'}) {
                 last if $matches > 0;
@@ -2746,36 +2754,36 @@ sub _client_send_spa_packet() {
             ### run the client
             if ($test_hr->{'multi_cmds'}) {
                 for my $cmd (@{$test_hr->{'multi_cmds'}}) {
-                	$latest_rv = &run_cmd($cmd, $cmd_out_tmp, $curr_test_file);
+                    $latest_rv = &run_cmd($cmd, $cmd_out_tmp, $curr_test_file);
                     $rv = 0 unless $latest_rv;
                 }
             } else {
-            	$latest_rv = &run_cmd($test_hr->{'cmdline'},
+                $latest_rv = &run_cmd($test_hr->{'cmdline'},
                         $cmd_out_tmp, $curr_test_file);
                 $rv = 0 unless $latest_rv;
             }
             
             &write_test_file("[.] _client_send_spa_packet() : " .
-            	"run_cmd returned: $latest_rv (0=BAD)\n", $curr_test_file);
+                "run_cmd returned: $latest_rv (0=BAD)\n", $curr_test_file);
             &write_test_file("[.] _client_send_spa_packet() : " .
-            	"rv currently set to: $rv (0=BAD, 1=GOOD)\n", $curr_test_file);
+                "rv currently set to: $rv (0=BAD, 1=GOOD)\n", $curr_test_file);
 
             if ($test_hr->{'relax_receive_cycle_num_check'}) {
-            	$latest_rv = &file_find_regex([qr/Final\sSPA\sData/],
+                $latest_rv = &file_find_regex([qr/Final\sSPA\sData/],
                     $MATCH_ALL, $NO_APPEND_RESULTS, $curr_test_file);
                 $rv = 0 unless $latest_rv;
-            	&write_test_file("[.] _client_send_spa_packet() : " .
-            		"file_find_regex() returned: $latest_rv (0=BAD)\n", $curr_test_file);
+                &write_test_file("[.] _client_send_spa_packet() : " .
+                    "file_find_regex() returned: $latest_rv (0=BAD)\n", $curr_test_file);
             } else {
                 $latest_rv = &file_find_num_matches(qr/Final\sSPA\sData/,
                     $NO_APPEND_RESULTS, $curr_test_file);
                 $rv = 0 unless $latest_rv >= ($cycle_ctr+1);
-            	&write_test_file("[.] _client_send_spa_packet() : " .
-            		"file_find_num_matches() returned: $latest_rv (0=BAD)\n", $curr_test_file);
+                &write_test_file("[.] _client_send_spa_packet() : " .
+                    "file_find_num_matches() returned: $latest_rv (0=BAD)\n", $curr_test_file);
             }
 
             &write_test_file("[.] _client_send_spa_packet() : " .
-            	"rv currently set to: $rv (0=BAD, 1=GOOD)\n", $curr_test_file);
+                "rv currently set to: $rv (0=BAD, 1=GOOD)\n", $curr_test_file);
 
             last if $server_receive_check == $NO_SERVER_RECEIVE_CHECK;
             if ($test_hr->{'client_pkt_tries'} > 0) {
@@ -2948,17 +2956,17 @@ sub use_terminal_run_client() {
 }
 
 sub copy_sdp_config_file() {
-	my ($config_file, $dest, $log_file) = @_;
-	
-	my $rv = 1;
-	
-	copy($config_file, $dest) or $rv = 0;
-	
-	if ($rv == 0) {
-		&write_test_file("[*] Failed to copy $config_file to $dest: $!\n", $log_file);
-	}
-	
-	return $rv;
+    my ($config_file, $dest, $log_file) = @_;
+    
+    my $rv = 1;
+    
+    copy($config_file, $dest) or $rv = 0;
+    
+    if ($rv == 0) {
+        &write_test_file("[*] Failed to copy $config_file to $dest: $!\n", $log_file);
+    }
+    
+    return $rv;
 }
 
 sub copy_sdp_config_files() {
@@ -3074,11 +3082,11 @@ sub copy_sdp_config_files() {
 }
 
 sub is_client_running() {
-	return 0;
+    return 0;
 }
 
 sub stop_client() {
-	
+    
 }
 
 sub is_ctrl_running() {
@@ -3126,21 +3134,21 @@ sub is_ctrl_running() {
 }
 
 sub stop_ctrl() {
-	my $tries = 0;
-	my $ctrl_was_stopped = 1;
-	
-	if ( &is_ctrl_running() ) {
+    my $tries = 0;
+    my $ctrl_was_stopped = 1;
+    
+    if ( &is_ctrl_running() ) {
         &write_test_file("[.] Attempting to stop controller...\n", $curr_test_file);
         kill 'TERM', $ctrl_pid;
-	}
-	else {
-		$ctrl_was_stopped = 0;
-	}
-	
-	if ( &is_ctrl_running() ) {
-		&write_test_file("[.] Controller is still running. Give it a second...\n", $curr_test_file);
-		sleep 1;
-		while ( &is_ctrl_running() ) {
+    }
+    else {
+        $ctrl_was_stopped = 0;
+    }
+    
+    if ( &is_ctrl_running() ) {
+        &write_test_file("[.] Controller is still running. Give it a second...\n", $curr_test_file);
+        sleep 1;
+        while ( &is_ctrl_running() ) {
             $tries++;
             &write_test_file("[*] Soft kill failed to stop controller. Using KILL, try: $tries\n",
                 $curr_test_file);
@@ -3149,11 +3157,11 @@ sub stop_ctrl() {
             
             last if $tries == 10;
             sleep 1;
-		}
-	}
+        }
+    }
     
     if ($tries >= 10) {
-    	&write_test_file("[*] Failed to kill controller using KILL, PID is $ctrl_pid\n",
+        &write_test_file("[*] Failed to kill controller using KILL, PID is $ctrl_pid\n",
             $curr_test_file);
         &logr("[*] Failed to kill controller using KILL, PID is $ctrl_pid\n"); 
         $ctrl_was_stopped = 0;
@@ -3170,7 +3178,7 @@ sub sdp_test_cleanup() {
     my $ctrl_was_stopped = 1;
     
     &stop_client();
-	
+    
     if (&is_fwknopd_running()) {
         &stop_fwknopd();
         $server_was_stopped = 0 if &is_fwknopd_running();
@@ -3181,20 +3189,34 @@ sub sdp_test_cleanup() {
     
     $ctrl_was_stopped = &stop_ctrl();
     
-	# clean out the sdp_test database
-	&run_cmd($sql_cleanup_cmd, $cmd_out_tmp, $curr_test_file);
-	
-	# delete all the temp config files
+      # clean out the sdp_test database
+    if(!$save_sdp_test_database) {
+        &run_cmd($sql_cleanup_cmd, $cmd_out_tmp, $curr_test_file);
+    }
+  
+    # delete all the temp config files
     if (-d $sdp_tmp_dir) {
         rmtree $sdp_tmp_dir or die $!;
     }
     
-	return ($server_was_stopped, $ctrl_was_stopped);
+    return ($server_was_stopped, $ctrl_was_stopped);
 }
 
+
+sub disable_sdpid() {
+  &run_cmd($sql_disable_sdpid_cmd, $cmd_out_tmp, $curr_test_file);
+  sleep 5;
+}
+
+sub drop_service_access() {
+  &run_cmd($sql_drop_service_access_cmd, $cmd_out_tmp, $curr_test_file);
+  sleep 5;
+}
+
+
 sub controller_cycle() {
-	my $test_hr = shift;
-	my $rv = 1;
+    my $test_hr = shift;
+    my $rv = 1;
     my $max_pkt_tries = 10;
     my $server_was_stopped = 0;
     my $ctrl_was_stopped = 0;
@@ -3206,30 +3228,30 @@ sub controller_cycle() {
     $max_pkt_tries = $test_hr->{'max_pkt_tries'}
         if $test_hr->{'max_pkt_tries'};
 
-	
-	# make duplicates of config files that will get modified
-	# during SDP operations
-	$rv = &copy_sdp_config_files($test_hr);
-	if ($rv == 0) {
+    
+    # make duplicates of config files that will get modified
+    # during SDP operations
+    $rv = &copy_sdp_config_files($test_hr);
+    if ($rv == 0) {
         &sdp_test_cleanup();
         return 0;
-	}
-	
-	# configure the database
-	$rv = &run_cmd($sql_setup_cmd, $cmd_out_tmp, $curr_test_file);
+    }
+    
+    # configure the database
+    $rv = &run_cmd($sql_setup_cmd, $cmd_out_tmp, $curr_test_file);
     if ($rv == 0) {
         &write_test_file("[*] Failed to populate controller database : $!\n", $curr_test_file);
         &sdp_test_cleanup();
         return 0;
     }
-	
-	
-	($rv, $access_data_received) = &server_controller_interaction($test_hr);
-	if ($rv == 0) {
-		&sdp_test_cleanup();
-		return 0;
-	}
-	
+    
+    
+    ($rv, $access_data_received) = &server_controller_interaction($test_hr);
+    if ($rv == 0) {
+        &sdp_test_cleanup();
+        return 0;
+    }
+    
     my $client_cycles = 0; ### will only be set if an fwknop command was given
     $client_cycles = 1 if $test_hr->{'cmdline'}; ### default
     $client_cycles = $test_hr->{'client_cycles_per_server_instance'}
@@ -3266,6 +3288,15 @@ sub controller_cycle() {
             = &fw_check($rv, $fw_rule_created, $fw_rule_removed, $test_hr);
             
         sleep 120 if $test_hr->{'wait_for_conn_close'};
+        
+        ### if configured, remove all access for sdp id
+        ### to test connection closing
+        &disable_sdpid() if $test_hr->{'disable_sdp_id'};
+        
+        ### if configured, remove access to one service
+        ### to test connection closing
+        &drop_service_access() if $test_hr->{'remove_service_access'};
+                
     }
 
     # &write_test_file("[.] calling sdp_test_cleanup...\n", $curr_test_file);
@@ -3286,54 +3317,54 @@ sub controller_cycle() {
                      "     result:                $rv [ 0 = BAD, 1 = GOOD ] \n " .
                   #   "     client_was_stopped:    $client_was_stopped \n " .
                      "     server_was_stopped:    $server_was_stopped \n " .
-			         "     ctrl_was_stopped:      $ctrl_was_stopped \n " .
+                     "     ctrl_was_stopped:      $ctrl_was_stopped \n " .
                      "     access_data_received:  $access_data_received \n " .
-			         "     fw_rule_created:       $fw_rule_created \n ". 
-			         "     fw_rule_removed:       $fw_rule_removed \n ",
-			         $curr_test_file);
+                     "     fw_rule_created:       $fw_rule_created \n ". 
+                     "     fw_rule_removed:       $fw_rule_removed \n ",
+                     $curr_test_file);
     
     return $rv;
 }
 
 sub server_controller_interaction() {
-	my $test_hr = shift;
-	
-	my $rv = 0;
-	my $fw_rule_created = 1;
-    my $fw_rule_removed = 0;
-	
-	my $access_data_received = 0;
-	
-	unless ($test_hr->{'skip_controller'}) {
-		### start controller
-		&start_controller($test_hr);
-		if ($ctrl_pid > 0) {
-			&write_test_file("[+] Controller successfully started. PID $ctrl_pid\n", 
-			  $curr_test_file);
-		}
-		else {
-	        &write_test_file("[-] Failed to start controller.\n", $curr_test_file);
-			return 0;
-		}
-	}
-	
-	### start fwknopd to ensure it connects to the controller
-	### and receives access data
-    my $fwknopd_parent_pid = &start_fwknopd($test_hr);
+    my $test_hr = shift;
     
-	
-    my $tries = 1;
-    while ($tries < 10 ) {
-    	if (&is_fwknopd_running()) {
-    		$tries = 10;
-    	}
-    	else {
-    		$tries++;
-    		sleep 1;
-    	}
+    my $rv = 0;
+    my $fw_rule_created = 1;
+    my $fw_rule_removed = 0;
+    
+    my $access_data_received = 0;
+    
+    unless ($test_hr->{'skip_controller'}) {
+        ### start controller
+        &start_controller($test_hr);
+        if ($ctrl_pid > 0) {
+            &write_test_file("[+] Controller successfully started. PID $ctrl_pid\n", 
+              $curr_test_file);
+        }
+        else {
+            &write_test_file("[-] Failed to start controller.\n", $curr_test_file);
+            return 0;
+        }
     }
     
-	if (&is_fwknopd_running()) {
+    ### start fwknopd to ensure it connects to the controller
+    ### and receives access data
+    my $fwknopd_parent_pid = &start_fwknopd($test_hr);
+    
+    
+    my $tries = 1;
+    while ($tries < 10 ) {
+        if (&is_fwknopd_running()) {
+            $tries = 10;
+        }
+        else {
+            $tries++;
+            sleep 1;
+        }
+    }
+    
+    if (&is_fwknopd_running()) {
         if ($test_hr->{'server_exec_err'}) {
             &write_test_file("[-] server is running, but required server_exec_err.\n",
                 $curr_test_file);
@@ -3345,12 +3376,12 @@ sub server_controller_interaction() {
         $access_data_received = 1;
     }
     elsif ($test_hr->{'server_exec_err'} || $test_hr->{'server_exec_err_possible'}) {
-    	&write_test_file("[+] Server is NOT running. That's good in this case.\n",
+        &write_test_file("[+] Server is NOT running. That's good in this case.\n",
             $curr_test_file);
-    	$rv = 1;
+        $rv = 1;
     }
-	
-	return ($rv, $access_data_received);
+    
+    return ($rv, $access_data_received);
 }
 
 sub spa_cycle() {
@@ -6016,20 +6047,20 @@ sub altered_base64_spa_data() {
         &write_test_file("[+] new fw rule not created.\n", $curr_test_file);
     }
 
-	if ($sdp_disabled)
-	{
-	    unless (&file_find_regex([qr/Error\screating\sfko\scontext/],
-	            $MATCH_ALL, $APPEND_RESULTS, $server_test_file)) {
-	        $rv = 0;
-	    }
-	}
-	else
-	{
-	    unless (&file_find_regex([qr/Data\sis\snot\san\sSPA\smessage/],
-	            $MATCH_ALL, $APPEND_RESULTS, $server_test_file)) {
-	        $rv = 0;
-	    }
-	}
+    if ($sdp_disabled)
+    {
+        unless (&file_find_regex([qr/Error\screating\sfko\scontext/],
+                $MATCH_ALL, $APPEND_RESULTS, $server_test_file)) {
+            $rv = 0;
+        }
+    }
+    else
+    {
+        unless (&file_find_regex([qr/Data\sis\snot\san\sSPA\smessage/],
+                $MATCH_ALL, $APPEND_RESULTS, $server_test_file)) {
+            $rv = 0;
+        }
+    }
 
     return $rv;
 }
@@ -6080,20 +6111,20 @@ sub altered_hmac_spa_data() {
         &write_test_file("[+] new fw rule not created.\n", $curr_test_file);
     }
 
-	if ($sdp_disabled)
-	{
-	    unless (&file_find_regex([qr/Error\screating\sfko\scontext/],
-	            $MATCH_ALL, $APPEND_RESULTS, $server_test_file)) {
-	        $rv = 0;
-	    }
-	}
-	else
-	{
-	    unless (&file_find_regex([qr/Error\screating\sfko\scontext/],
-	            $MATCH_ALL, $APPEND_RESULTS, $server_test_file)) {
-	        $rv = 0;
-	    }
-	}
+    if ($sdp_disabled)
+    {
+        unless (&file_find_regex([qr/Error\screating\sfko\scontext/],
+                $MATCH_ALL, $APPEND_RESULTS, $server_test_file)) {
+            $rv = 0;
+        }
+    }
+    else
+    {
+        unless (&file_find_regex([qr/Error\screating\sfko\scontext/],
+                $MATCH_ALL, $APPEND_RESULTS, $server_test_file)) {
+            $rv = 0;
+        }
+    }
 
     return $rv;
 }
@@ -6144,20 +6175,20 @@ sub altered_pkt_hmac_spa_data() {
         &write_test_file("[+] new fw rule not created.\n", $curr_test_file);
     }
 
-	if ($sdp_disabled)
-	{
-	    unless (&file_find_regex([qr/Error\screating\sfko\scontext/],
-	            $MATCH_ALL, $APPEND_RESULTS, $server_test_file)) {
-	        $rv = 0;
-	    }
-	}
-	else
-	{
-	    unless (&file_find_regex([qr/Data\sis\snot\san\sSPA\smessage/],
-	            $MATCH_ALL, $APPEND_RESULTS, $server_test_file)) {
-	        $rv = 0;
-	    }
-	}
+    if ($sdp_disabled)
+    {
+        unless (&file_find_regex([qr/Error\screating\sfko\scontext/],
+                $MATCH_ALL, $APPEND_RESULTS, $server_test_file)) {
+            $rv = 0;
+        }
+    }
+    else
+    {
+        unless (&file_find_regex([qr/Data\sis\snot\san\sSPA\smessage/],
+                $MATCH_ALL, $APPEND_RESULTS, $server_test_file)) {
+            $rv = 0;
+        }
+    }
 
     return $rv;
 }
@@ -6207,20 +6238,20 @@ sub appended_spa_data() {
         &write_test_file("[+] new fw rule not created.\n", $curr_test_file);
     }
 
-	if ($sdp_disabled)
-	{
-	    unless (&file_find_regex([qr/Error\screating\sfko\scontext/],
-	            $MATCH_ALL, $APPEND_RESULTS, $server_test_file)) {
-	        $rv = 0;
-	    }
-	}
-	else
-	{
-	    unless (&file_find_regex([qr/Error\screating\sfko\scontext/],
-	            $MATCH_ALL, $APPEND_RESULTS, $server_test_file)) {
-	        $rv = 0;
-	    }
-	}
+    if ($sdp_disabled)
+    {
+        unless (&file_find_regex([qr/Error\screating\sfko\scontext/],
+                $MATCH_ALL, $APPEND_RESULTS, $server_test_file)) {
+            $rv = 0;
+        }
+    }
+    else
+    {
+        unless (&file_find_regex([qr/Error\screating\sfko\scontext/],
+                $MATCH_ALL, $APPEND_RESULTS, $server_test_file)) {
+            $rv = 0;
+        }
+    }
 
     return $rv;
 }
@@ -6270,20 +6301,20 @@ sub prepended_spa_data() {
         &write_test_file("[+] new fw rule not created.\n", $curr_test_file);
     }
 
-	if ($sdp_disabled)
-	{
-	    unless (&file_find_regex([qr/Error\screating\sfko\scontext/],
-	            $MATCH_ALL, $APPEND_RESULTS, $server_test_file)) {
-	        $rv = 0;
-	    }
-	}
-	else
-	{
-	    unless (&file_find_regex([qr/No\saccess\sdata\sfound\sfor\sSDP\sClient\sID/],
-	            $MATCH_ALL, $APPEND_RESULTS, $server_test_file)) {
-	        $rv = 0;
-	    }
-	}
+    if ($sdp_disabled)
+    {
+        unless (&file_find_regex([qr/Error\screating\sfko\scontext/],
+                $MATCH_ALL, $APPEND_RESULTS, $server_test_file)) {
+            $rv = 0;
+        }
+    }
+    else
+    {
+        unless (&file_find_regex([qr/No\saccess\sdata\sfound\sfor\sSDP\sClient\sID/],
+                $MATCH_ALL, $APPEND_RESULTS, $server_test_file)) {
+            $rv = 0;
+        }
+    }
 
     return $rv;
 }
@@ -6374,8 +6405,8 @@ sub down_interface() {
     sleep 1;
 
     if (&is_fwknopd_running()) {
-    	&write_test_file("[.] server is still running after interface went down.\n", 
-    		$curr_test_file);
+        &write_test_file("[.] server is still running after interface went down.\n", 
+            $curr_test_file);
         $rv = 0 unless $test_hr->{'no_exit_intf_down'} eq $YES;
         &stop_fwknopd();
     }
@@ -6460,7 +6491,7 @@ sub client_server_interaction() {
             ### pcap file mode, nothing to do
         }
 
-		&write_test_file("[.] before fw_check, rv=$rv.\n",
+        &write_test_file("[.] before fw_check, rv=$rv.\n",
             $curr_test_file);
         ### check to see if the SPA packet resulted in a new fw access rule
         ($rv, $fw_rule_created, $fw_rule_removed)
@@ -6526,15 +6557,15 @@ sub fw_check() {
         ### allow time for rule time out.
         sleep 20;
         for (my $ii = 0; $ii < 57; $ii++) {
-        	if (!&is_fw_rule_active($test_hr)) {
-	            &write_test_file("[+] new fw rule timed out.\n", $curr_test_file);
-	            $fw_rule_removed = 1;
-        		last;
-        	}
-        	elsif ($test_hr->{'fw_rule_removed'} eq $REQUIRE_NO_NEW_REMOVED) {
-        		last;
-        	}
-        	sleep 1;
+            if (!&is_fw_rule_active($test_hr)) {
+                &write_test_file("[+] new fw rule timed out.\n", $curr_test_file);
+                $fw_rule_removed = 1;
+                last;
+            }
+            elsif ($test_hr->{'fw_rule_removed'} eq $REQUIRE_NO_NEW_REMOVED) {
+                last;
+            }
+            sleep 1;
         }
         
         if (&is_fw_rule_active($test_hr)) {
@@ -7076,15 +7107,15 @@ sub openssl_hmac_verification() {
         return 0;
     }
 
-	### No longer adding these prefixes because not included in HMAC calc
+    ### No longer adding these prefixes because not included in HMAC calc
     ### transform encrypted message into the format that openssl expects
-	##    if ($enc_mode == $ENC_RIJNDAEL) {
-	##        $enc_msg_without_hmac = 'U2FsdGVkX1' . $enc_msg_without_hmac
-	##            unless $enc_msg_without_hmac =~ /^U2FsdGVkX1/;
-	##    } else {
-	##        $enc_msg_without_hmac = 'hQ' . $enc_msg_without_hmac
-	##            unless $enc_msg_without_hmac =~ /^hQ/;
-	##    }
+    ##    if ($enc_mode == $ENC_RIJNDAEL) {
+    ##        $enc_msg_without_hmac = 'U2FsdGVkX1' . $enc_msg_without_hmac
+    ##            unless $enc_msg_without_hmac =~ /^U2FsdGVkX1/;
+    ##    } else {
+    ##        $enc_msg_without_hmac = 'hQ' . $enc_msg_without_hmac
+    ##            unless $enc_msg_without_hmac =~ /^hQ/;
+    ##    }
 
     &write_test_file("    Calculating HMAC over: '$enc_msg_without_hmac'\n",
         $curr_test_file);
@@ -7170,18 +7201,18 @@ sub openssl_enc_verification() {
         "encrypted+encoded msg: $encrypted_msg, $rv_str\n",
         $curr_test_file);
 
-	&write_test_file("\n[.] encrypted_msg as retrieved: \n   $encrypted_msg\n", $curr_test_file);
+    &write_test_file("\n[.] encrypted_msg as retrieved: \n   $encrypted_msg\n", $curr_test_file);
                  
     ### if SDP mode, remove sdp client id (1st 6 characters) from encrypted_msg string
     $encrypted_msg = substr($encrypted_msg, 6) unless ($sdp_disabled);
 
-	&write_test_file("\n[.] after possibly removing sdp id: \n   $encrypted_msg\n", $curr_test_file);
+    &write_test_file("\n[.] after possibly removing sdp id: \n   $encrypted_msg\n", $curr_test_file);
     
     ### transform encrypted message into the format that openssl expects
     $encrypted_msg = 'U2FsdGVkX1' . $encrypted_msg
         unless $encrypted_msg =~ /^U2FsdGVkX1/;
 
-	&write_test_file("\n[.] after possibly adding 'Salted__' string: \n   $encrypted_msg\n", $curr_test_file);
+    &write_test_file("\n[.] after possibly adding 'Salted__' string: \n   $encrypted_msg\n", $curr_test_file);
 
     my $len_remainder = length($encrypted_msg) % 4;
     if ($len_remainder > 0) {
@@ -7190,11 +7221,11 @@ sub openssl_enc_verification() {
         }
     }
 
-	&write_test_file("\n[.] after possibly adding equals signs: \n   $encrypted_msg\n", $curr_test_file);
+    &write_test_file("\n[.] after possibly adding equals signs: \n   $encrypted_msg\n", $curr_test_file);
 
     $encrypted_msg =~ s|(.{76})|$1\n|g;
 
-	&write_test_file("\n[.] after a regex: \n   $encrypted_msg\n", $curr_test_file);
+    &write_test_file("\n[.] after a regex: \n   $encrypted_msg\n", $curr_test_file);
 
     open D4, "> $data_tmp" or die $!;
     print D4 $encrypted_msg, "\n";
@@ -7228,8 +7259,8 @@ sub openssl_enc_verification() {
             }
             close D6;
             
- 	        &write_test_file("\n[.] decrypted_msg as retrieved: \n   $decrypted_msg\n", $curr_test_file);
- 	        &write_test_file("\n[.] decrypted_access_msg as retrieved: \n   $decrypted_access_msg\n", $curr_test_file);
+             &write_test_file("\n[.] decrypted_msg as retrieved: \n   $decrypted_msg\n", $curr_test_file);
+             &write_test_file("\n[.] decrypted_access_msg as retrieved: \n   $decrypted_access_msg\n", $curr_test_file);
             
 
             if ($decrypted_msg) {
@@ -7263,34 +7294,34 @@ sub openssl_enc_verification() {
             my $decoded_msg = '';
             open D7, "< $openssl_cmd_tmp" or die $!;
             while (<D7>) {
-            	if ($sdp_disabled)
-            	{
-	                if (/^(?:\S+?\:){5}(\S+?)\:/) {
-	                    $decrypted_access_msg = $1;
-	                    $decrypted_msg = $_;
-	                }
-            	}
-            	else
-            	{
-	                if (/^(?:\S+?\:){3}(\S+?)\:/) {
-	                    $decrypted_access_msg = $1;
-	                    $decrypted_msg = $_;
-	                }
-            	}
+                if ($sdp_disabled)
+                {
+                    if (/^(?:\S+?\:){5}(\S+?)\:/) {
+                        $decrypted_access_msg = $1;
+                        $decrypted_msg = $_;
+                    }
+                }
+                else
+                {
+                    if (/^(?:\S+?\:){3}(\S+?)\:/) {
+                        $decrypted_access_msg = $1;
+                        $decrypted_msg = $_;
+                    }
+                }
             }
             close D7;
 
- 	        &write_test_file("\n[.] decrypted_msg as retrieved: \n   $decrypted_msg\n", $curr_test_file);
- 	        &write_test_file("\n[.] decrypted_access_msg as retrieved: \n   $decrypted_access_msg\n", $curr_test_file);
+             &write_test_file("\n[.] decrypted_msg as retrieved: \n   $decrypted_msg\n", $curr_test_file);
+             &write_test_file("\n[.] decrypted_access_msg as retrieved: \n   $decrypted_access_msg\n", $curr_test_file);
             
             $decrypted_msg =~ s/\n//;
 
- 	        &write_test_file("\n[.] decrypted_msg after regex: \n   $decrypted_msg\n", $curr_test_file);
+             &write_test_file("\n[.] decrypted_msg after regex: \n   $decrypted_msg\n", $curr_test_file);
 
             my $decryption_success = 0;
 
             unless ($encoded_msg) {
- 	            &write_test_file("\n[.] opted to mess with decoded_msg\n", $curr_test_file);
+                 &write_test_file("\n[.] opted to mess with decoded_msg\n", $curr_test_file);
                 my $len_remainder = length($decrypted_access_msg) % 4;
                 if ($len_remainder > 0) {
                     for (my $i=0; $i < 4-$len_remainder; $i++) {
@@ -7301,14 +7332,14 @@ sub openssl_enc_verification() {
             }
 
             if ($encoded_msg) {
-	            &write_test_file("\n[.] comparing encoded_msg to decrypted_msg...\n", $curr_test_file);
-	            &write_test_file("\n[.] encoded_msg: \n   $encoded_msg\n", $curr_test_file);
-	            &write_test_file("\n[.] decrypted_msg: \n   $decrypted_msg\n", $curr_test_file);
+                &write_test_file("\n[.] comparing encoded_msg to decrypted_msg...\n", $curr_test_file);
+                &write_test_file("\n[.] encoded_msg: \n   $encoded_msg\n", $curr_test_file);
+                &write_test_file("\n[.] decrypted_msg: \n   $decrypted_msg\n", $curr_test_file);
                 $decryption_success = 1 if $encoded_msg eq $decrypted_msg;
             } else {
-	            &write_test_file("\n[.] comparing access_msg to decoded_msg...\n", $curr_test_file);
-	            &write_test_file("\n[.] access_msg: \n   $access_msg\n", $curr_test_file);
-	            &write_test_file("\n[.] decoded_msg: \n   $decoded_msg\n", $curr_test_file);
+                &write_test_file("\n[.] comparing access_msg to decoded_msg...\n", $curr_test_file);
+                &write_test_file("\n[.] access_msg: \n   $access_msg\n", $curr_test_file);
+                &write_test_file("\n[.] decoded_msg: \n   $decoded_msg\n", $curr_test_file);
                 $decryption_success = 1 if $access_msg eq $decoded_msg;
             }
 
@@ -7584,7 +7615,7 @@ sub do_controller_cmd() {
                 $curr_test_file);
             $tries++;
             if ($tries == 10) {
-            	return 0;
+                return 0;
             }
             sleep 1;
         }
@@ -7882,13 +7913,13 @@ sub init() {
     $|++; ### turn off buffering
     
     if ($sdp_disabled) { 
-    	$client_sdp_options = '--disable-sdp'; 
-    	$alt_client_sdp_options = '--disable-sdp'; 
-    	$srv_sdp_options = '--disable-sdp';
+        $client_sdp_options = '--disable-sdp'; 
+        $alt_client_sdp_options = '--disable-sdp'; 
+        $srv_sdp_options = '--disable-sdp';
     }
     else {
-    	## $spoof_user = ''; ## ensure username tests pass during SDP mode
-    	## $id_cmd = "CLIENT_ID=$sdp_client_id";
+        ## $spoof_user = ''; ## ensure username tests pass during SDP mode
+        ## $id_cmd = "CLIENT_ID=$sdp_client_id";
     }
 
     unless ($client_only_mode or $list_mode) {
@@ -8060,21 +8091,21 @@ sub init() {
     }
     
     if ($controller_path) {
-    	$node_path = &find_command('node') unless $node_path;
-    	$controllerCmd = "$node_path $controller_path $controller_test_config";
-    	&logr("[.] init() : controllerCmd set to: $controllerCmd\n");
-    	# push @tests_to_include, qr/controller/;
-    	
-    	&logr("\n\n[.] init() : Creating SDP controller database. Prepare to enter mysql root password.\n");
-    	if ( system $sql_create_cmd) {
-    		die "Failed to create SDP controller database. Password may have been wrong. Dying now.";
-    	}
-    	
-    	&logr("[.] init() : Succeeded in creating SDP controller database.\n");
-    	    	
+        $node_path = &find_command('node') unless $node_path;
+        $controllerCmd = "$node_path $controller_path $controller_test_config";
+        &logr("[.] init() : controllerCmd set to: $controllerCmd\n");
+        # push @tests_to_include, qr/controller/;
+        
+        &logr("\n\n[.] init() : Creating SDP controller database. Prepare to enter mysql root password.\n");
+        if ( system $sql_create_cmd) {
+            die "Failed to create SDP controller database. Password may have been wrong. Dying now.";
+        }
+        
+        &logr("[.] init() : Succeeded in creating SDP controller database.\n");
+                
     } else {
-    	push @tests_to_exclude, qr/controller/;
-    	#die "Failed to set controllerCmd. Stopping now.";
+        push @tests_to_exclude, qr/controller/;
+        #die "Failed to set controllerCmd. Stopping now.";
     }
 
     $sudo_path    = &find_command('sudo') unless $sudo_path;
@@ -8971,6 +9002,12 @@ sub usage() {
                                          $tarfile
     --disable-sdp                      - Perform all tests in legacy mode. SDP
                                          mode is enabled by default.
+    --save-db                          - Do not delete contents of test database
+                                         when testing is complete.
+    --destroy-db                       - By default, test database contents are
+                                         removed after testing. This option goes
+                                         one step further, dropping the database 
+                                         itself.
     --enable-all                       - Enable tests that aren't enabled by
                                          default.  This also enables running all
                                          tests under valgrind, so if you need
