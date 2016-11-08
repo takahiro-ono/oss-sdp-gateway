@@ -21,12 +21,12 @@
 #include <fcntl.h>
 #include "connection_tracker.h"
 
-const char *conn_id_key = "connection_id";
+//const char *conn_id_key = "connection_id";
 const char *sdp_id_key  = "sdp_id";
 
 static hash_table_t *connection_hash_tbl = NULL;
 static hash_table_t *latest_connection_hash_tbl = NULL;
-static uint64_t last_conn_id = 0;
+//static uint64_t last_conn_id = 0;
 static connection_t msg_conn_list = NULL;
 static int verbosity = 0;
 static time_t next_ctrl_msg_due = 0;
@@ -43,7 +43,7 @@ static void print_connection_item(connection_t this_conn)
 		   100);
 
     log_msg(LOG_WARNING,
-            "    Conn ID:  %"PRIu64"\n"
+//            "    Conn ID:  %"PRIu64"\n"
             "     SDP ID:  %"PRIu32"\n"
             "     src ip:  %s\n"
             "   src port:  %u\n"
@@ -52,7 +52,7 @@ static void print_connection_item(connection_t this_conn)
             " start time:  %s"
             "   end time:  %s"
 			"       next:  %p\n\n",
-            this_conn->connection_id,
+//            this_conn->connection_id,
             this_conn->sdp_id,
             this_conn->src_ip_str,
             this_conn->src_port,
@@ -87,18 +87,6 @@ static void destroy_connection_list(connection_t list)
 {
     connection_t this_conn = list;
     connection_t next = NULL;
-
-    // if(verbosity >= LOG_DEBUG)
-    // {
-    //     while(this_conn != NULL)
-    //     {
-    //         fprintf(stderr, "Destroying connection item:\n");
-    //         print_connection_item(this_conn, NULL);
-    //         this_conn = this_conn->next;
-    //     }
-    //
-    //     this_conn = list;
-    // }
 
     while(this_conn != NULL)
     {
@@ -164,7 +152,7 @@ static int add_to_connection_list(connection_t *list, connection_t new_guy)
 }
 
 
-static int create_connection_item( uint64_t connection_id,
+static int create_connection_item( //uint64_t connection_id,
                                    uint32_t sdp_id,
                                    char *src_ip_str,
                                    unsigned int src_port,
@@ -184,7 +172,7 @@ static int create_connection_item( uint64_t connection_id,
         return FWKNOPD_ERROR_MEMORY_ALLOCATION;
     }
 
-    this_conn->connection_id = connection_id;
+//    this_conn->connection_id = connection_id;
     this_conn->sdp_id     = sdp_id;
     strncpy(this_conn->src_ip_str, src_ip_str, MAX_IPV4_STR_LEN);
     this_conn->src_port   = src_port;
@@ -405,7 +393,7 @@ static int duplicate_connection_item(connection_t orig, connection_t *copy)
         return FWKNOPD_SUCCESS;
     }
 
-    return create_connection_item( orig->connection_id,
+    return create_connection_item( //orig->connection_id,
                                    orig->sdp_id,
                                    orig->src_ip_str,
                                    orig->src_port,
@@ -597,8 +585,6 @@ static int compare_connection_lists(connection_t *known_conns,
     connection_t next_conn = NULL;
     connection_t this_current_conn = NULL;
     connection_t prev_current_conn = NULL;
-    connection_t new_conns = NULL;
-    connection_t temp_conn = NULL;
 
     log_msg(LOG_DEBUG, "compare_connection_lists() entered");
 
@@ -610,7 +596,7 @@ static int compare_connection_lists(connection_t *known_conns,
 
         while(this_current_conn != NULL)
         {
-            if(    (match = connection_items_match(this_known_conn, this_current_conn)) == 1 )
+            if( (match = connection_items_match(this_known_conn, this_current_conn)) == 1 )
             {
                 // got a match, remove from current_conns list
 
@@ -675,38 +661,9 @@ static int compare_connection_lists(connection_t *known_conns,
 
     }  // END while(this_known_conn != NULL)
 
-    // any remaining conns in current_conns list are totally new
-    // add copies to known_conns
-    if(*current_conns != NULL)
-    {
-        log_msg(LOG_DEBUG, "compare_connection_lists() adding remaining latest "
-                "conns to known conns");
-
-        if( (rv = duplicate_connection_list(*current_conns, &new_conns)) != FWKNOPD_SUCCESS)
-        {
-            goto cleanup;
-        }
-
-        temp_conn = new_conns;
-        while(temp_conn != NULL)
-        {
-            last_conn_id++;
-            temp_conn->connection_id = last_conn_id;
-            temp_conn = temp_conn->next;
-        }
-
-        if( (rv = add_to_connection_list(known_conns, new_conns))
-                != FWKNOPD_SUCCESS)
-        {
-            goto cleanup;
-        }
-
-    }
-
     return rv;
 
 cleanup:
-    destroy_connection_list(new_conns);
     destroy_connection_list(*closed_conns);
     *closed_conns = NULL;
 
@@ -731,13 +688,19 @@ static int traverse_compare_latest_cb(hash_table_node_t *node, void *arg)
     time_t *end_time = (time_t*)arg;
     connection_t closed_conns = NULL;
     connection_t temp_conn = NULL;
-    bstring key = (bstring)node->key;
+    bstring key = NULL;
 
     // just a safety check, shouldn't be possible
     if(node->data == NULL)
     {
-        hash_table_delete(connection_hash_tbl, key);
+        hash_table_delete(connection_hash_tbl, node->key);
         return rv;
+    }
+
+    if((key = bstrcpy((bstring)(node->key))) == NULL)
+    {
+        log_msg(LOG_ERR, "traverse_compare_latest_cb() Failed to duplicate key");
+        return FWKNOPD_ERROR_MEMORY_ALLOCATION;
     }
 
     // going to manipulate this data directly and reset the data pointer
@@ -773,7 +736,7 @@ static int traverse_compare_latest_cb(hash_table_node_t *node, void *arg)
         // known connection list, hash table traverser is fine with
         // deleting random nodes along the way
         hash_table_delete(connection_hash_tbl, key);
-        return FWKNOPD_SUCCESS;
+        goto cleanup;
     }
 
     // at this point, we know this ID has both known and current connections
@@ -787,42 +750,40 @@ static int traverse_compare_latest_cb(hash_table_node_t *node, void *arg)
     // delete the entry in 'latest' conn hash table, we'll take it from here
     hash_table_delete(latest_connection_hash_tbl, key);
 
-    // following function updates known_conns with both new and still-running conns
-    // what will be left in copy_current_conns is a copy of all new conns for
-    // informing ctrl, closed_conns will obviously be those shut down
+    // following function removes closed conns from known_conns - leaving only
+    // old, still-open conns,
+    // removes previously known conns from copy_current_conns - leaving only
+    // entirely new conns,
+    // puts closed conns in closed_conns
     if( (rv = compare_connection_lists(&known_conns, &copy_current_conns,
             &closed_conns)) != FWKNOPD_SUCCESS)
     {
         goto cleanup;
     }
 
+    // any remaining conns in copy_current_conns list are totally new
+    if(copy_current_conns != NULL)
+    {
+    	// store the truly new conns back to the 'latest' conn hash table for later
+    	if( (rv = hash_table_set(latest_connection_hash_tbl, key, copy_current_conns))
+    			!= FWKNOPD_SUCCESS)
+    	{
+    		log_msg(LOG_ERR, "Failed to store revised list of new conns in hash table");
+    		goto cleanup;
+    	}
+
+    	copy_current_conns = NULL;
+    	key = NULL;
+    }
+
     if(known_conns == NULL)
     {
-        // shouldn't be possible, got here because there were current conns to analyze
-        log_msg(LOG_ERR, "traverse_compare_latest_cb() ERROR: comparison of "
-                "known and current connections resulted in zero known "
-                "connections for ID %s", bdata(key));
-        goto cleanup;
+    	hash_table_delete(connection_hash_tbl, node->key);
     }
     else
     {
         node->data = known_conns;
     }
-
-    // add opened conns to the ctrl message list
-    if(copy_current_conns != NULL)
-    {
-        log_msg(LOG_WARNING, "New connections from SDP ID %"PRIu32":",
-        		copy_current_conns->sdp_id);
-        print_connection_list(copy_current_conns);
-
-        if( (rv = add_to_connection_list(&msg_conn_list, copy_current_conns))
-                != FWKNOPD_SUCCESS)
-        {
-            goto cleanup;
-        }
-    }
-    copy_current_conns = NULL;
 
     // add closed conns to the ctrl message list
     if(closed_conns != NULL)
@@ -847,87 +808,27 @@ static int traverse_compare_latest_cb(hash_table_node_t *node, void *arg)
 
     }
 
-    return rv;
+    // this was a duplicate of the key from known conns table
+    // if it was used/stored back to latest conns table (new conns still to handle)
+    // then the pointer was set to NULL so that we don't destroy it
+    // if there were no new conns to store, need to destroy it
+	if(key != NULL)
+		bdestroy(key);
+
+	return rv;
 
 cleanup:
+	if(key != NULL)
+		bdestroy(key);
     destroy_connection_list(copy_current_conns);
     destroy_connection_list(closed_conns);
     return rv;
 }
 
 
-static int traverse_move_latest_to_known_cb(hash_table_node_t *node, void *arg)
+static int validate_node_connections(fko_srv_options_t *opts, hash_table_node_t *node)
 {
     int rv = FWKNOPD_SUCCESS;
-    bstring key = NULL;
-    connection_t temp_conn = NULL;
-
-    log_msg(LOG_DEBUG, "traverse_move_latest_to_known_cb() entered");
-
-    if(node->data == NULL)
-    {
-        log_msg(LOG_ERR, "traverse_move_latest_to_known_cb() node->data is NULL, shouldn't happen\n");
-        hash_table_delete(latest_connection_hash_tbl, node->key);
-        return rv;
-    }
-
-    temp_conn = (connection_t)(node->data);
-
-    log_msg(LOG_WARNING, "New connections from SDP ID %"PRIu32":",
-    		temp_conn->sdp_id);
-    print_connection_list(temp_conn);
-
-    // assign connection ids
-    while(temp_conn != NULL)
-    {
-        last_conn_id++;
-        temp_conn->connection_id = last_conn_id;
-        temp_conn = temp_conn->next;
-    }
-
-    if((key = bstrcpy((bstring)(node->key))) == NULL)
-    {
-        log_msg(LOG_ERR, "traverse_move_latest_to_known_cb() Failed to duplicate key");
-        return FWKNOPD_ERROR_MEMORY_ALLOCATION;
-    }
-
-    if((rv = duplicate_connection_list((connection_t)(node->data), &temp_conn)) != FWKNOPD_SUCCESS)
-    {
-        bdestroy(key);
-        goto cleanup;
-    }
-
-    // copy all remaining items to known conns hash table
-    if( (rv = hash_table_set(connection_hash_tbl, (void*)key, temp_conn)) != FWKNOPD_SUCCESS)
-    {
-        bdestroy(key);
-        goto cleanup;
-    }
-
-    temp_conn = NULL;
-
-    // also copy all remaining items to msg list for ctrl
-    if((rv = duplicate_connection_list((connection_t)(node->data), &temp_conn)) != FWKNOPD_SUCCESS)
-        goto cleanup;
-
-    log_msg(LOG_DEBUG, "traverse_move_latest_to_known_cb() adding new conns to msg list\n");
-
-    if( (rv = add_to_connection_list(&msg_conn_list, temp_conn)) != FWKNOPD_SUCCESS)
-        goto cleanup;
-
-    hash_table_delete(latest_connection_hash_tbl, node->key);
-    return rv;
-
-cleanup:
-    destroy_connection_list(temp_conn);
-    return rv;
-}
-
-
-static int traverse_validate_connections_cb(hash_table_node_t *node, void *arg)
-{
-    int rv = FWKNOPD_SUCCESS;
-    fko_srv_options_t *opts = (fko_srv_options_t*)arg;
     acc_stanza_t *acc = NULL;
     bstring key = (bstring)node->key;
     connection_t this_conn = (connection_t)(node->data);
@@ -941,14 +842,24 @@ static int traverse_validate_connections_cb(hash_table_node_t *node, void *arg)
     // always double-check
     if(this_conn == NULL)
     {
-        hash_table_delete(connection_hash_tbl, key);
         return rv;
     }
 
     memset(criteria, 0x0, CRITERIA_BUF_LEN);
 
-    // see if sdp id still exists in access table
-    if( (acc = hash_table_get(opts->acc_stanza_hash_tbl, key)) == NULL)
+	// lock the hash table mutex
+    if(pthread_mutex_lock(&(opts->acc_hash_tbl_mutex)))
+    {
+    	log_msg(LOG_ERR, "Mutex lock error.");
+    	return 0;
+    }
+
+    acc = hash_table_get(opts->acc_stanza_hash_tbl, key);
+
+	pthread_mutex_unlock(&(opts->acc_hash_tbl_mutex));
+
+	// see if sdp id still exists in access table
+    if( acc == NULL )
     {
         // this sdp id is no longer authorized to access anything
     	// remove all connections marked with this sdp id
@@ -1036,180 +947,295 @@ static int traverse_validate_connections_cb(hash_table_node_t *node, void *arg)
         this_conn = next_conn;
     }
 
+    return FWKNOPD_SUCCESS;
+}
+
+
+static int traverse_validate_connections_cb(hash_table_node_t *node, void *arg)
+{
+    int rv = FWKNOPD_SUCCESS;
+    fko_srv_options_t *opts = (fko_srv_options_t*)arg;
+
+    if(node->data == NULL)
+    {
+        log_msg(LOG_ERR, "traverse_validate_connections_cb() node->data is NULL, shouldn't happen\n");
+        hash_table_delete(connection_hash_tbl, node->key);
+        return rv;
+    }
+
+    if( (rv = validate_node_connections(opts, node)) != FWKNOPD_SUCCESS)
+    {
+    	return rv;
+    }
+
     // if it happens that no connections are left open
     // delete the node from the known connections hash table
     if(node->data == NULL)
-        hash_table_delete(connection_hash_tbl, key);
-
-    return FWKNOPD_SUCCESS;
-}
-
-static int conn_id_file_check(const char *file, int *exists)
-{
-    struct stat st;
-    uid_t caller_uid = 0;
-
-    // if file exists
-    if((stat(file, &st)) == 0)
-    {
-        *exists = 1;
-
-        // Make sure it is a regular file
-        if(S_ISREG(st.st_mode) != 1 && S_ISLNK(st.st_mode) != 1)
-        {
-            log_msg(LOG_WARNING,
-                "[-] file: %s is not a regular file or symbolic link.",
-                file
-            );
-            return FWKNOPD_ERROR_CONNTRACK;
-        }
-
-        if((st.st_mode & (S_IRWXU|S_IRWXG|S_IRWXO)) != (S_IRUSR|S_IWUSR))
-        {
-            log_msg(LOG_WARNING,
-                "[-] file: %s permissions should only be user read/write (0600, -rw-------)",
-                file
-            );
-        }
-
-        caller_uid = getuid();
-        if(st.st_uid != caller_uid)
-        {
-            log_msg(LOG_WARNING, "[-] file: %s (owner: %llu) not owned by current effective user id: %llu",
-                file, (unsigned long long)st.st_uid, (unsigned long long)caller_uid);
-        }
-    }
-    else
-    {
-        // if the path doesn't exist, just return, but otherwise something
-        // went wrong
-        if(errno != ENOENT)
-        {
-            log_msg(LOG_ERR, "[-] stat() against file: %s returned: %s",
-                file, strerror(errno));
-            return FWKNOPD_ERROR_CONNTRACK;
-        }
-
-        *exists = 0;
-    }
-
-    return FWKNOPD_SUCCESS;
-}
-
-
-static void store_last_conn_id(const fko_srv_options_t *opts)
-{
-    int     op_fd, num_bytes = 0;
-    char    buf[CONN_ID_BUF_LEN] = {0};
-
-    // Don't store it if it's zero
-    if(last_conn_id == 0)
-        return;
-
-    // Reset errno (just in case)
-    errno = 0;
-
-    // Open the PID file
-    op_fd = open(
-        opts->config[CONF_CONN_ID_FILE], O_WRONLY|O_CREAT, S_IRUSR|S_IWUSR
-    );
-
-    if(op_fd == -1)
-    {
-        perror("Error trying to open connection ID file: ");
-        return;
-    }
-
-    if(fcntl(op_fd, F_SETFD, FD_CLOEXEC) == -1)
-    {
-        close(op_fd);
-        perror("Unexpected error from fcntl: ");
-        return;
-    }
-
-    // Write last connection ID to the file
-    snprintf(buf, CONN_ID_BUF_LEN, "%"PRIu64"\n", last_conn_id);
-
-    log_msg(LOG_DEBUG, "[+] Writing last connection ID (%"PRIu64") to the lock file: %s",
-        last_conn_id, opts->config[CONF_CONN_ID_FILE]);
-
-    num_bytes = write(op_fd, buf, strlen(buf));
-
-    if(errno || num_bytes != strlen(buf))
-        perror("Connection ID file write error: ");
-
-    // Sync/flush regardless...
-    fsync(op_fd);
-
-    close(op_fd);
-
-    return;
-}
-
-static int get_set_last_conn_id(const fko_srv_options_t *opts)
-{
-    int rv = FWKNOPD_SUCCESS;
-    int exists = 0;
-    int     op_fd, bytes_read = 0;
-    char    buf[CONN_ID_BUF_LEN] = {0};
-    uint64_t conn_id            = 0;
-
-    log_msg(LOG_DEBUG, "get_set_last_conn_id() checking file perms...");
-    if( (rv = conn_id_file_check(opts->config[CONF_CONN_ID_FILE], &exists)) != FWKNOPD_SUCCESS)
-    {
-        log_msg(LOG_ERR, "conn_id_file_check() error\n");
-        return(rv);
-    }
-
-    if(!exists)
-    {
-        log_msg(LOG_WARNING, "get_set_last_conn_id() conn ID file does not yet exist, starting at zero");
-        last_conn_id = 0;
-        return FWKNOPD_SUCCESS;
-    }
-
-    log_msg(LOG_DEBUG, "get_set_last_conn_id() opening the file...");
-    op_fd = open(opts->config[CONF_CONN_ID_FILE], O_RDONLY);
-
-    if(op_fd == -1)
-    {
-        log_msg(LOG_ERR, "get_set_last_conn_id() ERROR - conn ID file exists but can't open");
-        last_conn_id = 0;
-        return FWKNOPD_ERROR_CONNTRACK;
-    }
-
-    log_msg(LOG_DEBUG, "get_set_last_conn_id() reading the file...");
-    bytes_read = read(op_fd, buf, CONN_ID_BUF_LEN);
-    if (bytes_read > 0)
-    {
-        buf[CONN_ID_BUF_LEN-1] = '\0';
-
-        log_msg(LOG_DEBUG, "get_set_last_conn_id() Got following string from the conn ID file: %s\n",
-                buf);
-
-        conn_id = strtoull_wrapper(buf, 0, UINT64_MAX, NO_EXIT_UPON_ERR, &rv);
-        if(rv != FKO_SUCCESS)
-        {
-            log_msg(LOG_ERR, "get_set_last_conn_id() ERROR converting conn ID "
-                    "string to uint64_t");
-        }
-        else
-        {
-            last_conn_id = conn_id;
-            log_msg(LOG_DEBUG, "get_set_last_conn_id() setting conn ID value: %"PRIu64"\n",
-                    last_conn_id);
-        }
-    }
-    else if (bytes_read < 0)
-    {
-        rv = FWKNOPD_ERROR_CONNTRACK;
-        perror("Error trying to read() PID file: ");
-    }
-
-    close(op_fd);
+        hash_table_delete(connection_hash_tbl, node->key);
 
     return rv;
 }
+
+
+static int traverse_handle_new_conns_cb(hash_table_node_t *node, void *arg)
+{
+    int rv = FWKNOPD_SUCCESS;
+    fko_srv_options_t *opts = (fko_srv_options_t*)arg;
+    bstring key = NULL;
+    connection_t temp_conn = NULL;
+    connection_t known_conns = NULL;
+
+    log_msg(LOG_DEBUG, "traverse_handle_new_conns_cb() entered");
+
+    if(node->data == NULL)
+    {
+        log_msg(LOG_ERR, "traverse_handle_new_conns_cb() node->data is NULL, shouldn't happen\n");
+        hash_table_delete(latest_connection_hash_tbl, node->key);
+        return rv;
+    }
+
+//    // assign connection ids
+//    temp_conn = (connection_t)(node->data);
+//    while(temp_conn != NULL)
+//    {
+//        last_conn_id++;
+//        temp_conn->connection_id = last_conn_id;
+//        temp_conn = temp_conn->next;
+//    }
+
+    temp_conn = (connection_t)(node->data);
+    log_msg(LOG_WARNING, "New connections from SDP ID %"PRIu32":",
+    		temp_conn->sdp_id);
+    print_connection_list(temp_conn);
+
+    if( (rv = validate_node_connections(opts, node)) != FWKNOPD_SUCCESS)
+    {
+    	return rv;
+    }
+
+    // if it happens that no connections are left open (all were invalid)
+    // delete the node from the 'latest' connections hash table
+    if(node->data == NULL)
+    {
+        hash_table_delete(latest_connection_hash_tbl, node->key);
+        return rv;
+    }
+
+
+    // arriving here means there are new connections which we have validated
+    // so we need to store in known conns list and ctrl message list
+    if((rv = duplicate_connection_list((connection_t)(node->data), &temp_conn)) != FWKNOPD_SUCCESS)
+    {
+        goto cleanup;
+    }
+
+    // this sdp id may have other connections already in the known conn table
+    if( (known_conns = hash_table_get(connection_hash_tbl, node->key)) != NULL)
+    {
+        if( (rv = add_to_connection_list(&known_conns, temp_conn)) != FWKNOPD_SUCCESS)
+            goto cleanup;
+    }
+    else
+    {
+    	// need to create new hash table entry in known conns
+    	// make a duplicate key to store in the hash table
+        if((key = bstrcpy((bstring)(node->key))) == NULL)
+        {
+            log_msg(LOG_ERR, "traverse_handle_new_conns_cb() Failed to duplicate key");
+            rv = FWKNOPD_ERROR_MEMORY_ALLOCATION;
+            goto cleanup;
+        }
+
+		// copy all new conns to known conns hash table
+		if( (rv = hash_table_set(connection_hash_tbl, key, temp_conn)) != FWKNOPD_SUCCESS)
+		{
+			bdestroy(key);
+			goto cleanup;
+		}
+    }
+
+    log_msg(LOG_DEBUG, "traverse_handle_new_conns_cb() adding new conns to msg list\n");
+
+    if( (rv = add_to_connection_list(&msg_conn_list, (connection_t)(node->data))) != FWKNOPD_SUCCESS)
+        return rv;
+
+    node->data = NULL;
+    hash_table_delete(latest_connection_hash_tbl, node->key);
+    return rv;
+
+cleanup:
+    destroy_connection_list(temp_conn);
+    return rv;
+}
+
+
+
+//static int conn_id_file_check(const char *file, int *exists)
+//{
+//    struct stat st;
+//    uid_t caller_uid = 0;
+//
+//    // if file exists
+//    if((stat(file, &st)) == 0)
+//    {
+//        *exists = 1;
+//
+//        // Make sure it is a regular file
+//        if(S_ISREG(st.st_mode) != 1 && S_ISLNK(st.st_mode) != 1)
+//        {
+//            log_msg(LOG_WARNING,
+//                "[-] file: %s is not a regular file or symbolic link.",
+//                file
+//            );
+//            return FWKNOPD_ERROR_CONNTRACK;
+//        }
+//
+//        if((st.st_mode & (S_IRWXU|S_IRWXG|S_IRWXO)) != (S_IRUSR|S_IWUSR))
+//        {
+//            log_msg(LOG_WARNING,
+//                "[-] file: %s permissions should only be user read/write (0600, -rw-------)",
+//                file
+//            );
+//        }
+//
+//        caller_uid = getuid();
+//        if(st.st_uid != caller_uid)
+//        {
+//            log_msg(LOG_WARNING, "[-] file: %s (owner: %llu) not owned by current effective user id: %llu",
+//                file, (unsigned long long)st.st_uid, (unsigned long long)caller_uid);
+//        }
+//    }
+//    else
+//    {
+//        // if the path doesn't exist, just return, but otherwise something
+//        // went wrong
+//        if(errno != ENOENT)
+//        {
+//            log_msg(LOG_ERR, "[-] stat() against file: %s returned: %s",
+//                file, strerror(errno));
+//            return FWKNOPD_ERROR_CONNTRACK;
+//        }
+//
+//        *exists = 0;
+//    }
+//
+//    return FWKNOPD_SUCCESS;
+//}
+//
+//
+//static void store_last_conn_id(const fko_srv_options_t *opts)
+//{
+//    int     op_fd, num_bytes = 0;
+//    char    buf[CONN_ID_BUF_LEN] = {0};
+//
+//    // Don't store it if it's zero
+//    if(last_conn_id == 0)
+//        return;
+//
+//    // Reset errno (just in case)
+//    errno = 0;
+//
+//    // Open the PID file
+//    op_fd = open(
+//        opts->config[CONF_CONN_ID_FILE], O_WRONLY|O_CREAT, S_IRUSR|S_IWUSR
+//    );
+//
+//    if(op_fd == -1)
+//    {
+//        perror("Error trying to open connection ID file: ");
+//        return;
+//    }
+//
+//    if(fcntl(op_fd, F_SETFD, FD_CLOEXEC) == -1)
+//    {
+//        close(op_fd);
+//        perror("Unexpected error from fcntl: ");
+//        return;
+//    }
+//
+//    // Write last connection ID to the file
+//    snprintf(buf, CONN_ID_BUF_LEN, "%"PRIu64"\n", last_conn_id);
+//
+//    log_msg(LOG_DEBUG, "[+] Writing last connection ID (%"PRIu64") to the lock file: %s",
+//        last_conn_id, opts->config[CONF_CONN_ID_FILE]);
+//
+//    num_bytes = write(op_fd, buf, strlen(buf));
+//
+//    if(errno || num_bytes != strlen(buf))
+//        perror("Connection ID file write error: ");
+//
+//    // Sync/flush regardless...
+//    fsync(op_fd);
+//
+//    close(op_fd);
+//
+//    return;
+//}
+//
+//static int get_set_last_conn_id(const fko_srv_options_t *opts)
+//{
+//    int rv = FWKNOPD_SUCCESS;
+//    int exists = 0;
+//    int     op_fd, bytes_read = 0;
+//    char    buf[CONN_ID_BUF_LEN] = {0};
+//    uint64_t conn_id            = 0;
+//
+//    log_msg(LOG_DEBUG, "get_set_last_conn_id() checking file perms...");
+//    if( (rv = conn_id_file_check(opts->config[CONF_CONN_ID_FILE], &exists)) != FWKNOPD_SUCCESS)
+//    {
+//        log_msg(LOG_ERR, "conn_id_file_check() error\n");
+//        return(rv);
+//    }
+//
+//    if(!exists)
+//    {
+//        log_msg(LOG_WARNING, "get_set_last_conn_id() conn ID file does not yet exist, starting at zero");
+//        last_conn_id = 0;
+//        return FWKNOPD_SUCCESS;
+//    }
+//
+//    log_msg(LOG_DEBUG, "get_set_last_conn_id() opening the file...");
+//    op_fd = open(opts->config[CONF_CONN_ID_FILE], O_RDONLY);
+//
+//    if(op_fd == -1)
+//    {
+//        log_msg(LOG_ERR, "get_set_last_conn_id() ERROR - conn ID file exists but can't open");
+//        last_conn_id = 0;
+//        return FWKNOPD_ERROR_CONNTRACK;
+//    }
+//
+//    log_msg(LOG_DEBUG, "get_set_last_conn_id() reading the file...");
+//    bytes_read = read(op_fd, buf, CONN_ID_BUF_LEN);
+//    if (bytes_read > 0)
+//    {
+//        buf[CONN_ID_BUF_LEN-1] = '\0';
+//
+//        log_msg(LOG_DEBUG, "get_set_last_conn_id() Got following string from the conn ID file: %s\n",
+//                buf);
+//
+//        conn_id = strtoull_wrapper(buf, 0, UINT64_MAX, NO_EXIT_UPON_ERR, &rv);
+//        if(rv != FKO_SUCCESS)
+//        {
+//            log_msg(LOG_ERR, "get_set_last_conn_id() ERROR converting conn ID "
+//                    "string to uint64_t");
+//        }
+//        else
+//        {
+//            last_conn_id = conn_id;
+//            log_msg(LOG_DEBUG, "get_set_last_conn_id() setting conn ID value: %"PRIu64"\n",
+//                    last_conn_id);
+//        }
+//    }
+//    else if (bytes_read < 0)
+//    {
+//        rv = FWKNOPD_ERROR_CONNTRACK;
+//        perror("Error trying to read() PID file: ");
+//    }
+//
+//    close(op_fd);
+//
+//    return rv;
+//}
 
 
 
@@ -1221,8 +1247,8 @@ static int init_connection_tracking(fko_srv_options_t *opts)
     verbosity = LOG_DEFAULT_VERBOSITY + opts->verbose;
 
     // set the global connection ID variable
-    if( (is_err = get_set_last_conn_id(opts)) != FWKNOPD_SUCCESS)
-        return is_err;
+//    if( (is_err = get_set_last_conn_id(opts)) != FWKNOPD_SUCCESS)
+//        return is_err;
 
     // connection table should be same length as access stanza hash table
     hash_table_len = strtol_wrapper(opts->config[CONF_ACC_STANZA_HASH_TABLE_LENGTH],
@@ -1268,7 +1294,7 @@ static int init_connection_tracking(fko_srv_options_t *opts)
 
 void destroy_connection_tracker(fko_srv_options_t *opts)
 {
-    store_last_conn_id(opts);
+//    store_last_conn_id(opts);
 
     if(connection_hash_tbl != NULL)
     {
@@ -1331,8 +1357,8 @@ int update_connections(fko_srv_options_t *opts)
     }
 
     // what's left in 'latest' conns are new, unknown conns
-    // add to known list and to report for ctrl
-    if( hash_table_traverse(latest_connection_hash_tbl, traverse_move_latest_to_known_cb, NULL)  != FWKNOPD_SUCCESS )
+    // validate and possibly add to known list and to report for ctrl
+    if( hash_table_traverse(latest_connection_hash_tbl, traverse_handle_new_conns_cb, opts)  != FWKNOPD_SUCCESS )
     {
         return FWKNOPD_ERROR_CONNTRACK;
     }
@@ -1366,7 +1392,7 @@ static int make_json_from_conn_item(connection_t conn, json_object **jconn_r)
 {
     json_object *jconn = json_object_new_object();
 
-    json_object_object_add(jconn, "connection_id", json_object_new_int64(conn->connection_id));
+//    json_object_object_add(jconn, "connection_id", json_object_new_int64(conn->connection_id));
     json_object_object_add(jconn, "sdp_id", json_object_new_int(conn->sdp_id));
     json_object_object_add(jconn, "source_ip", json_object_new_string(conn->src_ip_str));
     json_object_object_add(jconn, "source_port", json_object_new_int(conn->src_port));
