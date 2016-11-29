@@ -30,22 +30,28 @@ USE `sdp_test`;
 CREATE TABLE IF NOT EXISTS `connection` (
   `gateway_sdpid` int(11) NOT NULL,
   `client_sdpid` int(11) NOT NULL,
+  `service_id` int(11) NOT NULL,
   `start_timestamp` bigint(20) NOT NULL,
   `end_timestamp` bigint(20) NOT NULL,
   `source_ip` tinytext COLLATE utf8_bin NOT NULL,
   `source_port` int(11) NOT NULL,
   `destination_ip` tinytext COLLATE utf8_bin NOT NULL,
   `destination_port` int(11) NOT NULL,
+  `nat_destination_ip` tinytext COLLATE utf8_bin NOT NULL,
+  `nat_destination_port` int(11) NOT NULL,
   PRIMARY KEY (`gateway_sdpid`,`client_sdpid`,`start_timestamp`,`source_port`),
   KEY `gateway_sdpid` (`gateway_sdpid`),
-  KEY `client_sdpid` (`client_sdpid`)
+  KEY `client_sdpid` (`client_sdpid`),
+  KEY `service_id` (`service_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
 
 --
 -- RELATIONS FOR TABLE `connection`:
---   `client_sdpid`
---       `sdpid` -> `sdpid`
+--   `service_id`
+--       `service` -> `id`
 --   `gateway_sdpid`
+--       `sdpid` -> `sdpid`
+--   `client_sdpid`
 --       `sdpid` -> `sdpid`
 --
 
@@ -615,8 +621,9 @@ DELIMITER ;
 -- Constraints for table `connection`
 --
 ALTER TABLE `connection`
-  ADD CONSTRAINT `connection_ibfk_2` FOREIGN KEY (`client_sdpid`) REFERENCES `sdpid` (`sdpid`) ON DELETE NO ACTION ON UPDATE CASCADE,
-  ADD CONSTRAINT `connection_ibfk_1` FOREIGN KEY (`gateway_sdpid`) REFERENCES `sdpid` (`sdpid`) ON DELETE NO ACTION ON UPDATE CASCADE;
+  ADD CONSTRAINT `connection_ibfk_3` FOREIGN KEY (`service_id`) REFERENCES `service` (`id`) ON DELETE NO ACTION ON UPDATE CASCADE,
+  ADD CONSTRAINT `connection_ibfk_1` FOREIGN KEY (`gateway_sdpid`) REFERENCES `sdpid` (`sdpid`) ON DELETE NO ACTION ON UPDATE CASCADE,
+  ADD CONSTRAINT `connection_ibfk_2` FOREIGN KEY (`client_sdpid`) REFERENCES `sdpid` (`sdpid`) ON DELETE NO ACTION ON UPDATE CASCADE;
 
 --
 -- Constraints for table `controller`

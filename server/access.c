@@ -723,6 +723,97 @@ expand_acc_port_list(acc_port_list_t **plist, char *plist_str)
     return 1;
 }
 
+
+static int
+add_service_list_ent(acc_service_list_t **slist, char *buf)
+{
+    int is_err = 0;
+    uint32_t id = 0;
+    acc_service_list_t *new_entry = NULL;
+    acc_service_list_t *last_entry = NULL;
+
+    if((id = strtoul_wrapper(buf, 0, UINT32_MAX, NO_EXIT_UPON_ERR, &is_err)) == 0)
+    {
+        log_msg(LOG_ERR,
+                "add_service_list_ent() did not find valid service id number in buf %s",
+                buf);
+        return 0;
+    }
+
+    if((new_entry = calloc(1, sizeof(acc_service_list_t))) == NULL)
+    {
+        log_msg(LOG_ERR,
+            "[*] Fatal memory allocation error adding stanza port_list entry"
+        );
+        exit(EXIT_FAILURE);
+    }
+
+    new_entry->service_id = id;
+
+    if(*slist == NULL)
+    {
+        *slist = new_entry;
+    }
+    else
+    {
+        last_entry = *slist;
+        while(last_entry->next != NULL)
+            last_entry = last_entry->next;
+
+        last_entry->next = new_entry;
+    }
+
+    return 1;
+}
+
+
+/* Expand a service list string to a list of services.
+*/
+int
+expand_acc_service_list(acc_service_list_t **slist, char *slist_str)
+{
+    char           *ndx, *start;
+    char            buf[ACCESS_BUF_LEN] = {0};
+
+    start = slist_str;
+
+    for(ndx = start; *ndx != '\0'; ndx++)
+    {
+        if(*ndx == ',')
+        {
+            /* Skip over any leading whitespace.
+            */
+            while(isspace(*start))
+                start++;
+
+            if(((ndx-start)+1) >= ACCESS_BUF_LEN)
+                return 0;
+
+            strlcpy(buf, start, (ndx-start)+1);
+
+            if(add_service_list_ent(slist, buf) == 0)
+                return 0;
+
+            start = ndx+1;
+        }
+    }
+
+    /* Skip over any leading whitespace (once again for the last in the list).
+    */
+    while(isspace(*start))
+        start++;
+
+    if(((ndx-start)+1) >= ACCESS_BUF_LEN)
+        return 0;
+
+    strlcpy(buf, start, (ndx-start)+1);
+
+    if(add_service_list_ent(slist, buf) == 0)
+        return 0;
+
+    return 1;
+}
+
 /* Expand a comma-separated string into a simple acc_string_list.
 */
 static int
@@ -775,6 +866,22 @@ static void
 free_acc_int_list(acc_int_list_t *sle)
 {
     acc_int_list_t    *last_sle;
+
+    while(sle != NULL)
+    {
+        last_sle = sle;
+        sle = last_sle->next;
+
+        free(last_sle);
+    }
+}
+
+/* Free a service_list
+*/
+void
+free_acc_service_list(acc_service_list_t *sle)
+{
+    acc_service_list_t    *last_sle;
 
     while(sle != NULL)
     {
@@ -849,6 +956,11 @@ free_acc_stanza_data(acc_stanza_t *acc)
     {
         free(acc->destination);
         free_acc_int_list(acc->destination_list);
+    }
+
+    if(acc->service_list != NULL)
+    {
+        free_acc_service_list(acc->service_list);
     }
 
     if(acc->open_ports != NULL)
@@ -1095,6 +1207,7 @@ traverse_dump_hash_cb(hash_table_node_t *node, void *dest)
         "==============================================================\n"
         "                     SOURCE:  %s\n"
         "                DESTINATION:  %s\n"
+        "               SERVICE_LIST:  %s\n"
         "                 OPEN_PORTS:  %s\n"
         "             RESTRICT_PORTS:  %s\n"
         "                        KEY:  %s\n"
@@ -1135,6 +1248,7 @@ traverse_dump_hash_cb(hash_table_node_t *node, void *dest)
         acc->sdp_client_id,
         acc->source,
         (acc->destination == NULL) ? "<not set>" : acc->destination,
+        (acc->service_list_str == NULL) ? "<not set>" : acc->service_list_str,
         (acc->open_ports == NULL) ? "<not set>" : acc->open_ports,
         (acc->restrict_ports == NULL) ? "<not set>" : acc->restrict_ports,
         (acc->key == NULL) ? "<not set>" : "<HIDDEN>",
@@ -1597,6 +1711,7 @@ make_acc_stanza_from_json(fko_srv_options_t *opts, json_object *jdata, acc_stanz
     struct passwd  *user_pw = NULL;
     struct passwd  *sudo_user_pw = NULL;
     struct passwd  *tmp_pw = NULL;
+    char *service_list = NULL;
     acc_stanza_t *stanza = calloc(1, sizeof(acc_stanza_t));
 
     if((rv = sdp_get_json_int_field("sdp_client_id", jdata, (int*)&(stanza->sdp_client_id))) != SDP_SUCCESS)
@@ -1605,12 +1720,25 @@ make_acc_stanza_from_json(fko_srv_options_t *opts, json_object *jdata, acc_stanz
         goto cleanup;
     }
 
-    if((rv = sdp_get_json_string_field("source", jdata, &(stanza->source))) != SDP_SUCCESS)
+    if(sdp_get_json_string_field("source", jdata, &(stanza->source)) != SDP_SUCCESS)
     {
-        log_msg(LOG_WARNING, "Did not find source in access stanza, setting to ANY");
+        // log_msg(LOG_WARNING, "Did not find source in access stanza, setting to ANY");
         if((stanza->source = strndup("ANY", 4)) == NULL)
         {
             rv = FKO_ERROR_MEMORY_ALLOCATION;
+            goto cleanup;
+        }
+    }
+
+    if( sdp_get_json_string_field("service_list", jdata, &service_list) == SDP_SUCCESS)
+    {
+        // save the string, mainly just for printing
+        stanza->service_list_str = service_list;
+
+        if(expand_acc_service_list(&(stanza->service_list), service_list) == 0)
+        {
+            log_msg(LOG_ERR, "Failed to parse service list in access stanza, invalid stanza entry");
+            rv = FWKNOPD_ERROR_BAD_STANZA_DATA;
             goto cleanup;
         }
     }
@@ -2869,6 +2997,62 @@ compare_port_list(acc_port_list_t *in, acc_port_list_t *ac, const int match_any)
     return(i_cnt == a_cnt);
 }
 
+/* Take a service string (or mulitple comma-separated strings) and check
+ * them against the list for the given access stanza.
+ *
+ * Return 1 if we are allowed
+*/
+int
+acc_check_service_access(acc_stanza_t *acc, char *service_str)
+{
+    int             res = 1, this_res = 0;
+
+    acc_service_list_t *in_service_list  = NULL;
+    acc_service_list_t *this_requested_service = NULL;
+    acc_service_list_t *this_permitted_service = NULL;
+
+    if((res = expand_acc_service_list(&in_service_list, service_str)) == 0 ||
+        in_service_list == NULL)
+    {
+        log_msg(LOG_ERR,
+            "[*] Unable to create acc_service_list from incoming data: %s",
+            service_str
+        );
+        return(0);
+    }
+
+    this_requested_service = in_service_list;
+
+    while(this_requested_service != NULL)
+    {
+        this_res = 0;
+        this_permitted_service = acc->service_list;
+
+        while(this_permitted_service != NULL)
+        {
+            if(this_permitted_service->service_id == this_requested_service->service_id)
+            {
+                this_res = 1;
+                break;
+            }
+            this_permitted_service = this_permitted_service->next;
+        }
+
+        if(this_res != 1)
+        {
+            res = 0;
+            break;
+        }
+
+        this_requested_service = this_requested_service->next;
+    }
+
+    free_acc_service_list(in_service_list);
+    return(res);
+}
+
+
+
 /* Take a proto/port string (or mulitple comma-separated strings) and check
  * them against the list for the given access stanza.
  *
@@ -2979,21 +3163,21 @@ dump_access_list(fko_srv_options_t *opts)
     if(opts->config[CONF_CONFIG_DUMP_OUTPUT_PATH] != NULL &&
        opts->foreground == 0)
     {
-    	dest = fopen(opts->config[CONF_CONFIG_DUMP_OUTPUT_PATH], "a");
+        dest = fopen(opts->config[CONF_CONFIG_DUMP_OUTPUT_PATH], "a");
         if(dest == NULL)
         {
-        	fprintf(stdout, "ERROR opening file for dump_config output: %s\n",
-        			opts->config[CONF_CONFIG_DUMP_OUTPUT_PATH]);
-        	dest = stdout;
+            fprintf(stdout, "ERROR opening file for dump_config output: %s\n",
+                    opts->config[CONF_CONFIG_DUMP_OUTPUT_PATH]);
+            dest = stdout;
         }
         else
         {
-        	opened = 1;
+            opened = 1;
         }
     }
     else
     {
-    	dest = stdout;
+        dest = stdout;
     }
 
 
@@ -3010,7 +3194,7 @@ dump_access_list(fko_srv_options_t *opts)
         // lock the hash table mutex
         if(pthread_mutex_lock(&(opts->acc_hash_tbl_mutex)))
         {
-        	fprintf(dest, "Mutex lock error.");
+            fprintf(dest, "Mutex lock error.");
             return;
         }
 
@@ -3122,7 +3306,7 @@ dump_access_list(fko_srv_options_t *opts)
 
     if(opened)
     {
-    	fclose(dest);
+        fclose(dest);
     }
 
 }  // END dump_access_list

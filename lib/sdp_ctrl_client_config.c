@@ -23,7 +23,7 @@ const char *sdp_ctrl_client_config_map[SDP_CTRL_CLIENT_CONFIG_ENTRIES] = {
     "CTRL_PORT",
     "CTRL_ADDR",
     "USE_SPA",
-	"FWKNOP_PATH",
+    "FWKNOP_PATH",
     "CTRL_STANZA",
     "REMAIN_CONNECTED",
     "FOREGROUND",
@@ -39,6 +39,7 @@ const char *sdp_ctrl_client_config_map[SDP_CTRL_CLIENT_CONFIG_ENTRIES] = {
     "WRITE_TIMEOUT",
     "CREDENTIAL_UPDATE_INTERVAL",
     "ACCESS_REFRESH_INTERVAL",
+    "SERVICE_REFRESH_INTERVAL",
     "MAX_CONN_ATTEMPTS",
     "INITIAL_CONN_RETRY_INTERVAL",
     "KEEP_ALIVE_INTERVAL",
@@ -137,6 +138,9 @@ static int finalize_config(sdp_ctrl_client_t client)
     if( !(client->cred_update_interval))
         client->cred_update_interval = DEFAULT_INTERVAL_CRED_UPDATE_SECONDS;
 
+    if( !(client->service_refresh_interval))
+        client->service_refresh_interval = DEFAULT_INTERVAL_SERVICE_REFRESH_SECONDS;
+
     if( !(client->access_refresh_interval))
         client->access_refresh_interval = DEFAULT_INTERVAL_ACCESS_REFRESH_SECONDS;
 
@@ -176,7 +180,7 @@ static int finalize_config(sdp_ctrl_client_t client)
 
 
 int sdp_ctrl_client_config_init(sdp_ctrl_client_t client, const char *config_file,
-								const char *fwknoprc_file, const int foreground)
+                                const char *fwknoprc_file, const int foreground)
 {
     int             rv = SDP_SUCCESS;
     FILE           *cfile_ptr;
@@ -212,11 +216,11 @@ int sdp_ctrl_client_config_init(sdp_ctrl_client_t client, const char *config_fil
         // get the working dir
         if((getcwd(current_dir, PATH_MAX+1)) == NULL)
         {
-        	log_msg(LOG_ERR, "Failed to get current directory");
+            log_msg(LOG_ERR, "Failed to get current directory");
         }
         else
         {
-        	log_msg(LOG_ERR, "Running from: %s", current_dir);
+            log_msg(LOG_ERR, "Running from: %s", current_dir);
         }
 
         return SDP_ERROR_CONFIG;
@@ -230,11 +234,11 @@ int sdp_ctrl_client_config_init(sdp_ctrl_client_t client, const char *config_fil
         // get the working dir
         if((getcwd(current_dir, PATH_MAX+1)) == NULL)
         {
-        	log_msg(LOG_ERR, "Failed to get current directory");
+            log_msg(LOG_ERR, "Failed to get current directory");
         }
         else
         {
-        	log_msg(LOG_ERR, "Running from: %s", current_dir);
+            log_msg(LOG_ERR, "Running from: %s", current_dir);
         }
 
         return SDP_ERROR_CONFIG;
@@ -326,7 +330,7 @@ int sdp_ctrl_client_config_init(sdp_ctrl_client_t client, const char *config_fil
 
     // only override the config file if this variable is set to zero
     if(!foreground)
-    	client->foreground = 0;
+        client->foreground = 0;
 
     rv = finalize_config(client);
 
@@ -377,7 +381,7 @@ int sdp_ctrl_client_set_config_entry(sdp_ctrl_client_t client, int var, const ch
             {
                 log_msg(LOG_ERR, "Error storing fwknop executable path");
             }
-        	break;
+            break;
 
         case SDP_CTRL_CLIENT_CONFIG_CTRL_STANZA:
             client->com->ctrl_stanza = strndup(val, SDP_MAX_LINE_LEN);
@@ -464,6 +468,11 @@ int sdp_ctrl_client_set_config_entry(sdp_ctrl_client_t client, int var, const ch
                     INT32_MAX, &rv);
             break;
 
+        case SDP_CTRL_CLIENT_CONFIG_SERVICE_REFRESH_INTERVAL:
+            client->service_refresh_interval = sdp_strtol_wrapper(val, 0,
+                    INT32_MAX, &rv);
+            break;
+
         case SDP_CTRL_CLIENT_CONFIG_ACCESS_REFRESH_INTERVAL:
             client->access_refresh_interval = sdp_strtol_wrapper(val, 0,
                     INT32_MAX, &rv);
@@ -476,7 +485,7 @@ int sdp_ctrl_client_set_config_entry(sdp_ctrl_client_t client, int var, const ch
 
         case SDP_CTRL_CLIENT_CONFIG_INIT_CONN_RETRY_INTERVAL:
             client->com->initial_conn_attempt_interval = sdp_strtol_wrapper(val, 0,
-            		SDP_COM_MAX_RETRY_INTERVAL_SECONDS, &rv);
+                    SDP_COM_MAX_RETRY_INTERVAL_SECONDS, &rv);
             break;
 
         case SDP_CTRL_CLIENT_CONFIG_KEEP_ALIVE_INTERVAL:
@@ -491,7 +500,7 @@ int sdp_ctrl_client_set_config_entry(sdp_ctrl_client_t client, int var, const ch
 
         case SDP_CTRL_CLIENT_CONFIG_INIT_REQUEST_RETRY_INTERVAL:
             client->initial_req_retry_interval = sdp_strtol_wrapper(val, 0,
-            		SDP_COM_MAX_RETRY_INTERVAL_SECONDS, &rv);
+                    SDP_COM_MAX_RETRY_INTERVAL_SECONDS, &rv);
             break;
 
         case SDP_CTRL_CLIENT_CONFIG_PID_FILE:

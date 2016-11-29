@@ -425,7 +425,7 @@ int sdp_ctrl_client_restart(sdp_ctrl_client_t client)
  */
 int sdp_ctrl_client_connect(sdp_ctrl_client_t client)
 {
-	int res = SDP_SUCCESS;
+    int res = SDP_SUCCESS;
 
     if(client == NULL || !client->initialized)
         return SDP_ERROR_UNINITIALIZED;
@@ -434,7 +434,7 @@ int sdp_ctrl_client_connect(sdp_ctrl_client_t client)
 
     if(res == SDP_SUCCESS)
     {
-    	client->initial_conn_time = client->last_contact = time(NULL);
+        client->initial_conn_time = client->last_contact = time(NULL);
     }
 
     return res;
@@ -466,7 +466,7 @@ int sdp_ctrl_client_disconnect(sdp_ctrl_client_t client)
  */
 int sdp_ctrl_client_connection_status(sdp_ctrl_client_t client)
 {
-	return client->com->conn_state;
+    return client->com->conn_state;
 }
 
 
@@ -479,7 +479,7 @@ int sdp_ctrl_client_connection_status(sdp_ctrl_client_t client)
  */
 int sdp_ctrl_client_controller_status(sdp_ctrl_client_t client)
 {
-	return client->controller_ready;
+    return client->controller_ready;
 }
 
 
@@ -548,6 +548,7 @@ void sdp_ctrl_client_describe(sdp_ctrl_client_t client)
     cp += sdp_append_msg_to_buf(dump_buf+cp, buf_len-cp, "                  Last credential update: %s",   ctime( &(client->last_cred_update) ) );
     cp += sdp_append_msg_to_buf(dump_buf+cp, buf_len-cp, "                 Last full access update: %s",   ctime( &(client->last_access_refresh) ) );
     cp += sdp_append_msg_to_buf(dump_buf+cp, buf_len-cp, "              Credential update interval: %d seconds\n", client->cred_update_interval);
+    cp += sdp_append_msg_to_buf(dump_buf+cp, buf_len-cp, "                 Service update interval: %d seconds\n", client->service_refresh_interval);
     cp += sdp_append_msg_to_buf(dump_buf+cp, buf_len-cp, "                  Access update interval: %d seconds\n", client->access_refresh_interval);
     cp += sdp_append_msg_to_buf(dump_buf+cp, buf_len-cp, "                     Keep alive interval: %d seconds\n", client->keep_alive_interval);
     cp += sdp_append_msg_to_buf(dump_buf+cp, buf_len-cp, "                 Max connection attempts: %d\n", client->com->max_conn_attempts);
@@ -643,6 +644,25 @@ int sdp_ctrl_client_check_inbox(sdp_ctrl_client_t client, int *r_action, void **
                     goto cleanup;
                 }
                 break;
+
+            case CTRL_ACTION_SERVICE_REFRESH:
+                log_msg(LOG_NOTICE, "Service data refresh received");
+                client->last_service_refresh = time(NULL);
+                *r_action = action;
+                *r_data = data;
+                goto cleanup;
+
+            case CTRL_ACTION_SERVICE_UPDATE:
+                log_msg(LOG_NOTICE, "Service data update received");
+                *r_action = action;
+                *r_data = data;
+                goto cleanup;
+
+            case CTRL_ACTION_SERVICE_REMOVE:
+                log_msg(LOG_NOTICE, "Service data remove received");
+                *r_action = action;
+                *r_data = data;
+                goto cleanup;
 
             case CTRL_ACTION_ACCESS_REFRESH:
                 log_msg(LOG_NOTICE, "Access data refresh received");
@@ -778,6 +798,55 @@ cleanup:
     return rv;
 }
 
+int sdp_ctrl_client_request_service_refresh(sdp_ctrl_client_t client)
+{
+    int rv = SDP_ERROR_CRED_REQ;
+    char *msg = NULL;
+
+    // Is the client context properly initialized
+    if(client == NULL || !client->initialized)
+        return SDP_ERROR_UNINITIALIZED;
+
+    // Is the client currently connected
+    if(client->com->conn_state == SDP_COM_DISCONNECTED)
+        return SDP_ERROR_CONN_DOWN;
+
+    // Is the client in the right state
+    if(client->client_state != SDP_CTRL_CLIENT_STATE_READY &&
+       client->client_state != SDP_CTRL_CLIENT_STATE_SERVICE_REFRESH_REQUESTING &&
+       client->client_state != SDP_CTRL_CLIENT_STATE_SERVICE_REFRESH_UNFULFILLED)
+    {
+        log_msg(LOG_DEBUG, "Control Client not in proper state to request service data refresh.");
+        return SDP_ERROR_STATE;
+    }
+
+    // Make the proper message
+    if((rv = sdp_message_make(sdp_action_service_refresh_request, NULL, &msg)) != SDP_SUCCESS)
+    {
+        log_msg(LOG_ERR, "Failed to make service refresh request message.");
+        goto cleanup;
+    }
+
+    // Send it off
+    if((rv = sdp_com_send_msg(client->com, msg)) != SDP_SUCCESS)
+    {
+        log_msg(LOG_ERR, "Failed to send service refresh request message.");
+        goto cleanup;
+    }
+
+    // Set state accordingly
+    sdp_ctrl_client_set_request_vars(client, SDP_CTRL_CLIENT_STATE_SERVICE_REFRESH_REQUESTING);
+
+
+cleanup:
+    log_msg(LOG_DEBUG, "Freeing memory before exiting function");
+
+    free(msg);
+    return rv;
+}
+
+
+
 int sdp_ctrl_client_request_access_refresh(sdp_ctrl_client_t client)
 {
     int rv = SDP_ERROR_CRED_REQ;
@@ -875,20 +944,42 @@ cleanup:
 }
 
 
-int  sdp_ctrl_client_send_access_ack(sdp_ctrl_client_t client)
+int  sdp_ctrl_client_send_data_ack(sdp_ctrl_client_t client, int action)
 {
     int rv = SDP_SUCCESS;
     char *msg = NULL;
+    const char *action_str = NULL;
 
-    if(client->client_state == SDP_CTRL_CLIENT_STATE_ACCESS_REFRESH_REQUESTING ||
-       client->client_state == SDP_CTRL_CLIENT_STATE_ACCESS_REFRESH_UNFULFILLED ||
-       client->client_state == SDP_CTRL_CLIENT_STATE_ACCESS_UPDATE_REQUESTING ||
-       client->client_state == SDP_CTRL_CLIENT_STATE_ACCESS_UPDATE_UNFULFILLED)
-        sdp_ctrl_client_clear_state_vars(client);
+    if(action == CTRL_ACTION_ACCESS_ACK)
+    {
+        action_str = sdp_action_access_ack;
 
+        if(client->client_state == SDP_CTRL_CLIENT_STATE_ACCESS_REFRESH_REQUESTING ||
+           client->client_state == SDP_CTRL_CLIENT_STATE_ACCESS_REFRESH_UNFULFILLED ||
+           client->client_state == SDP_CTRL_CLIENT_STATE_ACCESS_UPDATE_REQUESTING ||
+           client->client_state == SDP_CTRL_CLIENT_STATE_ACCESS_UPDATE_UNFULFILLED)
+            sdp_ctrl_client_clear_state_vars(client);
+
+    }
+    else if(action == CTRL_ACTION_SERVICE_ACK)
+    {
+        action_str = sdp_action_service_ack;
+
+        if(client->client_state == SDP_CTRL_CLIENT_STATE_SERVICE_REFRESH_REQUESTING ||
+           client->client_state == SDP_CTRL_CLIENT_STATE_SERVICE_REFRESH_UNFULFILLED ||
+           client->client_state == SDP_CTRL_CLIENT_STATE_SERVICE_UPDATE_REQUESTING ||
+           client->client_state == SDP_CTRL_CLIENT_STATE_SERVICE_UPDATE_UNFULFILLED)
+            sdp_ctrl_client_clear_state_vars(client);
+
+    }
+    else
+    {
+        log_msg(LOG_ERR, "sdp_ctrl_client_send_data_ack() unrecognized ack type requested, not sending ACK");
+        return SDP_ERROR_BAD_ARG;
+    }
 
     // Make the ACK response message
-    if((rv = sdp_message_make(sdp_action_access_ack, NULL, &msg)) != SDP_SUCCESS)
+    if((rv = sdp_message_make(action_str, NULL, &msg)) != SDP_SUCCESS)
     {
         log_msg(LOG_ERR, "Failed to make access data 'ACK' message.");
         goto cleanup;
@@ -908,7 +999,7 @@ cleanup:
 }
 
 
-int  sdp_ctrl_client_send_access_error(sdp_ctrl_client_t client)
+int  sdp_ctrl_client_send_data_error(sdp_ctrl_client_t client)
 {
     int rv = SDP_SUCCESS;
     char *msg = NULL;
@@ -917,13 +1008,13 @@ int  sdp_ctrl_client_send_access_error(sdp_ctrl_client_t client)
     // THIS NEEDS TO CHANGE DEPENDING ON HOW WE WANT TO MANAGE STATE ON BOTH SIDES
     if((rv = sdp_message_make(sdp_action_bad_message, NULL, &msg)) != SDP_SUCCESS)
     {
-        log_msg(LOG_ERR, "Failed to make access data 'ERROR' message.");
+        log_msg(LOG_ERR, "Failed to make data 'ERROR' message.");
         goto cleanup;
     }
 
     if((rv = sdp_com_send_msg(client->com, msg)) != SDP_SUCCESS)
     {
-        log_msg(LOG_ERR, "Failed to send access data 'ERROR' message.");
+        log_msg(LOG_ERR, "Failed to send data 'ERROR' message.");
         goto cleanup;
     }
 
@@ -1515,7 +1606,7 @@ int sdp_ctrl_client_consider_keep_alive(sdp_ctrl_client_t client)
                 client->client_state = SDP_CTRL_CLIENT_STATE_KEEP_ALIVE_UNFULFILLED;
                 client->req_retry_interval *= 2;
                 if(client->req_retry_interval > SDP_COM_MAX_RETRY_INTERVAL_SECONDS)
-                	client->req_retry_interval = SDP_COM_MAX_RETRY_INTERVAL_SECONDS;
+                    client->req_retry_interval = SDP_COM_MAX_RETRY_INTERVAL_SECONDS;
                 log_msg(LOG_DEBUG, "It is time to retry an unfulfilled keep alive request.");
                 rv = sdp_ctrl_client_request_keep_alive(client);
             }
@@ -1535,12 +1626,12 @@ int sdp_ctrl_client_consider_keep_alive(sdp_ctrl_client_t client)
 
     if(rv == SDP_ERROR_SOCKET_WRITE)
     {
-    	sdp_com_disconnect(client->com);
+        sdp_com_disconnect(client->com);
     }
 
     if(rv != SDP_ERROR_MEMORY_ALLOCATION)
     {
-    	return SDP_SUCCESS;
+        return SDP_SUCCESS;
     }
 
     // Should only get here if there was a memory allocation error
@@ -1590,7 +1681,7 @@ int sdp_ctrl_client_consider_cred_update(sdp_ctrl_client_t client)
                 client->client_state = SDP_CTRL_CLIENT_STATE_CRED_UNFULFILLED;
                 client->req_retry_interval *= 2;
                 if(client->req_retry_interval > SDP_COM_MAX_RETRY_INTERVAL_SECONDS)
-                	client->req_retry_interval = SDP_COM_MAX_RETRY_INTERVAL_SECONDS;
+                    client->req_retry_interval = SDP_COM_MAX_RETRY_INTERVAL_SECONDS;
                 log_msg(LOG_DEBUG, "It is time to retry an unfulfilled credential update request.");
                 rv = sdp_ctrl_client_request_cred_update(client);
             }
@@ -1609,12 +1700,87 @@ int sdp_ctrl_client_consider_cred_update(sdp_ctrl_client_t client)
 
     if(rv == SDP_ERROR_SOCKET_WRITE)
     {
-    	sdp_com_disconnect(client->com);
+        sdp_com_disconnect(client->com);
     }
 
     if(rv != SDP_ERROR_MEMORY_ALLOCATION)
     {
-    	return SDP_SUCCESS;
+        return SDP_SUCCESS;
+    }
+
+    // Should only get here if there was a memory allocation error
+    return rv;
+}
+
+
+int sdp_ctrl_client_consider_service_refresh(sdp_ctrl_client_t client)
+{
+    time_t ts;
+    int rv = SDP_SUCCESS;
+
+    // This should never happen, but just to be safe
+    if(client == NULL || !client->initialized)
+        return SDP_ERROR_UNINITIALIZED;
+
+    // This is not a failure, but we do halt consideration
+    if(client->com->conn_state == SDP_COM_DISCONNECTED)
+        return SDP_SUCCESS;
+
+    if(client->client_state == SDP_CTRL_CLIENT_STATE_READY)
+    {
+        if( (ts = time(NULL)) >= (client->last_service_refresh + client->service_refresh_interval) )
+        {
+            log_msg(LOG_DEBUG, "It is time for service data refresh request.");
+            rv = sdp_ctrl_client_request_service_refresh(client);
+        }
+        else
+        {
+            //log_msg(LOG_DEBUG, "Not time for access data refresh request.");
+            return SDP_SUCCESS;
+        }
+    }
+    else if(client->client_state == SDP_CTRL_CLIENT_STATE_SERVICE_REFRESH_REQUESTING ||
+            client->client_state == SDP_CTRL_CLIENT_STATE_SERVICE_REFRESH_UNFULFILLED)
+    {
+        if( (ts = time(NULL)) >= (client->last_req_time + client->req_retry_interval) )
+        {
+            if(client->req_attempts >= client->max_req_attempts)
+            {
+                log_msg(LOG_ERR, "Too many failed service refresh requests. Attempting reconnect.");
+                sdp_com_disconnect(client->com);
+                client->req_attempts = 0;
+                return SDP_SUCCESS;
+            }
+            else
+            {
+                client->client_state = SDP_CTRL_CLIENT_STATE_SERVICE_REFRESH_UNFULFILLED;
+                client->req_retry_interval *= 2;
+                if(client->req_retry_interval > SDP_COM_MAX_RETRY_INTERVAL_SECONDS)
+                    client->req_retry_interval = SDP_COM_MAX_RETRY_INTERVAL_SECONDS;
+                log_msg(LOG_DEBUG, "It is time to retry an unfulfilled service data refresh request.");
+                rv = sdp_ctrl_client_request_service_refresh(client);
+            }
+        }
+        else
+        {
+            //log_msg(LOG_DEBUG, "Not time to retry access data refresh request.");
+            return SDP_SUCCESS;
+        }
+    }
+    else
+    {
+        //log_msg(LOG_DEBUG, "Control Client not in proper state to request service data refresh.");
+        return SDP_SUCCESS;
+    }
+
+    if(rv == SDP_ERROR_SOCKET_WRITE)
+    {
+        sdp_com_disconnect(client->com);
+    }
+
+    if(rv != SDP_ERROR_MEMORY_ALLOCATION)
+    {
+        return SDP_SUCCESS;
     }
 
     // Should only get here if there was a memory allocation error
@@ -1665,7 +1831,7 @@ int sdp_ctrl_client_consider_access_refresh(sdp_ctrl_client_t client)
                 client->client_state = SDP_CTRL_CLIENT_STATE_ACCESS_REFRESH_UNFULFILLED;
                 client->req_retry_interval *= 2;
                 if(client->req_retry_interval > SDP_COM_MAX_RETRY_INTERVAL_SECONDS)
-                	client->req_retry_interval = SDP_COM_MAX_RETRY_INTERVAL_SECONDS;
+                    client->req_retry_interval = SDP_COM_MAX_RETRY_INTERVAL_SECONDS;
                 log_msg(LOG_DEBUG, "It is time to retry an unfulfilled access data refresh request.");
                 rv = sdp_ctrl_client_request_access_refresh(client);
             }
@@ -1684,12 +1850,12 @@ int sdp_ctrl_client_consider_access_refresh(sdp_ctrl_client_t client)
 
     if(rv == SDP_ERROR_SOCKET_WRITE)
     {
-    	sdp_com_disconnect(client->com);
+        sdp_com_disconnect(client->com);
     }
 
     if(rv != SDP_ERROR_MEMORY_ALLOCATION)
     {
-    	return SDP_SUCCESS;
+        return SDP_SUCCESS;
     }
 
     // Should only get here if there was a memory allocation error
@@ -1884,8 +2050,8 @@ int sdp_ctrl_client_restart_myself(sdp_ctrl_client_t client)
     sdp_ctrl_client_describe(client);
 
 cleanup:
-	free(config_file);
-	free(fwknoprc_file);
+    free(config_file);
+    free(fwknoprc_file);
 
     // if no errors, client loop will now carry on
     return rv;

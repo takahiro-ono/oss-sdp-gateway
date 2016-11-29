@@ -146,6 +146,15 @@
 #define RCHK_MAX_RULES_CHECK_THRESHOLD  ((2 << 16) - 1)
 #define RCHK_MAX_WAIT_ACC_DATA          60
 
+#define MIN_ACC_STANZA_HASH_TABLE_LENGTH  10
+#define MAX_ACC_STANZA_HASH_TABLE_LENGTH  10000
+#define DEF_ACC_HASH_TABLE_LENGTH             100
+#define DEF_ACC_HASH_TABLE_LENGTH_STR         "100"
+#define MIN_SERVICE_HASH_TABLE_LENGTH     10
+#define MAX_SERVICE_HASH_TABLE_LENGTH     10000
+#define DEF_SERVICE_HASH_TABLE_LENGTH_STR         "20"
+
+
 /* FirewallD-specific defines
 */
 #if FIREWALL_FIREWALLD
@@ -338,6 +347,7 @@ enum {
     CONF_FAULT_INJECTION_TAG,
 	CONF_DISABLE_SDP_MODE,
 	CONF_ACC_STANZA_HASH_TABLE_LENGTH,
+	CONF_SERVICE_HASH_TABLE_LENGTH,
 	CONF_DISABLE_SDP_CTRL_CLIENT,
 	CONF_DISABLE_CONNECTION_TRACKING,
 	CONF_CONN_ID_FILE,
@@ -379,11 +389,21 @@ typedef struct acc_string_list
     struct acc_string_list  *next;
 } acc_string_list_t;
 
+/* A list of service IDs that a client has access to
+ */
+typedef struct acc_service_list
+{
+	uint32_t             service_id;
+	struct acc_service_list *next;
+} acc_service_list_t;
+
 /* Access stanza list struct.
 */
 typedef struct acc_stanza
 {
 	uint32_t			 sdp_client_id;
+	char                *service_list_str;
+	acc_service_list_t  *service_list;
     char                *source;
     acc_int_list_t      *source_list;
     char                *destination;
@@ -617,6 +637,7 @@ typedef struct spa_data
     short           message_type;
     char           *spa_message;
     char            spa_message_src_ip[MAX_IPV4_STR_LEN];
+    uint32_t        spa_message_service_id;
     char            pkt_source_ip[MAX_IPV4_STR_LEN];
     char            pkt_destination_ip[MAX_IPV4_STR_LEN];
     char            spa_message_remain[1024]; /* --DSS FIXME: arbitrary bounds */
@@ -626,6 +647,16 @@ typedef struct spa_data
     unsigned int    fw_access_timeout;
     char            *use_src_ip;
 } spa_data_t;
+
+typedef struct service_data
+{
+	uint32_t service_id;
+	unsigned int  proto;
+	unsigned int  port;
+	char nat_ip_str[MAX_IPV4_STR_LEN];
+	unsigned int  nat_port;
+} service_data_t;
+
 
 /* fwknopd server configuration parameters and values
 */
@@ -696,6 +727,9 @@ typedef struct fko_srv_options
     acc_stanza_t   *acc_stanzas;       /* List of access stanzas for legacy mode */
     hash_table_t   *acc_stanza_hash_tbl;  /* List of access stanzas for sdp mode */
     pthread_mutex_t acc_hash_tbl_mutex;
+
+    hash_table_t   *service_hash_tbl;
+    pthread_mutex_t service_hash_tbl_mutex;
 
     /* The SDP Control Client
      */

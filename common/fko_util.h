@@ -44,6 +44,8 @@ int     enc_mode_strtoint(const char *enc_mode_str);
 short   enc_mode_inttostr(int enc_mode, char* enc_mode_str, size_t enc_mode_size);
 int     strtol_wrapper(const char * const str, const int min,
             const int max, const int exit_upon_err, int *is_err);
+uint32_t strtoul_wrapper(const char * const str, const uint32_t min,
+            const uint32_t max, const int exit_upon_err, int *err);
 uint64_t strtoull_wrapper(const char * const str, const uint64_t min,
             const uint64_t max, const int exit_upon_err, int *err);
 short   digest_strtoint(const char *dt_str);

@@ -18,10 +18,13 @@
 
 struct connection{
 	uint32_t sdp_id;
+	uint32_t service_id;
 	char src_ip_str[MAX_IPV4_STR_LEN];
 	char dst_ip_str[MAX_IPV4_STR_LEN];
+	char nat_dst_ip_str[MAX_IPV4_STR_LEN];
 	unsigned int  src_port;
 	unsigned int  dst_port;
+	unsigned int  nat_dst_port;
 	time_t start_time;
 	time_t end_time;
 //	uint64_t connection_id;

@@ -35,7 +35,8 @@ enum {
     SDP_MAX_B64_KEY_LEN     = 180,
     SDP_MAX_MSG_Q_LEN       = 100,
     SDP_MAX_POST_SPA_DELAY  = 10,
-    SDP_MAX_CLIENT_ID_STR_LEN = 11
+    SDP_MAX_CLIENT_ID_STR_LEN = 11,
+	SDP_MAX_SERVICE_ID_STR_LEN = 11
 };
 
 
@@ -99,6 +100,12 @@ typedef enum {
     SDP_CTRL_CLIENT_STATE_ACCESS_UPDATE_REQUESTING,
     SDP_CTRL_CLIENT_STATE_ACCESS_UPDATE_FULFILLED,
     SDP_CTRL_CLIENT_STATE_ACCESS_UPDATE_UNFULFILLED,
+    SDP_CTRL_CLIENT_STATE_SERVICE_REFRESH_REQUESTING,
+    SDP_CTRL_CLIENT_STATE_SERVICE_REFRESH_FULFILLED,
+    SDP_CTRL_CLIENT_STATE_SERVICE_REFRESH_UNFULFILLED,
+    SDP_CTRL_CLIENT_STATE_SERVICE_UPDATE_REQUESTING,
+    SDP_CTRL_CLIENT_STATE_SERVICE_UPDATE_FULFILLED,
+    SDP_CTRL_CLIENT_STATE_SERVICE_UPDATE_UNFULFILLED,
     SDP_CTRL_CLIENT_STATE_NEED_RECONNECT,
     SDP_CTRL_CLIENT_STATE_TIME_TO_QUIT,
 } sdp_ctrl_client_state_t;
@@ -121,10 +128,12 @@ struct sdp_ctrl_client{
     time_t initial_conn_time;
     time_t last_contact;
     time_t last_cred_update;
+    time_t last_service_refresh;
     time_t last_access_refresh;
     time_t last_req_time;
     time_t last_failed_req_time;
     int cred_update_interval;
+    int service_refresh_interval;
     int access_refresh_interval;
     int max_req_attempts;
     int req_attempts;
@@ -156,13 +165,15 @@ int  sdp_ctrl_client_check_inbox(sdp_ctrl_client_t client, int *r_action, void *
 int  sdp_ctrl_client_request_keep_alive(sdp_ctrl_client_t client);
 void sdp_ctrl_client_process_keep_alive(sdp_ctrl_client_t client);
 int  sdp_ctrl_client_request_cred_update(sdp_ctrl_client_t client);
+int  sdp_ctrl_client_request_service_refresh(sdp_ctrl_client_t client);
 int  sdp_ctrl_client_request_access_refresh(sdp_ctrl_client_t client);
 int  sdp_ctrl_client_process_cred_update(sdp_ctrl_client_t client, void *credentials);
 int  sdp_ctrl_client_consider_keep_alive(sdp_ctrl_client_t client);
 int  sdp_ctrl_client_consider_cred_update(sdp_ctrl_client_t client);
+int  sdp_ctrl_client_consider_service_refresh(sdp_ctrl_client_t client);
 int  sdp_ctrl_client_consider_access_refresh(sdp_ctrl_client_t client);
-int  sdp_ctrl_client_send_access_ack(sdp_ctrl_client_t client);
-int  sdp_ctrl_client_send_access_error(sdp_ctrl_client_t client);
+int  sdp_ctrl_client_send_data_ack(sdp_ctrl_client_t client, int action);
+int  sdp_ctrl_client_send_data_error(sdp_ctrl_client_t client);
 int  sdp_ctrl_client_send_message(sdp_ctrl_client_t client, char *action, json_object *data);
 
 #endif /* SDP_CTRL_CLIENT_H_ */

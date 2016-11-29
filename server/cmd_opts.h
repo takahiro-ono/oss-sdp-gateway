@@ -137,6 +137,7 @@ static char *config_map[NUMBER_OF_CONFIG_ENTRIES] = {
     "FAULT_INJECTION_TAG",
 	"DISABLE_SDP_MODE",
 	"ACC_STANZA_HASH_TABLE_LENGTH",
+	"SERVICE_HASH_TABLE_LENGTH",
 	"DISABLE_SDP_CTRL_CLIENT",
 	"DISABLE_CONNECTION_TRACKING",
 	"CONN_ID_FILE",
@@ -173,6 +174,7 @@ enum {
     FAULT_INJECTION_TAG,
     DISABLE_SDP_MODE,
 	ACC_STANZA_HASH_TABLE_LENGTH,
+	SERVICE_HASH_TABLE_LENGTH,
 	DISABLE_SDP_CTRL_CLIENT,
 	DISABLE_CONNECTION_TRACKING,
 	CONN_ID_FILE,
@@ -194,6 +196,7 @@ static struct option cmd_opts[] =
 {
     {"access-file",          1, NULL, 'a'},
 	{"acc-hash-tbl-len",     1, NULL, ACC_STANZA_HASH_TABLE_LENGTH },
+	{"service-hash-tbl-len", 1, NULL, SERVICE_HASH_TABLE_LENGTH },
     {"afl-fuzzing",          0, NULL, 'A'},
     {"afl-pkt-file",         1, NULL, AFL_PKT_FILE },
     {"config-file",          1, NULL, 'c'},

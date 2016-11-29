@@ -45,6 +45,7 @@
 #include "dbg.h"
 #include "connection_tracker.h"
 #include "control_client.h"
+#include "service.h"
 #include <pthread.h>
 
 #if USE_LIBPCAP
@@ -180,9 +181,9 @@ main(int argc, char **argv)
         }
         else
         {
-            // connect to controller and get access list
-            if(get_access_data_from_controller(&opts) != FWKNOPD_SUCCESS)
-            	clean_exit(&opts, FW_CLEANUP, EXIT_FAILURE);
+            // connect to controller and get service and access lists
+            if(get_management_data_from_controller(&opts) != FWKNOPD_SUCCESS)
+                clean_exit(&opts, FW_CLEANUP, EXIT_FAILURE);
         }
 
         /* Show config (including access.conf vars) and exit dump config was
@@ -191,6 +192,7 @@ main(int argc, char **argv)
         if(opts.dump_config == 1)
         {
             dump_config(&opts);
+            dump_service_list(&opts);
             dump_access_list(&opts);
             clean_exit(&opts, NO_FW_CLEANUP, EXIT_SUCCESS);
         }
@@ -204,16 +206,16 @@ main(int argc, char **argv)
          */
         if(restarted)
         {
-        	log_msg(LOG_DEBUG, "fwknopd main: I was restarted, not checking PID.");
-        	restarted = 0;
+            log_msg(LOG_DEBUG, "fwknopd main: I was restarted, not checking PID.");
+            restarted = 0;
         }
         else
         {
             /* Acquire pid, become a daemon or run in the foreground, write pid
              * to pid file.
             */
-        	log_msg(LOG_DEBUG, "fwknopd main: I was NOT restarted, checking/setting PID.");
-        	setup_pid(&opts);
+            log_msg(LOG_DEBUG, "fwknopd main: I was NOT restarted, checking/setting PID.");
+            setup_pid(&opts);
         }
 
         if(strncasecmp(opts.config[CONF_DISABLE_SDP_CTRL_CLIENT], "N", 1) == 0)
@@ -235,6 +237,7 @@ main(int argc, char **argv)
         if(opts.verbose > 1 && opts.foreground)
         {
             dump_config(&opts);
+            dump_service_list(&opts);
             dump_access_list(&opts);
         }
 
@@ -538,22 +541,22 @@ static void setup_pid(fko_srv_options_t *opts)
     log_msg(LOG_DEBUG, "setup_pid: checking if I am the restarted process...");
     if(get_running_pid(opts) != getpid())
     {
-    	log_msg(LOG_DEBUG, "setup_pid: I am NOT the restarted process.");
+        log_msg(LOG_DEBUG, "setup_pid: I am NOT the restarted process.");
         /* If foreground mode is not set, then fork off and become a daemon.
         * Otherwise, attempt to get the pid file lock and go on.
         */
         if(opts->foreground == 0)
         {
-        	log_msg(LOG_DEBUG, "setup_pid: about to daemonize...");
+            log_msg(LOG_DEBUG, "setup_pid: about to daemonize...");
             daemonize_process(opts);
         }
         else
         {
-        	log_msg(LOG_DEBUG, "setup_pid: writing to PID file...");
+            log_msg(LOG_DEBUG, "setup_pid: writing to PID file...");
             old_pid = write_pid_file(opts);
             if(old_pid > 0)
             {
-            	log_msg(LOG_DEBUG, "setup_pid: write_pid_file returned old PID %d, exiting.", old_pid);
+                log_msg(LOG_DEBUG, "setup_pid: write_pid_file returned old PID %d, exiting.", old_pid);
                 fprintf(stderr,
                     "[*] An instance of fwknopd is already running: (PID=%i).\n", old_pid
                 );
@@ -562,7 +565,7 @@ static void setup_pid(fko_srv_options_t *opts)
             }
             else if(old_pid < 0)
             {
-            	log_msg(LOG_DEBUG, "setup_pid: write_pid_file returned negative value, lock may have failed.");
+                log_msg(LOG_DEBUG, "setup_pid: write_pid_file returned negative value, lock may have failed.");
                 fprintf(stderr, "[*] PID file error. The lock may not be effective.\n");
             }
         }
@@ -668,6 +671,7 @@ static int handle_signals(fko_srv_options_t *opts)
             rv = 0;
             got_sigusr1 = 0;
             dump_config(opts);
+            dump_service_list(opts);
             dump_access_list(opts);
         }
         else
@@ -1093,7 +1097,7 @@ get_running_pid(const fko_srv_options_t *opts)
 
     if(op_fd == -1)
     {
-    	log_msg(LOG_DEBUG, "get_running_pid: error opening the file.");
+        log_msg(LOG_DEBUG, "get_running_pid: error opening the file.");
         if((opts->foreground != 0) && (opts->verbose != 0))
             perror("Error trying to open PID file: ");
         return(rpid);
@@ -1115,7 +1119,7 @@ get_running_pid(const fko_srv_options_t *opts)
             rpid = 0;
 
         log_msg(LOG_DEBUG, "get_running_pid: Returning PID value: %d\n",
-        		rpid);
+                rpid);
     }
     else if (bytes_read < 0)
     {

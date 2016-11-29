@@ -33,33 +33,39 @@ static time_t next_ctrl_msg_due = 0;
 
 static void print_connection_item(connection_t this_conn)
 {
-	char start_str[100] = {0};
-	char end_str[100] = {0};
+    char start_str[100] = {0};
+    char end_str[100] = {0};
 
-	memcpy(start_str, ctime( &(this_conn->start_time) ), 100);
+    memcpy(start_str, ctime( &(this_conn->start_time) ), 100);
 
-	memcpy(end_str,
-		   this_conn->end_time ? ctime( &(this_conn->end_time)) : "connection open\n",
-		   100);
+    memcpy(end_str,
+           this_conn->end_time ? ctime( &(this_conn->end_time)) : "connection open\n",
+           100);
 
     log_msg(LOG_WARNING,
 //            "    Conn ID:  %"PRIu64"\n"
-            "     SDP ID:  %"PRIu32"\n"
-            "     src ip:  %s\n"
-            "   src port:  %u\n"
-            "     dst ip:  %s\n"
-            "   dst port:  %u\n"
-            " start time:  %s"
-            "   end time:  %s"
-			"       next:  %p\n\n",
+            "      SDP ID:  %"PRIu32"\n"
+            "  service ID:  %"PRIu32"\n"
+            "      src ip:  %s\n"
+            "    src port:  %u\n"
+            "      dst ip:  %s\n"
+            "    dst port:  %u\n"
+            "  nat dst ip:  %s\n"
+            "nat dst port:  %u\n"
+            "  start time:  %s"
+            "    end time:  %s"
+            "        next:  %p\n\n",
 //            this_conn->connection_id,
             this_conn->sdp_id,
+            this_conn->service_id,
             this_conn->src_ip_str,
             this_conn->src_port,
             this_conn->dst_ip_str,
             this_conn->dst_port,
-			start_str, //ctime( &(this_conn->start_time) ),
-			end_str, //this_conn->end_time ? ctime( &(this_conn->end_time)) : "connection open\n",
+            this_conn->nat_dst_ip_str,
+            this_conn->nat_dst_port,
+            start_str, //ctime( &(this_conn->start_time) ),
+            end_str, //this_conn->end_time ? ctime( &(this_conn->end_time)) : "connection open\n",
             this_conn->next );
 
 }
@@ -106,8 +112,8 @@ static int validate_connection(acc_stanza_t *acc, connection_t conn, int *valid_
 
     if( !(acc && conn) )
     {
-    	log_msg(LOG_ERR, "validate_connection() ERROR: NULL arg passed");
-    	return FWKNOPD_ERROR_CONNTRACK;
+        log_msg(LOG_ERR, "validate_connection() ERROR: NULL arg passed");
+        return FWKNOPD_ERROR_CONNTRACK;
     }
 
     memset(port_str, 0x0, 10);
@@ -115,11 +121,11 @@ static int validate_connection(acc_stanza_t *acc, connection_t conn, int *valid_
 
     // check if the dest port is in open_ports list
     if( (spot = strstr(acc->open_ports, port_str)) != NULL)
-    	*valid_r = 1;
+        *valid_r = 1;
     else
     {
-    	log_msg(LOG_WARNING, "validate_connection() found invalid connection:");
-    	print_connection_item(conn);
+        log_msg(LOG_WARNING, "validate_connection() found invalid connection:");
+        print_connection_item(conn);
     }
 
     return FWKNOPD_SUCCESS;
@@ -318,7 +324,7 @@ static int search_conntrack(fko_srv_options_t *opts,
 
         if( (res = add_to_connection_list(&conn_list, this_conn)) != FWKNOPD_SUCCESS)
         {
-        	destroy_connection_item(this_conn);
+            destroy_connection_item(this_conn);
             destroy_connection_list(conn_list);
             return res;
         }
@@ -345,8 +351,8 @@ static int close_connections(fko_srv_options_t *opts, char *criteria)
 
     if(criteria == NULL)
     {
-    	log_msg(LOG_WARNING, "close_connections() null criteria passed, nothing to close");
-    	return res;
+        log_msg(LOG_WARNING, "close_connections() null criteria passed, nothing to close");
+        return res;
     }
 
     memset(cmd_buf, 0x0, CMD_BUFSIZE);
@@ -355,31 +361,31 @@ static int close_connections(fko_srv_options_t *opts, char *criteria)
     snprintf(cmd_buf, CMD_BUFSIZE-1, "conntrack -D %s", criteria);
 
     res = run_extcmd(cmd_buf, cmd_out, STANDARD_CMD_OUT_BUFSIZE,
-		             WANT_STDERR, NO_TIMEOUT, &pid_status, opts);
-	chop_newline(cmd_out);
+                     WANT_STDERR, NO_TIMEOUT, &pid_status, opts);
+    chop_newline(cmd_out);
 
     if(!EXTCMD_IS_SUCCESS(res))
     {
-		log_msg(LOG_ERR, "close_connections() Error %i from cmd:'%s': %s",
-				res, cmd_buf, cmd_out);
-		return FWKNOPD_ERROR_CONNTRACK;
+        log_msg(LOG_ERR, "close_connections() Error %i from cmd:'%s': %s",
+                res, cmd_buf, cmd_out);
+        return FWKNOPD_ERROR_CONNTRACK;
     }
 
     if( (res = search_conntrack(opts, criteria, &conn_list, &conn_count)) != FWKNOPD_SUCCESS)
     {
-    	log_msg(LOG_ERR, "close_connections() Error when trying to verify connections were closed");
-    	return res;
+        log_msg(LOG_ERR, "close_connections() Error when trying to verify connections were closed");
+        return res;
     }
 
     if(conn_count != 0)
     {
-    	log_msg(LOG_ERR, "close_connections() Failed to close the following connections:");
-    	print_connection_list(conn_list);
-    	return FWKNOPD_ERROR_CONNTRACK;
+        log_msg(LOG_ERR, "close_connections() Failed to close the following connections:");
+        print_connection_list(conn_list);
+        return FWKNOPD_ERROR_CONNTRACK;
     }
 
     log_msg(LOG_WARNING, "Gateway closed connections meeting the following criteria:\n"
-    		             "     %s \n", criteria);
+                         "     %s \n", criteria);
 
     return res;
 }
@@ -492,7 +498,7 @@ static int store_in_connection_hash_tbl(hash_table_t *tbl, connection_t this_con
         res = add_to_connection_list(&present_conns, this_conn);
 
         log_msg(LOG_DEBUG, "store_in_connection_hash_tbl() Added conn to current "
-        		"list for SDP ID: %"PRIu32" \n", this_conn->sdp_id);
+                "list for SDP ID: %"PRIu32" \n", this_conn->sdp_id);
     }
 
     return res;
@@ -512,20 +518,20 @@ static int check_conntrack(fko_srv_options_t *opts, int *conn_count_r)
 
     if(verbosity >= LOG_DEBUG)
     {
-		log_msg(LOG_DEBUG, "\n\nDumping connection list from search_conntrack:");
-		print_connection_list(this_conn);
+        log_msg(LOG_DEBUG, "\n\nDumping connection list from search_conntrack:");
+        print_connection_list(this_conn);
     }
 
     while(this_conn != NULL)
     {
-    	next = this_conn->next;
-    	this_conn->next = NULL;
+        next = this_conn->next;
+        this_conn->next = NULL;
 
         if( (res = store_in_connection_hash_tbl(latest_connection_hash_tbl, this_conn)) != FWKNOPD_SUCCESS)
         {
             // destroy remainder of list,
             // not ones that were successfully stored in the hash table
-        	destroy_connection_item(this_conn);
+            destroy_connection_item(this_conn);
             destroy_connection_list(next);
             return res;
         }
@@ -710,15 +716,15 @@ static int traverse_compare_latest_cb(hash_table_node_t *node, void *arg)
     if( (current_conns = hash_table_get(latest_connection_hash_tbl, key)) == NULL)
     {
         // update each conn item with the closing time
-    	temp_conn = known_conns;
+        temp_conn = known_conns;
         while(temp_conn != NULL)
         {
-        	temp_conn->end_time = *end_time;
-        	temp_conn = temp_conn->next;
+            temp_conn->end_time = *end_time;
+            temp_conn = temp_conn->next;
         }
 
         log_msg(LOG_WARNING, "All connections closed for SDP ID %"PRIu32":",
-				known_conns->sdp_id);
+                known_conns->sdp_id);
         print_connection_list(known_conns);
 
 
@@ -764,21 +770,21 @@ static int traverse_compare_latest_cb(hash_table_node_t *node, void *arg)
     // any remaining conns in copy_current_conns list are totally new
     if(copy_current_conns != NULL)
     {
-    	// store the truly new conns back to the 'latest' conn hash table for later
-    	if( (rv = hash_table_set(latest_connection_hash_tbl, key, copy_current_conns))
-    			!= FWKNOPD_SUCCESS)
-    	{
-    		log_msg(LOG_ERR, "Failed to store revised list of new conns in hash table");
-    		goto cleanup;
-    	}
+        // store the truly new conns back to the 'latest' conn hash table for later
+        if( (rv = hash_table_set(latest_connection_hash_tbl, key, copy_current_conns))
+                != FWKNOPD_SUCCESS)
+        {
+            log_msg(LOG_ERR, "Failed to store revised list of new conns in hash table");
+            goto cleanup;
+        }
 
-    	copy_current_conns = NULL;
-    	key = NULL;
+        copy_current_conns = NULL;
+        key = NULL;
     }
 
     if(known_conns == NULL)
     {
-    	hash_table_delete(connection_hash_tbl, node->key);
+        hash_table_delete(connection_hash_tbl, node->key);
     }
     else
     {
@@ -789,15 +795,15 @@ static int traverse_compare_latest_cb(hash_table_node_t *node, void *arg)
     if(closed_conns != NULL)
     {
         // update each conn item with the closing time
-    	temp_conn = closed_conns;
+        temp_conn = closed_conns;
         while(temp_conn != NULL)
         {
-        	temp_conn->end_time = *end_time;
-        	temp_conn = temp_conn->next;
+            temp_conn->end_time = *end_time;
+            temp_conn = temp_conn->next;
         }
 
         log_msg(LOG_WARNING, "Following connections closed for SDP ID %"PRIu32":",
-				closed_conns->sdp_id);
+                closed_conns->sdp_id);
         print_connection_list(closed_conns);
 
         if( (rv = add_to_connection_list(&msg_conn_list, closed_conns))
@@ -812,14 +818,14 @@ static int traverse_compare_latest_cb(hash_table_node_t *node, void *arg)
     // if it was used/stored back to latest conns table (new conns still to handle)
     // then the pointer was set to NULL so that we don't destroy it
     // if there were no new conns to store, need to destroy it
-	if(key != NULL)
-		bdestroy(key);
+    if(key != NULL)
+        bdestroy(key);
 
-	return rv;
+    return rv;
 
 cleanup:
-	if(key != NULL)
-		bdestroy(key);
+    if(key != NULL)
+        bdestroy(key);
     destroy_connection_list(copy_current_conns);
     destroy_connection_list(closed_conns);
     return rv;
@@ -847,23 +853,23 @@ static int validate_node_connections(fko_srv_options_t *opts, hash_table_node_t 
 
     memset(criteria, 0x0, CRITERIA_BUF_LEN);
 
-	// lock the hash table mutex
+    // lock the hash table mutex
     if(pthread_mutex_lock(&(opts->acc_hash_tbl_mutex)))
     {
-    	log_msg(LOG_ERR, "Mutex lock error.");
-    	return 0;
+        log_msg(LOG_ERR, "Mutex lock error.");
+        return 0;
     }
 
     acc = hash_table_get(opts->acc_stanza_hash_tbl, key);
 
-	pthread_mutex_unlock(&(opts->acc_hash_tbl_mutex));
+    pthread_mutex_unlock(&(opts->acc_hash_tbl_mutex));
 
-	// see if sdp id still exists in access table
+    // see if sdp id still exists in access table
     if( acc == NULL )
     {
         // this sdp id is no longer authorized to access anything
-    	// remove all connections marked with this sdp id
-    	snprintf(criteria, CRITERIA_BUF_LEN-1, "-m %"PRIu32, this_conn->sdp_id);
+        // remove all connections marked with this sdp id
+        snprintf(criteria, CRITERIA_BUF_LEN-1, "-m %"PRIu32, this_conn->sdp_id);
 
         if( (rv = close_connections(opts, criteria)) != FWKNOPD_SUCCESS)
         {
@@ -872,26 +878,26 @@ static int validate_node_connections(fko_srv_options_t *opts, hash_table_node_t 
 
         // set the end time for all of the connections
         temp_conn = this_conn;
-		while(temp_conn != NULL)
-		{
-			temp_conn->end_time = now;
-			temp_conn = temp_conn->next;
-		}
+        while(temp_conn != NULL)
+        {
+            temp_conn->end_time = now;
+            temp_conn = temp_conn->next;
+        }
 
 
         // print the closed conns
         log_msg(LOG_WARNING, "Gateway closed the following (i.e. all) connections from SDP ID %"PRIu32":",
-        		this_conn->sdp_id);
+                this_conn->sdp_id);
         print_connection_list(this_conn);
 
-		// pin the whole list onto the ctrl message list
-		if( (rv = add_to_connection_list(&msg_conn_list, node->data)) != FWKNOPD_SUCCESS)
-		{
-			return rv;
-		}
+        // pin the whole list onto the ctrl message list
+        if( (rv = add_to_connection_list(&msg_conn_list, node->data)) != FWKNOPD_SUCCESS)
+        {
+            return rv;
+        }
 
-		// make sure the hash table node no longer points to the
-		// connection list
+        // make sure the hash table node no longer points to the
+        // connection list
         node->data = NULL;
         this_conn = NULL;
     }
@@ -918,15 +924,15 @@ static int validate_node_connections(fko_srv_options_t *opts, hash_table_node_t 
 
             this_conn->next = NULL;
 
-        	// set the closing time
-        	this_conn->end_time = now;
+            // set the closing time
+            this_conn->end_time = now;
 
             // create search criteria to close the connection
-        	snprintf(criteria, CRITERIA_BUF_LEN-1, CONNMARK_SEARCH_ARGS,
-        			 this_conn->sdp_id, this_conn->src_ip_str, this_conn->src_port,
-					 this_conn->dst_ip_str, this_conn->dst_port);
+            snprintf(criteria, CRITERIA_BUF_LEN-1, CONNMARK_SEARCH_ARGS,
+                     this_conn->sdp_id, this_conn->src_ip_str, this_conn->src_port,
+                     this_conn->dst_ip_str, this_conn->dst_port);
 
-        	// close it
+            // close it
             if( (rv = close_connections(opts, criteria)) != FWKNOPD_SUCCESS)
             {
                 return rv;
@@ -934,14 +940,14 @@ static int validate_node_connections(fko_srv_options_t *opts, hash_table_node_t 
 
             // print closed connection
             log_msg(LOG_WARNING, "Gateway closed the following connection from SDP ID %"PRIu32":",
-            		this_conn->sdp_id);
+                    this_conn->sdp_id);
             print_connection_list(this_conn);
 
             // add to the ctrl msg list
-    		if( (rv = add_to_connection_list(&msg_conn_list, this_conn)) != FWKNOPD_SUCCESS)
-    		{
-    			return rv;
-    		}
+            if( (rv = add_to_connection_list(&msg_conn_list, this_conn)) != FWKNOPD_SUCCESS)
+            {
+                return rv;
+            }
         }
 
         this_conn = next_conn;
@@ -965,7 +971,7 @@ static int traverse_validate_connections_cb(hash_table_node_t *node, void *arg)
 
     if( (rv = validate_node_connections(opts, node)) != FWKNOPD_SUCCESS)
     {
-    	return rv;
+        return rv;
     }
 
     // if it happens that no connections are left open
@@ -1005,12 +1011,12 @@ static int traverse_handle_new_conns_cb(hash_table_node_t *node, void *arg)
 
     temp_conn = (connection_t)(node->data);
     log_msg(LOG_WARNING, "New connections from SDP ID %"PRIu32":",
-    		temp_conn->sdp_id);
+            temp_conn->sdp_id);
     print_connection_list(temp_conn);
 
     if( (rv = validate_node_connections(opts, node)) != FWKNOPD_SUCCESS)
     {
-    	return rv;
+        return rv;
     }
 
     // if it happens that no connections are left open (all were invalid)
@@ -1037,8 +1043,8 @@ static int traverse_handle_new_conns_cb(hash_table_node_t *node, void *arg)
     }
     else
     {
-    	// need to create new hash table entry in known conns
-    	// make a duplicate key to store in the hash table
+        // need to create new hash table entry in known conns
+        // make a duplicate key to store in the hash table
         if((key = bstrcpy((bstring)(node->key))) == NULL)
         {
             log_msg(LOG_ERR, "traverse_handle_new_conns_cb() Failed to duplicate key");
@@ -1046,12 +1052,12 @@ static int traverse_handle_new_conns_cb(hash_table_node_t *node, void *arg)
             goto cleanup;
         }
 
-		// copy all new conns to known conns hash table
-		if( (rv = hash_table_set(connection_hash_tbl, key, temp_conn)) != FWKNOPD_SUCCESS)
-		{
-			bdestroy(key);
-			goto cleanup;
-		}
+        // copy all new conns to known conns hash table
+        if( (rv = hash_table_set(connection_hash_tbl, key, temp_conn)) != FWKNOPD_SUCCESS)
+        {
+            bdestroy(key);
+            goto cleanup;
+        }
     }
 
     log_msg(LOG_DEBUG, "traverse_handle_new_conns_cb() adding new conns to msg list\n");
@@ -1417,8 +1423,8 @@ static int send_connection_report(fko_srv_options_t *opts)
 
     if(verbosity >= LOG_DEBUG)
     {
-		log_msg(LOG_DEBUG, "\n\nDumping message list for controller:");
-		print_connection_list(msg_conn_list);
+        log_msg(LOG_DEBUG, "\n\nDumping message list for controller:");
+        print_connection_list(msg_conn_list);
     }
 
     jarray = json_object_new_array();

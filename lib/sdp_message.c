@@ -28,6 +28,11 @@ const char *sdp_action_access_refresh_request = "access_refresh_request";
 const char *sdp_action_access_update          = "access_update";
 const char *sdp_action_access_remove          = "access_remove";
 const char *sdp_action_access_ack             = "access_ack";
+const char *sdp_action_service_refresh         = "service_refresh";
+const char *sdp_action_service_refresh_request = "service_refresh_request";
+const char *sdp_action_service_update          = "service_update";
+const char *sdp_action_service_remove          = "service_remove";
+const char *sdp_action_service_ack             = "service_ack";
 const char *sdp_action_bad_message            = "bad_message";
 const char *sdp_action_connection_update      = "connection_update";
 
@@ -142,6 +147,15 @@ static int sdp_get_message_action(json_object *jmsg, ctrl_action_t *r_action)
     else if(strncmp(action_str, sdp_action_cred_update, strlen(sdp_action_cred_update)) == 0)
         action = CTRL_ACTION_CREDENTIAL_UPDATE;
 
+    else if(strncmp(action_str, sdp_action_service_refresh, strlen(sdp_action_service_refresh)) == 0)
+        action = CTRL_ACTION_SERVICE_REFRESH;
+
+    else if(strncmp(action_str, sdp_action_service_update, strlen(sdp_action_service_update)) == 0)
+        action = CTRL_ACTION_SERVICE_UPDATE;
+
+    else if(strncmp(action_str, sdp_action_service_remove, strlen(sdp_action_service_remove)) == 0)
+        action = CTRL_ACTION_SERVICE_REMOVE;
+
     else if(strncmp(action_str, sdp_action_access_refresh, strlen(sdp_action_access_refresh)) == 0)
         action = CTRL_ACTION_ACCESS_REFRESH;
 
@@ -235,39 +249,14 @@ int sdp_message_process(const char *msg, ctrl_action_t *r_action, void **r_data)
             log_msg(LOG_ERR, "Failed to parse new credential data");
         }
     }
-    else if(action == CTRL_ACTION_ACCESS_REFRESH)
+    else if(action == CTRL_ACTION_SERVICE_REFRESH ||
+    		action == CTRL_ACTION_SERVICE_UPDATE ||
+			action == CTRL_ACTION_SERVICE_REMOVE ||
+			action == CTRL_ACTION_ACCESS_REFRESH ||
+			action == CTRL_ACTION_ACCESS_UPDATE ||
+    		action == CTRL_ACTION_ACCESS_REMOVE)
     {
-        log_msg(LOG_WARNING, "Received full access data refresh message");
-
-        // verify the data is an array
-        if(json_object_get_type(jdata) != json_type_array)
-        {
-            log_msg(LOG_ERR, "jdata object was not json_type_array as expected");
-            action = INVALID_CTRL_ACTION;
-            goto cleanup;
-        }
-
-        // increment the reference count to the data portion of the json message
-        *r_data = (void*)json_object_get(jdata);
-    }
-    else if(action == CTRL_ACTION_ACCESS_UPDATE)
-    {
-        log_msg(LOG_WARNING, "Received access data update message");
-
-        // verify the data is an array
-        if(json_object_get_type(jdata) != json_type_array)
-        {
-            log_msg(LOG_ERR, "jdata object was not json_type_array as expected");
-            action = INVALID_CTRL_ACTION;
-            goto cleanup;
-        }
-
-        // increment the reference count to the data portion of the json message
-        *r_data = (void*)json_object_get(jdata);
-    }
-    else if(action == CTRL_ACTION_ACCESS_REMOVE)
-    {
-        log_msg(LOG_WARNING, "Received access data remove message");
+        log_msg(LOG_WARNING, "Received service or access data message");
 
         // verify the data is an array
         if(json_object_get_type(jdata) != json_type_array)

@@ -489,6 +489,67 @@ strtol_wrapper(const char * const str, const int min,
     return val;
 }
 
+
+uint32_t
+strtoul_wrapper(const char * const str, const uint32_t min,
+    const uint32_t max, const int exit_upon_err, int *err)
+{
+    uint32_t val;
+
+    errno = 0;
+    *err = FKO_SUCCESS;
+
+    val = strtoul(str, (char **) NULL, 10);
+
+    if ((errno == ERANGE || (errno != 0 && val == 0)))
+    {
+        *err = errno;
+        if(exit_upon_err == EXIT_UPON_ERR)
+        {
+            perror("strtoul");
+            fprintf(stderr, "[*] Value %"PRIu32" out of range [(%"PRIu32")-(%"PRIu32")]\n",
+                val, min, max);
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    if(val < min)
+    {
+        *err = FKO_ERROR_INVALID_DATA_UTIL_STRTOUL_LT_MIN;
+        if(exit_upon_err == EXIT_UPON_ERR)
+        {
+            fprintf(stderr, "[*] Value %"PRIu32" out of range [(%"PRIu32")-(%"PRIu32")]\n",
+                val, min, max);
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    /* allow max == -1 to be an exception where we don't care about the
+     * maximum - note that the ERANGE check is still in place above
+    */
+    if((max >= 0) && (val > max))
+    {
+        *err = FKO_ERROR_INVALID_DATA_UTIL_STRTOUL_GT_MAX;
+        if(exit_upon_err == EXIT_UPON_ERR)
+        {
+            fprintf(stderr, "[*] Value %"PRIu32" out of range [(%"PRIu32")-(%"PRIu32")]\n",
+                val, min, max);
+            exit(EXIT_FAILURE);
+        }
+    }
+
+#if HAVE_LIBFIU
+    fiu_return_on("strtoul_wrapper_lt_min",
+            FKO_ERROR_INVALID_DATA_UTIL_STRTOUL_LT_MIN);
+    fiu_return_on("strtoul_wrapper_gt_max",
+            FKO_ERROR_INVALID_DATA_UTIL_STRTOUL_GT_MAX);
+#endif
+
+    return val;
+}
+
+
+
 uint64_t
 strtoull_wrapper(const char * const str, const uint64_t min,
     const uint64_t max, const int exit_upon_err, int *err)
@@ -505,7 +566,7 @@ strtoull_wrapper(const char * const str, const uint64_t min,
         *err = errno;
         if(exit_upon_err == EXIT_UPON_ERR)
         {
-            perror("strtol");
+            perror("strtoull");
             fprintf(stderr, "[*] Value %"PRIu64" out of range [(%"PRIu64")-(%"PRIu64")]\n",
                 val, min, max);
             exit(EXIT_FAILURE);
@@ -844,9 +905,9 @@ dump_ctx_to_buffer(fko_ctx_t ctx, char *dump_buf, size_t dump_buf_len)
 
         /* Make string regarding SDP mode  */
         if(disable_sdp_mode)
-        	sdp_mode_string = "SDP Mode Disabled";
+            sdp_mode_string = "SDP Mode Disabled";
         else
-        	sdp_mode_string = "SDP Mode Enabled";
+            sdp_mode_string = "SDP Mode Enabled";
 
         /* Fill in the buffer to dump */
         cp  = append_msg_to_buf(dump_buf,    dump_buf_len,    "SPA Field Values:\n=================\n");
