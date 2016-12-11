@@ -36,7 +36,10 @@ static int process_data_msg(fko_srv_options_t *opts, int action, json_object *jd
         }
         else
         {
-            log_msg(LOG_INFO, "Succeeded in retrieving and installing access configuration");
+            if(action == CTRL_ACTION_ACCESS_REFRESH)
+                log_msg(LOG_INFO, "Succeeded in retrieving and installing access configuration");
+            else
+                log_msg(LOG_INFO, "Succeeded in modifying access data.");
             sdp_ctrl_client_send_data_ack(opts->ctrl_client, CTRL_ACTION_ACCESS_ACK);
         }
     }
@@ -56,7 +59,10 @@ static int process_data_msg(fko_srv_options_t *opts, int action, json_object *jd
         }
         else
         {
-            log_msg(LOG_INFO, "Succeeded in retrieving and installing service configuration");
+            if(action == CTRL_ACTION_SERVICE_REFRESH)
+                log_msg(LOG_INFO, "Succeeded in retrieving and installing service configuration");
+            else
+                log_msg(LOG_INFO, "Succeeded in modifying service data.");
             sdp_ctrl_client_send_data_ack(opts->ctrl_client, CTRL_ACTION_SERVICE_ACK);
         }
     }
@@ -89,7 +95,7 @@ static int handle_data_msg(fko_srv_options_t *opts, int action, json_object *jda
     }
     else
     {
-        log_msg(LOG_INFO, "Succeeded in modifying access data.");
+        //log_msg(LOG_INFO, "Succeeded in modifying access data.");
         //sdp_ctrl_client_send_access_ack(opts->ctrl_client);
 
         if(opts->verbose > 1 && opts->foreground)
@@ -209,6 +215,7 @@ void *control_client_thread_func(void *arg)
 {
     int rv = FWKNOPD_SUCCESS;
     int action = INVALID_CTRL_ACTION;
+    int send_open_conn_report = 0;
     json_object *jdata = NULL;
     fko_srv_options_t *opts = (fko_srv_options_t*)arg;
 
@@ -233,6 +240,11 @@ void *control_client_thread_func(void *arg)
             {
                 break;
             }
+
+            // after any loss of connection, the controller marks all of the
+            // gateway's connections as closed, so we need to resend just
+            // the open connections if there are any as soon as possible
+            send_open_conn_report = 1;
         }
 
         // check for incoming messages
@@ -265,6 +277,19 @@ void *control_client_thread_func(void *arg)
         // do not begin sending requests until controller is ready
         if( !(sdp_ctrl_client_controller_status(opts->ctrl_client)) )
             continue;
+
+        // after any loss of connection, the controller marks all of the
+        // gateway's connections as closed, so we need to resend just
+        // the open connections if there are any as soon as possible
+        if(send_open_conn_report)
+        {
+            send_open_conn_report = 0;
+
+            if((rv = report_open_connections(opts)) != FWKNOPD_SUCCESS)
+            {
+                break;
+            }
+        }
 
         // if new connection or just time, update credentials
         if((rv = sdp_ctrl_client_consider_cred_update(opts->ctrl_client)) != SDP_SUCCESS)

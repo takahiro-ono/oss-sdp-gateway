@@ -3,8 +3,8 @@
 -- http://www.phpmyadmin.net
 --
 -- Host: localhost
--- Generation Time: Nov 03, 2016 at 03:32 PM
--- Server version: 5.5.52-0ubuntu0.14.04.1
+-- Generation Time: Dec 11, 2016 at 01:43 PM
+-- Server version: 5.5.53-0ubuntu0.14.04.1
 -- PHP Version: 5.5.9-1ubuntu4.20
 
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
@@ -16,6 +16,7 @@ SET time_zone = "+00:00";
 /*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
 /*!40101 SET NAMES utf8 */;
 
+
 --
 -- Database: `sdp_test`
 --
@@ -24,15 +25,16 @@ USE `sdp_test`;
 -- --------------------------------------------------------
 
 --
--- Table structure for table `connection`
+-- Table structure for table `closed_connection`
 --
 
-CREATE TABLE IF NOT EXISTS `connection` (
+CREATE TABLE IF NOT EXISTS `closed_connection` (
   `gateway_sdpid` int(11) NOT NULL,
   `client_sdpid` int(11) NOT NULL,
   `service_id` int(11) NOT NULL,
   `start_timestamp` bigint(20) NOT NULL,
   `end_timestamp` bigint(20) NOT NULL,
+  `protocol` tinytext COLLATE utf8_bin NOT NULL,
   `source_ip` tinytext COLLATE utf8_bin NOT NULL,
   `source_port` int(11) NOT NULL,
   `destination_ip` tinytext COLLATE utf8_bin NOT NULL,
@@ -41,14 +43,11 @@ CREATE TABLE IF NOT EXISTS `connection` (
   `nat_destination_port` int(11) NOT NULL,
   PRIMARY KEY (`gateway_sdpid`,`client_sdpid`,`start_timestamp`,`source_port`),
   KEY `gateway_sdpid` (`gateway_sdpid`),
-  KEY `client_sdpid` (`client_sdpid`),
-  KEY `service_id` (`service_id`)
+  KEY `client_sdpid` (`client_sdpid`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
 
 --
--- RELATIONS FOR TABLE `connection`:
---   `service_id`
---       `service` -> `id`
+-- RELATIONS FOR TABLE `closed_connection`:
 --   `gateway_sdpid`
 --       `sdpid` -> `sdpid`
 --   `client_sdpid`
@@ -75,12 +74,12 @@ CREATE TABLE IF NOT EXISTS `controller` (
 
 --
 -- RELATIONS FOR TABLE `controller`:
---   `gateway_sdpid`
---       `sdpid` -> `sdpid`
 --   `sdpid`
 --       `sdpid` -> `sdpid`
 --   `service_id`
 --       `service` -> `id`
+--   `gateway_sdpid`
+--       `sdpid` -> `sdpid`
 --
 
 --
@@ -150,9 +149,9 @@ CREATE TABLE IF NOT EXISTS `gateway_controller` (
 
 --
 -- RELATIONS FOR TABLE `gateway_controller`:
---   `controller_sdpid`
---       `sdpid` -> `sdpid`
 --   `gateway_sdpid`
+--       `sdpid` -> `sdpid`
+--   `controller_sdpid`
 --       `sdpid` -> `sdpid`
 --
 
@@ -175,7 +174,7 @@ CREATE TABLE IF NOT EXISTS `group` (
   `name` varchar(1024) COLLATE utf8_bin NOT NULL,
   `Description` varchar(4096) COLLATE utf8_bin NOT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin AUTO_INCREMENT=1 ;
+) ENGINE=InnoDB  DEFAULT CHARSET=utf8 COLLATE=utf8_bin AUTO_INCREMENT=2 ;
 
 --
 -- Triggers `group`
@@ -204,14 +203,14 @@ CREATE TABLE IF NOT EXISTS `group_service` (
   PRIMARY KEY (`id`),
   KEY `service_id` (`service_id`),
   KEY `group_id` (`group_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin AUTO_INCREMENT=1 ;
+) ENGINE=InnoDB  DEFAULT CHARSET=utf8 COLLATE=utf8_bin AUTO_INCREMENT=2 ;
 
 --
 -- RELATIONS FOR TABLE `group_service`:
---   `service_id`
---       `service` -> `id`
 --   `group_id`
 --       `group` -> `id`
+--   `service_id`
+--       `service` -> `id`
 --
 
 --
@@ -251,6 +250,42 @@ DELIMITER ;
 -- --------------------------------------------------------
 
 --
+-- Table structure for table `open_connection`
+--
+
+CREATE TABLE IF NOT EXISTS `open_connection` (
+  `gateway_sdpid` int(11) NOT NULL,
+  `client_sdpid` int(11) NOT NULL,
+  `service_id` int(11) NOT NULL,
+  `start_timestamp` bigint(20) NOT NULL,
+  `end_timestamp` bigint(20) NOT NULL,
+  `protocol` tinytext COLLATE utf8_bin NOT NULL,
+  `source_ip` tinytext COLLATE utf8_bin NOT NULL,
+  `source_port` int(11) NOT NULL,
+  `destination_ip` tinytext COLLATE utf8_bin NOT NULL,
+  `destination_port` int(11) NOT NULL,
+  `nat_destination_ip` tinytext COLLATE utf8_bin NOT NULL,
+  `nat_destination_port` int(11) NOT NULL,
+  `gateway_controller_connection_id` int(11) NOT NULL COMMENT 'Only used to track open conns, not an index to a table',
+  PRIMARY KEY (`gateway_controller_connection_id`,`client_sdpid`,`start_timestamp`,`source_port`),
+  KEY `gateway_sdpid` (`gateway_sdpid`),
+  KEY `client_sdpid` (`client_sdpid`),
+  KEY `service_id` (`service_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
+
+--
+-- RELATIONS FOR TABLE `open_connection`:
+--   `gateway_sdpid`
+--       `sdpid` -> `sdpid`
+--   `client_sdpid`
+--       `sdpid` -> `sdpid`
+--   `service_id`
+--       `service` -> `id`
+--
+
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `refresh_trigger`
 --
 
@@ -260,7 +295,7 @@ CREATE TABLE IF NOT EXISTS `refresh_trigger` (
   `table_name` tinytext COLLATE utf8_bin NOT NULL,
   `event` tinytext COLLATE utf8_bin NOT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB  DEFAULT CHARSET=utf8 COLLATE=utf8_bin AUTO_INCREMENT=2 ;
+) ENGINE=InnoDB  DEFAULT CHARSET=utf8 COLLATE=utf8_bin AUTO_INCREMENT=33 ;
 
 -- --------------------------------------------------------
 
@@ -293,10 +328,10 @@ CREATE TABLE IF NOT EXISTS `sdpid` (
 
 --
 -- RELATIONS FOR TABLE `sdpid`:
---   `environment_id`
---       `environment` -> `id`
 --   `user_id`
 --       `user` -> `id`
+--   `environment_id`
+--       `environment` -> `id`
 --
 
 --
@@ -347,18 +382,17 @@ CREATE TABLE IF NOT EXISTS `sdpid_service` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `sdpid` int(11) NOT NULL,
   `service_id` int(11) NOT NULL,
-  `port` smallint(5) unsigned NOT NULL,
   PRIMARY KEY (`id`),
   KEY `service_id` (`service_id`),
   KEY `sdpid` (`sdpid`)
-) ENGINE=InnoDB  DEFAULT CHARSET=utf8 COLLATE=utf8_bin AUTO_INCREMENT=9 ;
+) ENGINE=InnoDB  DEFAULT CHARSET=utf8 COLLATE=utf8_bin AUTO_INCREMENT=11 ;
 
 --
 -- RELATIONS FOR TABLE `sdpid_service`:
---   `service_id`
---       `service` -> `id`
 --   `sdpid`
 --       `sdpid` -> `sdpid`
+--   `service_id`
+--       `service` -> `id`
 --
 
 --
@@ -419,7 +453,7 @@ CREATE TABLE IF NOT EXISTS `service` (
   `description` varchar(4096) COLLATE utf8_bin NOT NULL,
   `protocol` varchar(4) COLLATE utf8_bin NOT NULL DEFAULT 'TCP' COMMENT 'TCP, UDP',
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB  DEFAULT CHARSET=utf8 COLLATE=utf8_bin AUTO_INCREMENT=5 ;
+) ENGINE=InnoDB  DEFAULT CHARSET=utf8 COLLATE=utf8_bin AUTO_INCREMENT=6 ;
 
 --
 -- Dumping data for table `service`
@@ -456,7 +490,9 @@ CREATE TABLE IF NOT EXISTS `service_gateway` (
   `service_id` int(11) NOT NULL,
   `gateway_sdpid` int(11) NOT NULL,
   `protocol_port` char(12) COLLATE utf8_bin NOT NULL COMMENT 'tcp/22  protocol and port service listens on',
-  `nat_access` varchar(128) COLLATE utf8_bin DEFAULT NULL COMMENT '1.1.1.1:22   for NAT_ACCESS field of access stanza, combines internal address and external (firewall) port',
+  `port` int(10) unsigned NOT NULL,
+  `nat_ip` varchar(128) COLLATE utf8_bin NOT NULL DEFAULT '' COMMENT '1.1.1.1   internal IP address',
+  `nat_port` int(10) unsigned NOT NULL DEFAULT '0',
   PRIMARY KEY (`id`),
   KEY `service_id` (`service_id`),
   KEY `gateway_sdpid` (`gateway_sdpid`)
@@ -464,21 +500,21 @@ CREATE TABLE IF NOT EXISTS `service_gateway` (
 
 --
 -- RELATIONS FOR TABLE `service_gateway`:
---   `gateway_sdpid`
---       `sdpid` -> `sdpid`
 --   `service_id`
 --       `service` -> `id`
+--   `gateway_sdpid`
+--       `sdpid` -> `sdpid`
 --
 
 --
 -- Dumping data for table `service_gateway`
 --
 
-INSERT INTO `service_gateway` (`id`, `service_id`, `gateway_sdpid`, `protocol_port`, `nat_access`) VALUES
-(1, 1, 222, 'tcp/5000', NULL),
-(2, 2, 222, 'tcp/22', NULL),
-(3, 3, 222, 'tcp/25', '192.168.1.250:54321'),
-(4, 4, 222, 'tcp/80', '192.168.1.201:80');
+INSERT INTO `service_gateway` (`id`, `service_id`, `gateway_sdpid`, `protocol_port`, `port`, `nat_ip`, `nat_port`) VALUES
+(1, 1, 222, 'tcp/5000', 5000, '', 0),
+(2, 2, 222, 'tcp/22', 22, '', 0),
+(3, 3, 222, 'tcp/25', 25, '192.168.1.250', 54321),
+(4, 4, 222, 'tcp/80', 80, '192.168.1.201', 80);
 
 --
 -- Triggers `service_gateway`
@@ -573,10 +609,10 @@ CREATE TABLE IF NOT EXISTS `user_group` (
 
 --
 -- RELATIONS FOR TABLE `user_group`:
---   `group_id`
---       `group` -> `id`
 --   `user_id`
 --       `user` -> `id`
+--   `group_id`
+--       `group` -> `id`
 --
 
 --
@@ -618,20 +654,19 @@ DELIMITER ;
 --
 
 --
--- Constraints for table `connection`
+-- Constraints for table `closed_connection`
 --
-ALTER TABLE `connection`
-  ADD CONSTRAINT `connection_ibfk_3` FOREIGN KEY (`service_id`) REFERENCES `service` (`id`) ON DELETE NO ACTION ON UPDATE CASCADE,
-  ADD CONSTRAINT `connection_ibfk_1` FOREIGN KEY (`gateway_sdpid`) REFERENCES `sdpid` (`sdpid`) ON DELETE NO ACTION ON UPDATE CASCADE,
-  ADD CONSTRAINT `connection_ibfk_2` FOREIGN KEY (`client_sdpid`) REFERENCES `sdpid` (`sdpid`) ON DELETE NO ACTION ON UPDATE CASCADE;
+ALTER TABLE `closed_connection`
+  ADD CONSTRAINT `closed_connection_ibfk_1` FOREIGN KEY (`gateway_sdpid`) REFERENCES `sdpid` (`sdpid`) ON DELETE NO ACTION ON UPDATE CASCADE,
+  ADD CONSTRAINT `closed_connection_ibfk_2` FOREIGN KEY (`client_sdpid`) REFERENCES `sdpid` (`sdpid`) ON DELETE NO ACTION ON UPDATE CASCADE;
 
 --
 -- Constraints for table `controller`
 --
 ALTER TABLE `controller`
-  ADD CONSTRAINT `controller_ibfk_3` FOREIGN KEY (`gateway_sdpid`) REFERENCES `sdpid` (`sdpid`) ON UPDATE CASCADE,
   ADD CONSTRAINT `controller_ibfk_1` FOREIGN KEY (`sdpid`) REFERENCES `sdpid` (`sdpid`) ON UPDATE CASCADE,
-  ADD CONSTRAINT `controller_ibfk_2` FOREIGN KEY (`service_id`) REFERENCES `service` (`id`) ON UPDATE CASCADE;
+  ADD CONSTRAINT `controller_ibfk_2` FOREIGN KEY (`service_id`) REFERENCES `service` (`id`) ON UPDATE CASCADE,
+  ADD CONSTRAINT `controller_ibfk_3` FOREIGN KEY (`gateway_sdpid`) REFERENCES `sdpid` (`sdpid`) ON UPDATE CASCADE;
 
 --
 -- Constraints for table `gateway`
@@ -643,44 +678,53 @@ ALTER TABLE `gateway`
 -- Constraints for table `gateway_controller`
 --
 ALTER TABLE `gateway_controller`
-  ADD CONSTRAINT `gateway_controller_ibfk_2` FOREIGN KEY (`controller_sdpid`) REFERENCES `sdpid` (`sdpid`) ON DELETE CASCADE ON UPDATE CASCADE,
-  ADD CONSTRAINT `gateway_controller_ibfk_1` FOREIGN KEY (`gateway_sdpid`) REFERENCES `sdpid` (`sdpid`) ON DELETE CASCADE ON UPDATE CASCADE;
+  ADD CONSTRAINT `gateway_controller_ibfk_1` FOREIGN KEY (`gateway_sdpid`) REFERENCES `sdpid` (`sdpid`) ON DELETE CASCADE ON UPDATE CASCADE,
+  ADD CONSTRAINT `gateway_controller_ibfk_2` FOREIGN KEY (`controller_sdpid`) REFERENCES `sdpid` (`sdpid`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 --
 -- Constraints for table `group_service`
 --
 ALTER TABLE `group_service`
-  ADD CONSTRAINT `group_service_ibfk_2` FOREIGN KEY (`service_id`) REFERENCES `service` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
-  ADD CONSTRAINT `group_service_ibfk_1` FOREIGN KEY (`group_id`) REFERENCES `group` (`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+  ADD CONSTRAINT `group_service_ibfk_1` FOREIGN KEY (`group_id`) REFERENCES `group` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+  ADD CONSTRAINT `group_service_ibfk_2` FOREIGN KEY (`service_id`) REFERENCES `service` (`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+--
+-- Constraints for table `open_connection`
+--
+ALTER TABLE `open_connection`
+  ADD CONSTRAINT `open_connection_ibfk_1` FOREIGN KEY (`gateway_sdpid`) REFERENCES `sdpid` (`sdpid`) ON DELETE NO ACTION ON UPDATE CASCADE,
+  ADD CONSTRAINT `open_connection_ibfk_2` FOREIGN KEY (`client_sdpid`) REFERENCES `sdpid` (`sdpid`) ON DELETE NO ACTION ON UPDATE CASCADE,
+  ADD CONSTRAINT `open_connection_ibfk_3` FOREIGN KEY (`service_id`) REFERENCES `service` (`id`) ON DELETE NO ACTION ON UPDATE CASCADE;
 
 --
 -- Constraints for table `sdpid`
 --
 ALTER TABLE `sdpid`
-  ADD CONSTRAINT `sdpid_ibfk_2` FOREIGN KEY (`environment_id`) REFERENCES `environment` (`id`) ON UPDATE CASCADE,
-  ADD CONSTRAINT `sdpid_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `user` (`id`) ON UPDATE CASCADE;
+  ADD CONSTRAINT `sdpid_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `user` (`id`) ON UPDATE CASCADE,
+  ADD CONSTRAINT `sdpid_ibfk_2` FOREIGN KEY (`environment_id`) REFERENCES `environment` (`id`) ON UPDATE CASCADE;
 
 --
 -- Constraints for table `sdpid_service`
 --
 ALTER TABLE `sdpid_service`
-  ADD CONSTRAINT `sdpid_service_ibfk_2` FOREIGN KEY (`service_id`) REFERENCES `service` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
-  ADD CONSTRAINT `sdpid_service_ibfk_1` FOREIGN KEY (`sdpid`) REFERENCES `sdpid` (`sdpid`) ON DELETE CASCADE ON UPDATE CASCADE;
+  ADD CONSTRAINT `sdpid_service_ibfk_1` FOREIGN KEY (`sdpid`) REFERENCES `sdpid` (`sdpid`) ON DELETE CASCADE ON UPDATE CASCADE,
+  ADD CONSTRAINT `sdpid_service_ibfk_2` FOREIGN KEY (`service_id`) REFERENCES `service` (`id`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 --
 -- Constraints for table `service_gateway`
 --
 ALTER TABLE `service_gateway`
-  ADD CONSTRAINT `service_gateway_ibfk_2` FOREIGN KEY (`gateway_sdpid`) REFERENCES `sdpid` (`sdpid`) ON UPDATE CASCADE,
-  ADD CONSTRAINT `service_gateway_ibfk_1` FOREIGN KEY (`service_id`) REFERENCES `service` (`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+  ADD CONSTRAINT `service_gateway_ibfk_1` FOREIGN KEY (`service_id`) REFERENCES `service` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+  ADD CONSTRAINT `service_gateway_ibfk_2` FOREIGN KEY (`gateway_sdpid`) REFERENCES `sdpid` (`sdpid`) ON UPDATE CASCADE;
 
 --
 -- Constraints for table `user_group`
 --
 ALTER TABLE `user_group`
-  ADD CONSTRAINT `user_group_ibfk_2` FOREIGN KEY (`group_id`) REFERENCES `group` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
-  ADD CONSTRAINT `user_group_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `user` (`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+  ADD CONSTRAINT `user_group_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `user` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+  ADD CONSTRAINT `user_group_ibfk_2` FOREIGN KEY (`group_id`) REFERENCES `group` (`id`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
 /*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
+

@@ -730,6 +730,7 @@ typedef struct fko_srv_options
 
     hash_table_t   *service_hash_tbl;
     pthread_mutex_t service_hash_tbl_mutex;
+    hash_table_t   *reverse_service_hash_tbl;
 
     /* The SDP Control Client
      */

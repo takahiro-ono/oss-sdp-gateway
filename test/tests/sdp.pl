@@ -11,10 +11,12 @@
         # 'fw_rule_removed' => $NEW_RULE_REMOVED,
         'server_positive_output_matches' => 
             [qr/All new credentials stored successfully/,
+             qr/Succeeded in retrieving and installing service configuration/,
              qr/Succeeded in retrieving and installing access configuration/],
         'ctrl_positive_output_matches' => 
             [qr/New credentials successfully created/,
              qr/Successfully stored new keys/,
+             qr/Received service data acknowledgement/,
              qr/Received access data acknowledgement/,
              qr/Found and removed SDP ID/],
     },
@@ -31,7 +33,8 @@
         'client_positive_output_matches' =>
             [qr/All new credentials stored successfully/],
         'server_positive_output_matches' => 
-            [qr/Succeeded in retrieving and installing access configuration/,
+            [qr/Succeeded in retrieving and installing service configuration/,
+             qr/Succeeded in retrieving and installing access configuration/,
              qr/Succeeded in modifying access data/,
              qr/ACCEPT.*?tcp dpt:80 \/\* _exp_\d{10} \*\//,
              qr/ACCEPT.*?tcp dpt:5000 \/\* _exp_\d{10} \*\//,
@@ -42,8 +45,9 @@
         'ctrl_positive_output_matches' => 
             [qr/New credentials successfully created/,
              qr/Successfully stored new keys/,
+             qr/Received service data acknowledgement/,
              qr/Received access data acknowledgement/,
-             qr/Successfully stored connection data/,
+             qr/Successfully stored.*?connection data/,
              qr/Found and removed SDP ID/],
     },
     {
@@ -59,7 +63,8 @@
         'client_positive_output_matches' =>
             [qr/All new credentials stored successfully/],
         'server_positive_output_matches' => 
-            [qr/Succeeded in retrieving and installing access configuration/,
+            [qr/Succeeded in retrieving and installing service configuration/,
+             qr/Succeeded in retrieving and installing access configuration/,
              qr/Succeeded in modifying access data/,
              qr/ACCEPT.*?tcp dpt:80 \/\* _exp_\d{10} \*\//,
              qr/ACCEPT.*?tcp dpt:5000 \/\* _exp_\d{10} \*\//,
@@ -70,10 +75,11 @@
         'ctrl_positive_output_matches' => 
             [qr/New credentials successfully created/,
              qr/Successfully stored new keys/,
+             qr/Received service data acknowledgement/,
              qr/Received access data acknowledgement/,
-             qr/Successfully stored connection data/,
+             qr/Successfully stored.*?connection data/,
              qr/Found and removed SDP ID/,
-             qr/sending access refresh to all connected gateways/],
+             qr/Sending access refresh to all connected gateways/],
     },
     {
         'category' => 'controller',
@@ -88,21 +94,23 @@
         'client_positive_output_matches' =>
             [qr/All new credentials stored successfully/],
         'server_positive_output_matches' => 
-            [qr/Succeeded in retrieving and installing access configuration/,
+            [qr/Succeeded in retrieving and installing service configuration/,
+             qr/Succeeded in retrieving and installing access configuration/,
              qr/Succeeded in modifying access data/,
              qr/ACCEPT.*?tcp dpt:80 \/\* _exp_\d{10} \*\//,
              qr/ACCEPT.*?tcp dpt:5000 \/\* _exp_\d{10} \*\//,
              qr/CONNMARK.*?tcp dpt:80 \/\* _exp_\d{10} \*\/ CONNMARK set 0x/,
              qr/CONNMARK.*?tcp dpt:5000 \/\* _exp_\d{10} \*\/ CONNMARK set 0x/,
              qr/New connections from SDP ID/,
-             qr/Gateway closed the following connection from SDP ID/],
+             qr/Gateway closed the following invalid connection from SDP ID/],
         'ctrl_positive_output_matches' => 
             [qr/New credentials successfully created/,
              qr/Successfully stored new keys/,
+             qr/Received service data acknowledgement/,
              qr/Received access data acknowledgement/,
-             qr/Successfully stored connection data/,
+             qr/Successfully stored.*?connection data/,
              qr/Found and removed SDP ID/,
-             qr/sending access refresh to all connected gateways/],
+             qr/Sending access refresh to all connected gateways/],
     },
     {
         'category' => 'controller',
@@ -139,7 +147,7 @@
             "--max-acc-wait 1",
         'server_exec_err_possible' => 1,
         'server_positive_output_matches' => 
-            [qr/(Failed to get access data from controller|Succeeded in retrieving and installing access configuration)/],
+            [qr/(Failed to get service and\/or access data from controller|Succeeded in retrieving and installing access configuration)/],
     },
     {
         'category' => 'controller',
@@ -178,7 +186,8 @@
         'client_positive_output_matches' =>
             [qr/sdp_com.*Failed to send SPA/],
         'server_positive_output_matches' => 
-            [qr/Succeeded in retrieving and installing access configuration/,
+            [qr/Succeeded in retrieving and installing service configuration/,
+             qr/Succeeded in retrieving and installing access configuration/,
              qr/dpt:80/],   # this is the fw rule created if the gate gets the client spa for service access 
         'server_negative_output_matches' =>
             [qr/Succeeded in modifying access data/,
@@ -186,6 +195,7 @@
         'ctrl_positive_output_matches' => 
             [qr/New credentials successfully created/,
              qr/Successfully stored new keys/,
+             qr/Received service data acknowledgement/,
              qr/Received access data acknowledgement/,
              qr/Found and removed SDP ID/],
     },

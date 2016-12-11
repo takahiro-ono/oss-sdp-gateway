@@ -19,6 +19,7 @@
 #include "sdp_ctrl_client.h"
 #include <json-c/json.h>
 #include <fcntl.h>
+#include "service.h"
 #include "connection_tracker.h"
 
 //const char *conn_id_key = "connection_id";
@@ -30,6 +31,9 @@ static hash_table_t *latest_connection_hash_tbl = NULL;
 static connection_t msg_conn_list = NULL;
 static int verbosity = 0;
 static time_t next_ctrl_msg_due = 0;
+
+static int close_connections(fko_srv_options_t *opts, char *criteria);
+
 
 static void print_connection_item(connection_t this_conn)
 {
@@ -46,6 +50,7 @@ static void print_connection_item(connection_t this_conn)
 //            "    Conn ID:  %"PRIu64"\n"
             "      SDP ID:  %"PRIu32"\n"
             "  service ID:  %"PRIu32"\n"
+            "    protocol:  %s\n"
             "      src ip:  %s\n"
             "    src port:  %u\n"
             "      dst ip:  %s\n"
@@ -58,6 +63,7 @@ static void print_connection_item(connection_t this_conn)
 //            this_conn->connection_id,
             this_conn->sdp_id,
             this_conn->service_id,
+            this_conn->protocol,
             this_conn->src_ip_str,
             this_conn->src_port,
             this_conn->dst_ip_str,
@@ -105,8 +111,8 @@ static void destroy_connection_list(connection_t list)
 
 static int validate_connection(acc_stanza_t *acc, connection_t conn, int *valid_r)
 {
-    char *spot = NULL;
-    char port_str[10];
+    acc_service_list_t *open_service = NULL;
+    acc_port_list_t *open_port = NULL;
 
     *valid_r = 0;
 
@@ -116,18 +122,33 @@ static int validate_connection(acc_stanza_t *acc, connection_t conn, int *valid_
         return FWKNOPD_ERROR_CONNTRACK;
     }
 
-    memset(port_str, 0x0, 10);
-    snprintf(port_str, 9, "%d", conn->dst_port);
+    open_service = acc->service_list;
 
-    // check if the dest port is in open_ports list
-    if( (spot = strstr(acc->open_ports, port_str)) != NULL)
-        *valid_r = 1;
-    else
+    while(open_service != NULL)
     {
-        log_msg(LOG_WARNING, "validate_connection() found invalid connection:");
-        print_connection_item(conn);
+        if(open_service->service_id == conn->service_id)
+        {
+            *valid_r = 1;
+            return FWKNOPD_SUCCESS;
+        }
+        open_service = open_service->next;
     }
 
+    // that didn't work, look for an open port
+    open_port = acc->oport_list;
+
+    while(open_port != NULL)
+    {
+        if(open_port->port == conn->dst_port)
+        {
+            *valid_r = 1;
+            return FWKNOPD_SUCCESS;
+        }
+        open_port = open_port->next;
+    }
+
+    log_msg(LOG_WARNING, "validate_connection() found invalid connection:");
+    print_connection_item(conn);
     return FWKNOPD_SUCCESS;
 }
 
@@ -160,10 +181,14 @@ static int add_to_connection_list(connection_t *list, connection_t new_guy)
 
 static int create_connection_item( //uint64_t connection_id,
                                    uint32_t sdp_id,
+                                   uint32_t service_id,
+                                   char *protocol,
                                    char *src_ip_str,
                                    unsigned int src_port,
                                    char *dst_ip_str,
                                    unsigned int dst_port,
+                                   char *nat_dst_ip_str,
+                                   unsigned int nat_dst_port,
                                    time_t start_time,
                                    time_t end_time,
                                    connection_t *this_conn_r
@@ -180,6 +205,8 @@ static int create_connection_item( //uint64_t connection_id,
 
 //    this_conn->connection_id = connection_id;
     this_conn->sdp_id     = sdp_id;
+    this_conn->service_id = service_id;
+    strncpy(this_conn->protocol, protocol, MAX_PROTO_STR_LEN+1);
     strncpy(this_conn->src_ip_str, src_ip_str, MAX_IPV4_STR_LEN);
     this_conn->src_port   = src_port;
     strncpy(this_conn->dst_ip_str, dst_ip_str, MAX_IPV4_STR_LEN);
@@ -187,19 +214,74 @@ static int create_connection_item( //uint64_t connection_id,
     this_conn->start_time = start_time;
     this_conn->end_time   = end_time;
 
+    if(nat_dst_ip_str != NULL)
+        strncpy(this_conn->nat_dst_ip_str, nat_dst_ip_str, MAX_IPV4_STR_LEN);
+
+    this_conn->nat_dst_port = nat_dst_port;
+
     *this_conn_r = this_conn;
 
     return FWKNOPD_SUCCESS;
 }
 
 
-static int create_connection_item_from_line(const char *line, time_t now, connection_t *this_conn_r)
+static int close_invalid_connection(fko_srv_options_t *opts, connection_t this_conn)
+{
+    int rv = FWKNOPD_SUCCESS;
+    char criteria[CRITERIA_BUF_LEN];
+    int reply_src_port = 0;
+
+    // set the closing time
+    this_conn->end_time = time(NULL);
+
+    // create search criteria to close the connection
+    if(this_conn->nat_dst_port != 0)
+    {
+        reply_src_port = this_conn->nat_dst_port;
+    }
+    else
+    {
+        reply_src_port = this_conn->dst_port;
+    }
+
+    snprintf(criteria, CRITERIA_BUF_LEN-1, CONNMARK_SEARCH_ARGS,
+             this_conn->sdp_id, this_conn->protocol, this_conn->src_ip_str,
+             this_conn->src_port, this_conn->dst_ip_str, this_conn->dst_port,
+             reply_src_port);
+
+    // close it
+    if( (rv = close_connections(opts, criteria)) != FWKNOPD_SUCCESS)
+    {
+        return rv;
+    }
+
+    // print closed connection
+    log_msg(LOG_WARNING, "Gateway closed the following invalid connection from SDP ID %"PRIu32":",
+            this_conn->sdp_id);
+    print_connection_list(this_conn);
+
+    // add to the ctrl msg list
+    if( (rv = add_to_connection_list(&msg_conn_list, this_conn)) != FWKNOPD_SUCCESS)
+    {
+        return rv;
+    }
+
+    return rv;
+}
+
+
+static int create_connection_item_from_line(fko_srv_options_t *opts,
+                                            const char *line,
+                                            time_t now,
+                                            connection_t *this_conn_r)
 {
     int res = FWKNOPD_SUCCESS;
     connection_t this_conn = NULL;
     char *ndx = NULL;
     unsigned int id = 0;
-
+    char return_src_ip_str[MAX_IPV4_STR_LEN] = {0};
+    char return_dst_ip_str[MAX_IPV4_STR_LEN] = {0};
+    unsigned int return_src_port = 0;
 
     // first determine if 'mark' is nonzero
     if( (ndx = strstr(line, "mark=")) == NULL)
@@ -224,14 +306,6 @@ static int create_connection_item_from_line(const char *line, time_t now, connec
     }
 
     // get the connection details
-    if( (ndx = strstr(line, "src=")) == NULL)
-    {
-        log_msg(LOG_ERR, "create_connection_item_from_line() Failed to find start of "
-                "connection details in line: \n     %s\n", line);
-        *this_conn_r = NULL;
-        return FWKNOPD_SUCCESS;
-    }
-
     if( (this_conn = calloc(1, sizeof *this_conn)) == NULL)
     {
         log_msg(LOG_ERR, "create_connection_item_from_line() FATAL MEMORY ERROR. ABORTING.");
@@ -240,11 +314,41 @@ static int create_connection_item_from_line(const char *line, time_t now, connec
     }
 
 
-    if( (res = sscanf(ndx, "src=%15s dst=%15s sport=%u dport=%u",
+    if( !sscanf(line, "%4s", this_conn->protocol) )
+    {
+        log_msg(LOG_ERR, "create_connection_item_from_line() ERROR: failed to extract "
+                "protocol value from conntrack line:\n     %s\n", line);
+        destroy_connection_item(this_conn);
+        *this_conn_r = NULL;
+        return FWKNOPD_SUCCESS;
+    }
+
+    if( (strncmp(this_conn->protocol, "tcp", 3) != 0) && (strncmp(this_conn->protocol, "udp", 3) != 0) )
+    {
+        log_msg(LOG_ERR, "create_connection_item_from_line() ERROR: unrecognized "
+                "protocol value from conntrack line:\n     %s\n", line);
+        destroy_connection_item(this_conn);
+        *this_conn_r = NULL;
+        return FWKNOPD_SUCCESS;
+    }
+
+    if( (ndx = strstr(line, "src=")) == NULL)
+    {
+        log_msg(LOG_ERR, "create_connection_item_from_line() Failed to find 'src=' "
+                "in line: \n     %s\n", line);
+        destroy_connection_item(this_conn);
+        *this_conn_r = NULL;
+        return FWKNOPD_SUCCESS;
+    }
+
+    if( (res = sscanf(ndx, "src=%15s dst=%15s sport=%u dport=%u src=%15s dst=%15s sport=%u",
                this_conn->src_ip_str,
                this_conn->dst_ip_str,
                &(this_conn->src_port),
-               &(this_conn->dst_port) )) != 4 )
+               &(this_conn->dst_port),
+               return_src_ip_str,
+               return_dst_ip_str,
+               &return_src_port)) != 7 )
     {
         log_msg(LOG_ERR, "create_connection_item_from_line() Failed to find "
                 "connection details in line: \n     %s\n", ndx);
@@ -255,6 +359,36 @@ static int create_connection_item_from_line(const char *line, time_t now, connec
 
     this_conn->sdp_id = (uint32_t)id;
     this_conn->start_time = now;
+
+    // if dest address does not match returning source address
+    // then NAT is in use
+    if(strncmp(this_conn->dst_ip_str, return_src_ip_str, MAX_IPV4_STR_LEN) != 0)
+    {
+        strncpy(this_conn->nat_dst_ip_str, return_src_ip_str, MAX_IPV4_STR_LEN);
+        this_conn->nat_dst_port = return_src_port;
+    }
+
+    if((res = get_service_id_by_details(opts, this_conn->protocol,
+                                        this_conn->dst_port,
+                                        this_conn->nat_dst_ip_str,
+                                        this_conn->nat_dst_port,
+                                        &(this_conn->service_id))) != FWKNOPD_SUCCESS)
+    {
+        if(res == FWKNOPD_ERROR_MEMORY_ALLOCATION)
+        {
+            log_msg(LOG_ERR, "Fatal memory error. Aborting.");
+            destroy_connection_item(this_conn);
+            *this_conn_r = NULL;
+            return res;
+        }
+
+        log_msg(LOG_ERR, "Unable to identify service for connection with following details:");
+        print_connection_item(this_conn);
+
+        res = close_invalid_connection(opts, this_conn);
+        *this_conn_r = NULL;
+        return res;
+    }
 
     *this_conn_r = this_conn;
     return FWKNOPD_SUCCESS;
@@ -281,9 +415,9 @@ static int search_conntrack(fko_srv_options_t *opts,
     memset(cmd_out, 0x0, STANDARD_CMD_OUT_BUFSIZE);
 
     if(criteria != NULL)
-        snprintf(cmd_buf, CMD_BUFSIZE-1, "conntrack -L %s", criteria);
+        snprintf(cmd_buf, CMD_BUFSIZE, "conntrack -L %s", criteria);
     else
-        snprintf(cmd_buf, CMD_BUFSIZE-1, "conntrack -L");
+        snprintf(cmd_buf, CMD_BUFSIZE, "conntrack -L");
 
     res = run_extcmd(cmd_buf, cmd_out, STANDARD_CMD_OUT_BUFSIZE,
             WANT_STDERR, NO_TIMEOUT, &pid_status, opts);
@@ -309,7 +443,7 @@ static int search_conntrack(fko_srv_options_t *opts,
     while( line != NULL )
     {
         // extract connection info from line and create connection item
-        if( (res = create_connection_item_from_line(line, now, &this_conn)) != FWKNOPD_SUCCESS)
+        if( (res = create_connection_item_from_line(opts, line, now, &this_conn)) != FWKNOPD_SUCCESS)
         {
             destroy_connection_list(conn_list);
             return res;
@@ -358,7 +492,7 @@ static int close_connections(fko_srv_options_t *opts, char *criteria)
     memset(cmd_buf, 0x0, CMD_BUFSIZE);
     memset(cmd_out, 0x0, STANDARD_CMD_OUT_BUFSIZE);
 
-    snprintf(cmd_buf, CMD_BUFSIZE-1, "conntrack -D %s", criteria);
+    snprintf(cmd_buf, CMD_BUFSIZE, "conntrack -D %s", criteria);
 
     res = run_extcmd(cmd_buf, cmd_out, STANDARD_CMD_OUT_BUFSIZE,
                      WANT_STDERR, NO_TIMEOUT, &pid_status, opts);
@@ -401,10 +535,14 @@ static int duplicate_connection_item(connection_t orig, connection_t *copy)
 
     return create_connection_item( //orig->connection_id,
                                    orig->sdp_id,
+                                   orig->service_id,
+                                   orig->protocol,
                                    orig->src_ip_str,
                                    orig->src_port,
                                    orig->dst_ip_str,
                                    orig->dst_port,
+                                   orig->nat_dst_ip_str,
+                                   orig->nat_dst_port,
                                    orig->start_time,
                                    orig->end_time,
                                    copy );
@@ -462,7 +600,7 @@ static int store_in_connection_hash_tbl(hash_table_t *tbl, connection_t this_con
 {
     int res = FWKNOPD_SUCCESS;
     bstring key = NULL;
-    char id_str[SDP_MAX_CLIENT_ID_STR_LEN + 1] = {0};
+    char id_str[SDP_MAX_CLIENT_ID_STR_LEN] = {0};
     connection_t present_conns = NULL;
 
     // convert the sdp id integer to a bstring
@@ -565,11 +703,13 @@ static int connection_items_match(connection_t a, connection_t b)
     if(!(a && b))
         return 0;
 
-    if(    a->sdp_id   == b->sdp_id     &&
+    if( a->sdp_id   == b->sdp_id     &&
         a->src_port == b->src_port   &&
         a->dst_port == b->dst_port   &&
+        a->nat_dst_port == b->nat_dst_port   &&
         strncmp(a->src_ip_str, b->src_ip_str, MAX_IPV4_STR_LEN) == 0 &&
-        strncmp(a->dst_ip_str, b->dst_ip_str, MAX_IPV4_STR_LEN) == 0)
+        strncmp(a->dst_ip_str, b->dst_ip_str, MAX_IPV4_STR_LEN) == 0 &&
+        strncmp(a->nat_dst_ip_str, b->nat_dst_ip_str, MAX_IPV4_STR_LEN) == 0)
     {
         return 1;
     }
@@ -869,7 +1009,7 @@ static int validate_node_connections(fko_srv_options_t *opts, hash_table_node_t 
     {
         // this sdp id is no longer authorized to access anything
         // remove all connections marked with this sdp id
-        snprintf(criteria, CRITERIA_BUF_LEN-1, "-m %"PRIu32, this_conn->sdp_id);
+        snprintf(criteria, CRITERIA_BUF_LEN, "-m %"PRIu32, this_conn->sdp_id);
 
         if( (rv = close_connections(opts, criteria)) != FWKNOPD_SUCCESS)
         {
@@ -924,27 +1064,7 @@ static int validate_node_connections(fko_srv_options_t *opts, hash_table_node_t 
 
             this_conn->next = NULL;
 
-            // set the closing time
-            this_conn->end_time = now;
-
-            // create search criteria to close the connection
-            snprintf(criteria, CRITERIA_BUF_LEN-1, CONNMARK_SEARCH_ARGS,
-                     this_conn->sdp_id, this_conn->src_ip_str, this_conn->src_port,
-                     this_conn->dst_ip_str, this_conn->dst_port);
-
-            // close it
-            if( (rv = close_connections(opts, criteria)) != FWKNOPD_SUCCESS)
-            {
-                return rv;
-            }
-
-            // print closed connection
-            log_msg(LOG_WARNING, "Gateway closed the following connection from SDP ID %"PRIu32":",
-                    this_conn->sdp_id);
-            print_connection_list(this_conn);
-
-            // add to the ctrl msg list
-            if( (rv = add_to_connection_list(&msg_conn_list, this_conn)) != FWKNOPD_SUCCESS)
+            if( (rv = close_invalid_connection(opts, this_conn)) != FWKNOPD_SUCCESS)
             {
                 return rv;
             }
@@ -1400,10 +1520,14 @@ static int make_json_from_conn_item(connection_t conn, json_object **jconn_r)
 
 //    json_object_object_add(jconn, "connection_id", json_object_new_int64(conn->connection_id));
     json_object_object_add(jconn, "sdp_id", json_object_new_int(conn->sdp_id));
+    json_object_object_add(jconn, "service_id", json_object_new_int(conn->service_id));
+    json_object_object_add(jconn, "protocol", json_object_new_string(conn->protocol));
     json_object_object_add(jconn, "source_ip", json_object_new_string(conn->src_ip_str));
     json_object_object_add(jconn, "source_port", json_object_new_int(conn->src_port));
     json_object_object_add(jconn, "destination_ip", json_object_new_string(conn->dst_ip_str));
     json_object_object_add(jconn, "destination_port", json_object_new_int(conn->dst_port));
+    json_object_object_add(jconn, "nat_destination_ip", json_object_new_string(conn->nat_dst_ip_str));
+    json_object_object_add(jconn, "nat_destination_port", json_object_new_int(conn->nat_dst_port));
     json_object_object_add(jconn, "start_timestamp", json_object_new_int64(conn->start_time));
     json_object_object_add(jconn, "end_timestamp", json_object_new_int64(conn->end_time));
 
@@ -1411,20 +1535,20 @@ static int make_json_from_conn_item(connection_t conn, json_object **jconn_r)
     return FWKNOPD_SUCCESS;
 }
 
-static int send_connection_report(fko_srv_options_t *opts)
+static int send_connection_report(fko_srv_options_t *opts, connection_t msg_list)
 {
     int rv = FWKNOPD_SUCCESS;
     json_object *jarray = NULL;
     json_object *jconn = NULL;
-    connection_t this_conn = msg_conn_list;
+    connection_t this_conn = msg_list;
 
-    if(msg_conn_list == NULL)
+    if(msg_list == NULL)
         return rv;
 
     if(verbosity >= LOG_DEBUG)
     {
         log_msg(LOG_DEBUG, "\n\nDumping message list for controller:");
-        print_connection_list(msg_conn_list);
+        print_connection_list(msg_list);
     }
 
     jarray = json_object_new_array();
@@ -1438,6 +1562,8 @@ static int send_connection_report(fko_srv_options_t *opts)
         json_object_array_add(jarray, jconn);
         this_conn = this_conn->next;
     }
+
+    log_msg(LOG_WARNING, "Sending connection_update message to controller");
 
     rv = sdp_ctrl_client_send_message(opts->ctrl_client, "connection_update", jarray);
 
@@ -1490,8 +1616,19 @@ int consider_reporting_connections(fko_srv_options_t *opts)
     }
 
     // send message
-    if( (rv = send_connection_report(opts)) != FWKNOPD_SUCCESS)
-        return rv;
+    if( (rv = send_connection_report(opts, msg_conn_list)) != FWKNOPD_SUCCESS)
+    {
+        if(rv == SDP_ERROR_MEMORY_ALLOCATION)
+        {
+            log_msg(LOG_ERR, "consider_reporting_connections() experienced a fatal memory error.");
+            return rv;
+        }
+        else
+        {
+            log_msg(LOG_ERR, "consider_reporting_connections() failed to send a report. Will reconnect and retry.");
+            return FWKNOPD_SUCCESS;
+        }
+    }
 
     // free message list
     destroy_connection_list(msg_conn_list);
@@ -1508,6 +1645,102 @@ int consider_reporting_connections(fko_srv_options_t *opts)
         return FWKNOPD_ERROR_CONNTRACK;
     }
 
+    return FWKNOPD_SUCCESS;
+}
+
+
+
+static int traverse_copy_open_conns_cb(hash_table_node_t *node, void *arg)
+{
+    int rv = FWKNOPD_SUCCESS;
+    connection_t temp_conn = NULL;
+
+    log_msg(LOG_DEBUG, "traverse_copy_open_conns_cb() entered");
+
+    if(node->data == NULL)
+    {
+        log_msg(LOG_ERR, "traverse_copy_open_conns_cb() node->data is NULL, shouldn't happen\n");
+        hash_table_delete(latest_connection_hash_tbl, node->key);
+        return rv;
+    }
+
+    log_msg(LOG_DEBUG, "traverse_copy_open_conns_cb() node with open connections:");
+    print_connection_list(node->data);
+
+    if((rv = duplicate_connection_list((connection_t)(node->data), &temp_conn)) != FWKNOPD_SUCCESS)
+    {
+        return rv;
+    }
+
+    if( (rv = add_to_connection_list(&msg_conn_list, temp_conn)) != FWKNOPD_SUCCESS)
+        destroy_connection_list(temp_conn);
+
+    if(msg_conn_list)
+        log_msg(LOG_DEBUG, "traverse_copy_open_conns_cb() msg_conn_list is not null, which is good");
+    else
+        log_msg(LOG_DEBUG, "traverse_copy_open_conns_cb() msg_conn_list is null, which is bad");
+
+
     return rv;
 }
+
+
+/*
+ *  This function serves a special purpose where the gateway has just
+ *  reconnected to the controller and needs to report only currently known
+ *  open connections. This will be called whenever the gateway reconnects
+ *  to the controller, but will only send something if connection
+ *  tracking was already initialized and has currently known open connections.
+ */
+int report_open_connections(fko_srv_options_t *opts)
+{
+    int rv = FWKNOPD_SUCCESS;
+
+    // if the conn tracking table is not initialized
+    // there are no known open connections, so do nothing
+    if(connection_hash_tbl == NULL)
+    {
+        return rv;
+    }
+
+    // gather copies of all open connections into msg_list
+    if( (rv = hash_table_traverse(connection_hash_tbl, traverse_copy_open_conns_cb, NULL))  != FWKNOPD_SUCCESS )
+    {
+        // free message list
+        destroy_connection_list(msg_conn_list);
+        msg_conn_list = NULL;
+        return rv;
+    }
+
+    if(msg_conn_list == NULL)
+    {
+        log_msg(LOG_DEBUG, "report_open_connections() found nothing to report.");
+        return FWKNOPD_SUCCESS;
+    }
+
+    // send message
+    rv = send_connection_report(opts, msg_conn_list);
+
+    // free message list
+    destroy_connection_list(msg_conn_list);
+    msg_conn_list = NULL;
+
+    if(rv == SDP_ERROR_MEMORY_ALLOCATION)
+    {
+        log_msg(LOG_ERR, "report_open_connections() experienced a fatal memory error.");
+        return rv;
+    }
+    else if(rv != FWKNOPD_SUCCESS)
+    {
+        log_msg(LOG_ERR, "report_open_connections() failed to send a report. Carrying on.");
+        return FWKNOPD_SUCCESS;
+    }
+    else
+    {
+        log_msg(LOG_INFO, "report_open_connections() successfully sent report.");
+    }
+
+    return FWKNOPD_SUCCESS;
+}
+
 //#endif

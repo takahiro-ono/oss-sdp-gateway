@@ -15,6 +15,9 @@
 #include "service.h"
 
 
+#define MAX_REVERSE_SERVICE_KEY_LEN  MAX_PORT_STR_LEN + MAX_IPV4_STR_LEN + MAX_PORT_STR_LEN + 2
+
+
 //static void free_service_data(service_data_t *data)
 //{
 //
@@ -27,6 +30,16 @@ static void destroy_service_hash_node_cb(hash_table_node_t *node)
     if(node->data != NULL)
     {
         //free_service_data((service_data_t*)(node->data));
+        free(node->data);
+    }
+}
+
+
+static void destroy_reverse_service_hash_node_cb(hash_table_node_t *node)
+{
+    if(node->key != NULL) bdestroy((bstring)(node->key));
+    if(node->data != NULL)
+    {
         free(node->data);
     }
 }
@@ -91,7 +104,18 @@ int create_service_table(fko_srv_options_t *opts)
         log_msg(LOG_ERR,
             "[*] Fatal memory allocation error creating service hash table"
         );
-        return FKO_ERROR_MEMORY_ALLOCATION;
+        return FWKNOPD_ERROR_MEMORY_ALLOCATION;
+    }
+
+    opts->reverse_service_hash_tbl = hash_table_create(hash_table_len,
+            NULL, NULL, destroy_reverse_service_hash_node_cb);
+
+    if(opts->reverse_service_hash_tbl == NULL)
+    {
+        log_msg(LOG_ERR,
+            "[*] Fatal memory allocation error creating reverse service hash table"
+        );
+        return FWKNOPD_ERROR_MEMORY_ALLOCATION;
     }
 
     return FWKNOPD_SUCCESS;
@@ -112,21 +136,123 @@ void destroy_service_table(fko_srv_options_t *opts)
         {
             hash_table_destroy(opts->service_hash_tbl);
             opts->service_hash_tbl = NULL;
+            hash_table_destroy(opts->reverse_service_hash_tbl);
+            opts->reverse_service_hash_tbl = NULL;
             pthread_mutex_unlock(&(opts->service_hash_tbl_mutex));
             pthread_mutex_destroy(&(opts->service_hash_tbl_mutex));
         }
     }
 }
 
+
+static bstring make_reverse_lookup_key(char *protocol, unsigned int port, char *nat_ip, unsigned int nat_port)
+{
+    char key[MAX_REVERSE_SERVICE_KEY_LEN + 1] = {0};
+
+    // convert the service id integer to a bstring
+    if(nat_ip != NULL) // && nat_ip[0] != 0 && nat_port != 0)
+    {
+        snprintf(key,
+                 MAX_REVERSE_SERVICE_KEY_LEN+1,
+                 "%s_%u_%s_%u",
+                 protocol,
+                 port,
+                 nat_ip,
+                 nat_port);
+    }
+    else
+    {
+        snprintf(key,
+                 MAX_REVERSE_SERVICE_KEY_LEN+1,
+                 "%s_%u",
+                 protocol,
+                 port);
+    }
+
+    log_msg(LOG_DEBUG, "Created reverse service lookup key: %s", key);
+
+    return bfromcstr(key);
+}
+
+static int modify_reverse_service_table(fko_srv_options_t *opts, int delete, service_data_t *service_data)
+{
+    bstring key = NULL;
+    uint32_t *service_id = NULL;
+    char *proto = NULL;
+
+    if(service_data->proto == PROTO_TCP)
+        proto = "tcp";
+    else if(service_data->proto == PROTO_UDP)
+        proto = "udp";
+    else
+        return FWKNOPD_ERROR_BAD_SERVICE_DATA;
+
+
+    if((key = make_reverse_lookup_key(proto,
+                                      service_data->port,
+                                      service_data->nat_ip_str,
+                                      service_data->nat_port)) == NULL)
+    {
+        log_msg(LOG_ERR,
+            "Fatal error creating reverse service lookup key"
+        );
+        return FWKNOPD_ERROR_MEMORY_ALLOCATION;
+    }
+
+    if(delete)
+    {
+        hash_table_delete(opts->reverse_service_hash_tbl, key);
+        bdestroy(key);
+        return FWKNOPD_SUCCESS;
+    }
+
+    if((service_id = calloc(1, sizeof(uint32_t))) == NULL)
+    {
+        log_msg(LOG_ERR,
+            "Fatal memory error creating reverse lookup data"
+        );
+        bdestroy(key);
+        return FWKNOPD_ERROR_MEMORY_ALLOCATION;
+    }
+
+    //memcpy(service_id, service_data->service_id, sizeof(uint32_t));
+    *service_id = service_data->service_id;
+
+    if( hash_table_set(opts->reverse_service_hash_tbl, key, service_id) != FKO_SUCCESS )
+    {
+        log_msg(LOG_ERR,
+            "Fatal error creating reverse service lookup hash table node"
+        );
+        bdestroy(key);
+        free(service_id);
+        return FWKNOPD_ERROR_MEMORY_ALLOCATION;
+    }
+
+    log_msg(LOG_DEBUG,
+            "Created reverse service lookup node: \n"
+            "\tKEY: %s \n"
+            "\tSERVICE ID: %"PRIu32,
+            bdata(key), *service_id);
+
+    return FWKNOPD_SUCCESS;
+}
+
+
 /* Take a json doc and make service data struct from it
  *
  */
 static int make_service_data_from_json(fko_srv_options_t *opts, json_object *jdata, service_data_t **r_service_data)
 {
-    int rv = SDP_SUCCESS;
+    int rv = FWKNOPD_SUCCESS;
     char *tmp = NULL;
     int str_len = 0;
     service_data_t *service_data = calloc(1, sizeof(service_data_t));
+
+    if(service_data == NULL)
+    {
+        log_msg(LOG_ERR, "Fatal memory error creating service data structure");
+        return FWKNOPD_ERROR_MEMORY_ALLOCATION;
+    }
 
     if((rv = sdp_get_json_int_field("service_id", jdata, (int*)&(service_data->service_id))) != SDP_SUCCESS)
     {
@@ -170,8 +296,8 @@ static int make_service_data_from_json(fko_srv_options_t *opts, json_object *jda
 
     if((rv = sdp_get_json_string_field("nat_ip", jdata, &tmp)) != SDP_SUCCESS)
     {
-    	// this service stanza has no NAT info, that's no problem
-    	rv = SDP_SUCCESS;
+        // this service stanza has no NAT info, that's no problem
+        rv = FWKNOPD_SUCCESS;
     }
     else
     {
@@ -237,10 +363,10 @@ static int modify_service_table(fko_srv_options_t *opts, int service_array_len, 
         jservice = json_object_array_get_idx(jdata, idx);
         if((rv = make_service_data_from_json(opts, jservice, &new_service)) != FWKNOPD_SUCCESS)
         {
-            if(rv == FKO_ERROR_MEMORY_ALLOCATION)
+            if(rv == FWKNOPD_ERROR_MEMORY_ALLOCATION)
             {
                 log_msg(LOG_ERR, "Memory allocation error while parsing json data, time to die");
-                return FKO_ERROR_MEMORY_ALLOCATION;
+                return FWKNOPD_ERROR_MEMORY_ALLOCATION;
             }
 
             log_msg(LOG_ERR, "Failed to parse json service data, attempting to carry on");
@@ -258,7 +384,12 @@ static int modify_service_table(fko_srv_options_t *opts, int service_array_len, 
             );
             bdestroy(key);
             free(new_service);
-            return FKO_ERROR_MEMORY_ALLOCATION;
+            return FWKNOPD_ERROR_MEMORY_ALLOCATION;
+        }
+
+        if( modify_reverse_service_table(opts, 0, new_service) != FWKNOPD_SUCCESS )
+        {
+            return FWKNOPD_ERROR_MEMORY_ALLOCATION;
         }
 
         log_msg(LOG_NOTICE, "Added service entry for Service ID %"PRIu32, new_service->service_id);
@@ -278,7 +409,7 @@ static int modify_service_table(fko_srv_options_t *opts, int service_array_len, 
 }
 
 
-static void remove_service_data_nodes(hash_table_t *service_tbl, int service_array_len, json_object *jdata)
+static void remove_service_data_nodes(fko_srv_options_t *opts, int service_array_len, json_object *jdata)
 {
     int rv = FKO_SUCCESS;
     int idx;
@@ -286,6 +417,7 @@ static void remove_service_data_nodes(hash_table_t *service_tbl, int service_arr
     json_object *jentry = NULL;
     bstring key = NULL;
     char id[SDP_MAX_SERVICE_ID_STR_LEN + 1] = {0};
+    service_data_t *service_data = NULL;
 
     // walk through the access array
     for(idx = 0; idx < service_array_len; idx++)
@@ -301,7 +433,18 @@ static void remove_service_data_nodes(hash_table_t *service_tbl, int service_arr
         snprintf(id, SDP_MAX_SERVICE_ID_STR_LEN, "%d", service_id);
         key = bfromcstr(id);
 
-        if( hash_table_delete(service_tbl, key) != FKO_SUCCESS )
+        // first get the data in order to find and delete the reverse lookup node
+        if((service_data = hash_table_get(opts->service_hash_tbl, key)) == NULL)
+        {
+            log_msg(LOG_WARNING, "Did not find hash table node with service ID %d to remove. Continuing.", service_id);
+            continue;
+        }
+        else
+        {
+            modify_reverse_service_table(opts, 1, service_data);
+        }
+
+        if( hash_table_delete(opts->service_hash_tbl, key) != FKO_SUCCESS )
         {
             log_msg(LOG_WARNING, "Did not find hash table node with service ID %d to remove. Continuing.", service_id);
         }
@@ -357,7 +500,7 @@ int process_service_msg(fko_srv_options_t *opts, int action, json_object *jdata)
             return FWKNOPD_ERROR_UNTIMELY_MSG;
         }
 
-        remove_service_data_nodes(opts->service_hash_tbl, service_array_len, jdata);
+        remove_service_data_nodes(opts, service_array_len, jdata);
         pthread_mutex_unlock(&(opts->service_hash_tbl_mutex));
 
         return FWKNOPD_SUCCESS;
@@ -434,6 +577,48 @@ service_data_t* get_service_data(fko_srv_options_t *opts, uint32_t service_id)
     return service_data;
 }
 
+
+int get_service_id_by_details(fko_srv_options_t *opts, char *protocol, int port, char *nat_ip, int nat_port, uint32_t *r_id)
+{
+    int rv = FWKNOPD_SUCCESS;
+    uint32_t *id = NULL;
+    bstring key = NULL;
+
+    if((key = make_reverse_lookup_key(protocol, port, nat_ip, nat_port)) == NULL)
+    {
+        log_msg(LOG_ERR,
+            "Fatal error creating reverse service lookup key"
+        );
+        return FWKNOPD_ERROR_MEMORY_ALLOCATION;
+    }
+
+    // lock the hash table mutex
+    if(pthread_mutex_lock(&(opts->service_hash_tbl_mutex)))
+    {
+        log_msg(LOG_ERR, "Service table mutex lock error.");
+        rv = FWKNOPD_ERROR_MUTEX;
+        goto cleanup;
+    }
+
+    if((id = hash_table_get(opts->reverse_service_hash_tbl, key)) == NULL)
+    {
+        pthread_mutex_unlock(&(opts->service_hash_tbl_mutex));
+        log_msg(LOG_WARNING, "Could not identify service using provided data");
+        rv = FWKNOPD_ERROR_BAD_SERVICE_DATA;
+        goto cleanup;
+    }
+
+    pthread_mutex_unlock(&(opts->service_hash_tbl_mutex));
+
+    *r_id = *id;
+    bdestroy(key);
+    return rv;
+
+cleanup:
+    bdestroy(key);
+    *r_id = 0;
+    return rv;
+}
 
 
 void dump_service_list(fko_srv_options_t *opts)

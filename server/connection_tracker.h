@@ -14,11 +14,12 @@
 //#define CONN_ID_BUF_LEN                 21
 #define CRITERIA_BUF_LEN                CMD_BUFSIZE - 20
 
-#define CONNMARK_SEARCH_ARGS "-m %"PRIu32" --src %s --sport %d --dst %s --dport %d"
+#define CONNMARK_SEARCH_ARGS "-m %"PRIu32" -p %s -s %s --sport %d -d %s --dport %d --reply-port-src %d"
 
 struct connection{
 	uint32_t sdp_id;
 	uint32_t service_id;
+	char protocol[MAX_PROTO_STR_LEN+1];
 	char src_ip_str[MAX_IPV4_STR_LEN];
 	char dst_ip_str[MAX_IPV4_STR_LEN];
 	char nat_dst_ip_str[MAX_IPV4_STR_LEN];
@@ -36,5 +37,6 @@ void destroy_connection_tracker(fko_srv_options_t *opts);
 int update_connections(fko_srv_options_t *opts);
 int validate_connections(fko_srv_options_t *opts);
 int consider_reporting_connections(fko_srv_options_t *opts);
+int report_open_connections(fko_srv_options_t *opts);
 
 #endif /* SERVER_CONNECTION_TRACKER_H_ */
