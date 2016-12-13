@@ -284,6 +284,10 @@ msg_type_inttostr(const int type)
 {
     if(type == FKO_COMMAND_MSG)
         return("Command msg");
+    else if(type == FKO_SERVICE_ACCESS_MSG)
+        return("Service access msg");
+    else if(type == FKO_CLIENT_TIMEOUT_SERVICE_ACCESS_MSG)
+        return("Client timeout service access msg");
     else if(type == FKO_ACCESS_MSG)
         return("Access msg");
     else if(type == FKO_NAT_ACCESS_MSG)
@@ -822,47 +826,27 @@ dump_ctx_to_buffer(fko_ctx_t ctx, char *dump_buf, size_t dump_buf_len)
 
     else
     {
-        debug("dump_ctx_to_buffer() : Parsing the fko context...");
         /* Parse the FKO context and collect data */
         RETURN_ON_FKO_ERROR(err, fko_get_rand_value(ctx, &rand_val));
         RETURN_ON_FKO_ERROR(err, fko_get_sdp_client_id(ctx, &sdp_client_id));
-        debug("dump_ctx_to_buffer() : Passed call to fko_get_sdp_client_id()");
         RETURN_ON_FKO_ERROR(err, fko_get_username(ctx, &username));
-        debug("dump_ctx_to_buffer() : Passed call to fko_get_username()");
         RETURN_ON_FKO_ERROR(err, fko_get_timestamp(ctx, &timestamp));
-        debug("dump_ctx_to_buffer() : Passed call to fko_get_timestamp()");
         RETURN_ON_FKO_ERROR(err, fko_get_version(ctx, &version));
-        debug("dump_ctx_to_buffer() : Passed call to fko_get_version()");
         RETURN_ON_FKO_ERROR(err, fko_get_spa_message_type(ctx, &msg_type));
-        debug("dump_ctx_to_buffer() : Passed call to fko_get_spa_message_type()");
         RETURN_ON_FKO_ERROR(err, fko_get_spa_message(ctx, &spa_message));
-        debug("dump_ctx_to_buffer() : Passed call to fko_get_spa_message()");
         RETURN_ON_FKO_ERROR(err, fko_get_spa_nat_access(ctx, &nat_access));
-        debug("dump_ctx_to_buffer() : Passed call to fko_get_spa_nat_access()");
         RETURN_ON_FKO_ERROR(err, fko_get_spa_server_auth(ctx, &server_auth));
-        debug("dump_ctx_to_buffer() : Passed call to fko_get_spa_server_auth()");
         RETURN_ON_FKO_ERROR(err, fko_get_spa_client_timeout(ctx, &client_timeout));
-        debug("dump_ctx_to_buffer() : Passed call to fko_get_spa_client_timeout()");
         RETURN_ON_FKO_ERROR(err, fko_get_spa_digest_type(ctx, &digest_type));
-        debug("dump_ctx_to_buffer() : Passed call to fko_get_spa_digest_type()");
         RETURN_ON_FKO_ERROR(err, fko_get_spa_hmac_type(ctx, &hmac_type));
-        debug("dump_ctx_to_buffer() : Passed call to fko_get_spa_hmac_type()");
         RETURN_ON_FKO_ERROR(err, fko_get_spa_encryption_type(ctx, &encryption_type));
-        debug("dump_ctx_to_buffer() : Passed call to fko_get_spa_encryption_type()");
         RETURN_ON_FKO_ERROR(err, fko_get_spa_encryption_mode(ctx, &encryption_mode));
-        debug("dump_ctx_to_buffer() : Passed call to fko_get_spa_encryption_mode()");
         RETURN_ON_FKO_ERROR(err, fko_get_disable_sdp_mode(ctx, &disable_sdp_mode));
-        debug("dump_ctx_to_buffer() : Passed call to fko_get_disable_sdp_mode()");
         RETURN_ON_FKO_ERROR(err, fko_get_encoded_sdp_client_id(ctx, &encoded_sdp_client_id));
-        debug("dump_ctx_to_buffer() : Passed call to fko_get_encoded_sdp_client_id()");
         RETURN_ON_FKO_ERROR(err, fko_get_encoded_data(ctx, &enc_data));
-        debug("dump_ctx_to_buffer() : Passed call to fko_get_encoded_data()");
         RETURN_ON_FKO_ERROR(err, fko_get_spa_hmac(ctx, &hmac_data));
-        debug("dump_ctx_to_buffer() : Passed call to fko_get_spa_hmac()");
         RETURN_ON_FKO_ERROR(err, fko_get_spa_digest(ctx, &spa_digest));
-        debug("dump_ctx_to_buffer() : Passed call to fko_get_spa_digest()");
         RETURN_ON_FKO_ERROR(err, fko_get_spa_data(ctx, &spa_data));
-        debug("dump_ctx_to_buffer() : Passed call to fko_get_spa_data()");
 
 #if HAVE_LIBGPGME
         if(encryption_mode == FKO_ENC_MODE_ASYMMETRIC)
@@ -886,7 +870,6 @@ dump_ctx_to_buffer(fko_ctx_t ctx, char *dump_buf, size_t dump_buf_len)
         }
 #endif
 
-        debug("dump_ctx_to_buffer() : Passed all get() calls");
 
         /* Convert the digest integer to a string */
         if (digest_inttostr(digest_type, digest_str, sizeof(digest_str)) != 0)

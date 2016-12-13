@@ -36,6 +36,7 @@
 #endif
 
 #include "incoming_spa.h"
+#include "service.h"
 #include "access.h"
 #include "extcmd.h"
 #include "cmd_cycle.h"
@@ -149,37 +150,37 @@ preprocess_spa_data(const fko_srv_options_t *opts, spa_pkt_info_t *spa_pkt)
      */
     if(strncasecmp(opts->config[CONF_DISABLE_SDP_MODE], "N", 1) == 0)
     {
-    	// make space for the decoded string, really need 5 bytes, but 8 will work
-    	decoded_sdp_client_id = calloc(1, FKO_SDP_CLIENT_ID_SIZE*2);
-    	if(decoded_sdp_client_id == NULL)
+        // make space for the decoded string, really need 5 bytes, but 8 will work
+        decoded_sdp_client_id = calloc(1, FKO_SDP_CLIENT_ID_SIZE*2);
+        if(decoded_sdp_client_id == NULL)
             return(FKO_ERROR_MEMORY_ALLOCATION);
 
-    	// Copy out the SDP client ID, NOT extracting yet
-    	encoded_sdp_client_id = strndup((char *)(spa_pkt->packet_data), B64_SDP_CLIENT_ID_STR_LEN);
+        // Copy out the SDP client ID, NOT extracting yet
+        encoded_sdp_client_id = strndup((char *)(spa_pkt->packet_data), B64_SDP_CLIENT_ID_STR_LEN);
 
-    	// decode from b64 to original data
-    	if(1 > fko_base64_decode(encoded_sdp_client_id, (unsigned char*)decoded_sdp_client_id))
-    	{
-    		// decode returned error or at least a zero-length string
-    		free(encoded_sdp_client_id);
-    		free(decoded_sdp_client_id);
-    		return(SPA_MSG_NOT_SPA_DATA);
-    	}
-    	free(encoded_sdp_client_id);
+        // decode from b64 to original data
+        if(1 > fko_base64_decode(encoded_sdp_client_id, (unsigned char*)decoded_sdp_client_id))
+        {
+            // decode returned error or at least a zero-length string
+            free(encoded_sdp_client_id);
+            free(decoded_sdp_client_id);
+            return(SPA_MSG_NOT_SPA_DATA);
+        }
+        free(encoded_sdp_client_id);
 
-    	// copy to a proper uint32_t
-    	memcpy((void*)(&sdp_client_id), decoded_sdp_client_id, FKO_SDP_CLIENT_ID_SIZE);
-    	if(sdp_client_id == 0)
-    	{
-    		// client ID must not be zero
-    		free(decoded_sdp_client_id);
-    		return(SPA_MSG_NOT_SPA_DATA);
-    	}
-    	spa_pkt->sdp_client_id = sdp_client_id;
-    	free(decoded_sdp_client_id);
+        // copy to a proper uint32_t
+        memcpy((void*)(&sdp_client_id), decoded_sdp_client_id, FKO_SDP_CLIENT_ID_SIZE);
+        if(sdp_client_id == 0)
+        {
+            // client ID must not be zero
+            free(decoded_sdp_client_id);
+            return(SPA_MSG_NOT_SPA_DATA);
+        }
+        spa_pkt->sdp_client_id = sdp_client_id;
+        free(decoded_sdp_client_id);
 
-    	// make a string version too
-    	snprintf(spa_pkt->sdp_client_id_str, MAX_SDP_CLIENT_ID_STR_LEN, "%"PRIu32, sdp_client_id);
+        // make a string version too
+        snprintf(spa_pkt->sdp_client_id_str, MAX_SDP_CLIENT_ID_STR_LEN, "%"PRIu32, sdp_client_id);
     }
 
     return(FKO_SUCCESS);
@@ -284,17 +285,17 @@ get_spa_data_fields(fko_ctx_t ctx, spa_data_t *spdat)
     if(res != FKO_SUCCESS)
         return(res);
 
-	res = fko_get_sdp_client_id(ctx, &(spdat->sdp_client_id));
-	if(res != FKO_SUCCESS)
-		return(res);
+    res = fko_get_sdp_client_id(ctx, &(spdat->sdp_client_id));
+    if(res != FKO_SUCCESS)
+        return(res);
 
-	res = fko_get_username(ctx, &(spdat->username));
-	if(res != FKO_SUCCESS)
-		return(res);
+    res = fko_get_username(ctx, &(spdat->username));
+    if(res != FKO_SUCCESS)
+        return(res);
 
-	res = fko_get_version(ctx, &(spdat->version));
-	if(res != FKO_SUCCESS)
-		return(res);
+    res = fko_get_version(ctx, &(spdat->version));
+    if(res != FKO_SUCCESS)
+        return(res);
 
     res = fko_get_timestamp(ctx, &(spdat->timestamp));
     if(res != FKO_SUCCESS)
@@ -316,9 +317,9 @@ get_spa_data_fields(fko_ctx_t ctx, spa_data_t *spdat)
     if(res != FKO_SUCCESS)
         return(res);
 
-	res = fko_get_spa_client_timeout(ctx, (int *)&(spdat->client_timeout));
-	if(res != FKO_SUCCESS)
-		return(res);
+    res = fko_get_spa_client_timeout(ctx, (int *)&(spdat->client_timeout));
+    if(res != FKO_SUCCESS)
+        return(res);
 
     return(res);
 }
@@ -376,7 +377,7 @@ check_stanza_expiration(acc_stanza_t *acc, spa_data_t *spadat,
 static int
 src_check(fko_srv_options_t *opts, spa_pkt_info_t *spa_pkt, spa_data_t *spadat)
 {
-	acc_stanza_t *acc = opts->acc_stanzas;
+    acc_stanza_t *acc = opts->acc_stanzas;
 
     while (acc)
     {
@@ -395,41 +396,41 @@ src_check(fko_srv_options_t *opts, spa_pkt_info_t *spa_pkt, spa_data_t *spadat)
 static int
 sdp_client_id_check(fko_srv_options_t *opts, spa_pkt_info_t *spa_pkt, acc_stanza_t **acc)
 {
-	bstring sdp_client_id = NULL;
+    bstring sdp_client_id = NULL;
 
-	if(spa_pkt->sdp_client_id == 0)
-	{
-		log_msg(LOG_WARNING,
-		        "No access data found for SDP Client ID: %"PRIu32"...obviously",
-				spa_pkt->sdp_client_id);
-		return 0;
-	}
-
-	sdp_client_id = bfromcstr(spa_pkt->sdp_client_id_str);
-	if(sdp_client_id == NULL)
-	{
-		log_msg(LOG_ERR, "Failed to convert sdp_client_id_str to bstring. Value: %s", spa_pkt->sdp_client_id_str);
-		return 0;
-	}
-
-	// lock the hash table mutex
-    if(pthread_mutex_lock(&(opts->acc_hash_tbl_mutex)))
+    if(spa_pkt->sdp_client_id == 0)
     {
-    	log_msg(LOG_ERR, "Mutex lock error.");
-    	return 0;
+        log_msg(LOG_WARNING,
+                "No access data found for SDP Client ID: %"PRIu32"...obviously",
+                spa_pkt->sdp_client_id);
+        return 0;
     }
 
-	*acc = hash_table_get(opts->acc_stanza_hash_tbl, sdp_client_id);
-	pthread_mutex_unlock(&(opts->acc_hash_tbl_mutex));
+    sdp_client_id = bfromcstr(spa_pkt->sdp_client_id_str);
+    if(sdp_client_id == NULL)
+    {
+        log_msg(LOG_ERR, "Failed to convert sdp_client_id_str to bstring. Value: %s", spa_pkt->sdp_client_id_str);
+        return 0;
+    }
 
-	bdestroy(sdp_client_id);
-	if(*acc)
-		return 1;  //found what we were looking for
+    // lock the hash table mutex
+    if(pthread_mutex_lock(&(opts->acc_hash_tbl_mutex)))
+    {
+        log_msg(LOG_ERR, "Mutex lock error.");
+        return 0;
+    }
+
+    *acc = hash_table_get(opts->acc_stanza_hash_tbl, sdp_client_id);
+    pthread_mutex_unlock(&(opts->acc_hash_tbl_mutex));
+
+    bdestroy(sdp_client_id);
+    if(*acc)
+        return 1;  //found what we were looking for
 
     log_msg(LOG_WARNING,
         "No access data found for SDP Client ID: %"PRIu32,
-		spa_pkt->sdp_client_id);
-	return 0;
+        spa_pkt->sdp_client_id);
+    return 0;
 }
 
 
@@ -947,6 +948,25 @@ set_timeout(acc_stanza_t *acc, spa_data_t *spadat)
     return;
 }
 
+
+static int
+check_service_access(fko_srv_options_t *opts, spa_data_t *spadat)
+{
+    int rv = FWKNOPD_SUCCESS;
+    service_data_list_t *service_data_list = NULL;
+
+    // walk through list of service IDs
+    if((rv = get_service_data_list(opts, spadat->spa_message_remain, &service_data_list)) != FWKNOPD_SUCCESS)
+    {
+        log_msg(LOG_ERR, "Issues with requested services.");
+        return 0;
+    }
+
+    spadat->service_data_list = service_data_list;
+    return 1;
+}
+
+
 static int
 check_port_proto(acc_stanza_t *acc, spa_data_t *spadat, const int stanza_num)
 {
@@ -965,7 +985,7 @@ check_port_proto(acc_stanza_t *acc, spa_data_t *spadat, const int stanza_num)
  */
 static int
 process_spa_data(fko_srv_options_t *opts, fko_ctx_t *ctx, acc_stanza_t *acc, spa_pkt_info_t *spa_pkt, spa_data_t *spadat,
-					int stanza_num, char *raw_digest, int conf_pkt_age)
+                    int stanza_num, char *raw_digest, int conf_pkt_age)
 {
     int res                 = FKO_SUCCESS;
     int added_replay_digest = 0;
@@ -974,6 +994,7 @@ process_spa_data(fko_srv_options_t *opts, fko_ctx_t *ctx, acc_stanza_t *acc, spa
     int enc_type            = 0;
     char *spa_ip_demark     = NULL;
     char dump_buf[CTX_DUMP_BUFSIZE];
+    short msg_type          = 0;
 
     /* Check for a match for the SPA source and destination IP and the access stanza
     */
@@ -1038,7 +1059,23 @@ process_spa_data(fko_srv_options_t *opts, fko_ctx_t *ctx, acc_stanza_t *acc, spa
     else
         log_msg(LOG_WARNING, "Unable to dump FKO context: %s", fko_errstr(res));
 
-    /* First, if this is a GPG message, and GPG_REMOTE_ID list is not empty,
+    /* First, check if the SPA message type is currently permitted.
+     */
+    if((res = fko_get_spa_message_type(*ctx, &msg_type)) != FKO_SUCCESS)
+    	return STOP_SEARCHING;
+
+    if(msg_type != FKO_SERVICE_ACCESS_MSG &&
+       msg_type != FKO_CLIENT_TIMEOUT_SERVICE_ACCESS_MSG &&
+       msg_type != FKO_COMMAND_MSG &&
+       strncasecmp(opts->config[CONF_ALLOW_LEGACY_ACCESS_REQUESTS], "N", 1) == 0)
+    {
+        log_msg(LOG_ERR,
+                "[%s] SPA packet made legacy access request, server configured to deny.",
+                spadat->pkt_source_ip);
+        return STOP_SEARCHING;
+    }
+
+    /* Next, if this is a GPG message, and GPG_REMOTE_ID list is not empty,
      * then we need to make sure this incoming message is signer ID matches
      * an entry in the list.
     */
@@ -1123,10 +1160,10 @@ process_spa_data(fko_srv_options_t *opts, fko_ctx_t *ctx, acc_stanza_t *acc, spa
     */
     if(strncasecmp(opts->config[CONF_DISABLE_SDP_MODE], "Y", 1) == 0)
     {
-		if(! check_username(acc, spadat, stanza_num))
-		{
-			return KEEP_SEARCHING;
-		}
+        if(! check_username(acc, spadat, stanza_num))
+        {
+            return KEEP_SEARCHING;
+        }
     }
 
     /* Take action based on SPA message type.
@@ -1164,13 +1201,19 @@ process_spa_data(fko_srv_options_t *opts, fko_ctx_t *ctx, acc_stanza_t *acc, spa
 
     /* From this point forward, we have some kind of access message. So
      * we first see if access is allowed by checking access against
-     * restrict_ports and open_ports.
+     * permitted services if applicable or else restrict_ports and
+     * open_ports.
      *
-     *  --DSS TODO: We should add BLACKLIST support here as well.
     */
-    if(! check_port_proto(acc, spadat, stanza_num))
+    if(msg_type == FKO_SERVICE_ACCESS_MSG ||
+       msg_type == FKO_CLIENT_TIMEOUT_SERVICE_ACCESS_MSG)
     {
-    	return KEEP_SEARCHING;
+        if(! check_service_access(opts, spadat))
+            return STOP_SEARCHING;
+    }
+    else if(! check_port_proto(acc, spadat, stanza_num))
+    {
+        return KEEP_SEARCHING;
     }
 
     /* At this point, we process the SPA request and break out of the
@@ -1193,7 +1236,7 @@ process_spa_data(fko_srv_options_t *opts, fko_ctx_t *ctx, acc_stanza_t *acc, spa
                 return STOP_SEARCHING; /* successfully processed a matching access stanza */
             else
             {
-            	return KEEP_SEARCHING;
+                return KEEP_SEARCHING;
             }
         }
         else
@@ -1204,6 +1247,7 @@ process_spa_data(fko_srv_options_t *opts, fko_ctx_t *ctx, acc_stanza_t *acc, spa
 
     return STOP_SEARCHING;
 }
+
 
 /* Process the SPA packet data
 */
@@ -1230,6 +1274,8 @@ incoming_spa(fko_srv_options_t *opts)
 
     log_msg(LOG_DEBUG, "incoming_spa() : just arrived, stay tuned");
 
+    spadat.service_data_list = NULL;
+
     inet_ntop(AF_INET, &(spa_pkt->packet_src_ip),
         spadat.pkt_source_ip, sizeof(spadat.pkt_source_ip));
 
@@ -1241,20 +1287,20 @@ incoming_spa(fko_srv_options_t *opts)
      * try to eliminate obvious non-spa packets).
     */
     if(! precheck_pkt(opts, spa_pkt, &spadat))
-    	goto cleanup;
+        goto cleanup;
 
     if(! replay_check(opts, spa_pkt, &raw_digest))
-    	goto cleanup;
+        goto cleanup;
 
     if(strncasecmp(opts->config[CONF_DISABLE_SDP_MODE], "Y", 1) == 0)
     {
-		if(! src_check(opts, spa_pkt, &spadat))
-			goto cleanup;
+        if(! src_check(opts, spa_pkt, &spadat))
+            goto cleanup;
     }
     else
     {
-    	if(! sdp_client_id_check(opts, spa_pkt, &acc))
-    		goto cleanup;
+        if(! sdp_client_id_check(opts, spa_pkt, &acc))
+            goto cleanup;
     }
 
     if(strncasecmp(opts->config[CONF_ENABLE_SPA_PACKET_AGING], "Y", 1) == 0)
@@ -1275,37 +1321,37 @@ incoming_spa(fko_srv_options_t *opts)
 
     if(strncasecmp(opts->config[CONF_DISABLE_SDP_MODE], "Y", 1) == 0)
     {
-		acc = opts->acc_stanzas;
-		/* Loop through all access stanzas looking for a match
-		*/
-		while(acc)
-		{
-			stanza_num++;
+        acc = opts->acc_stanzas;
+        /* Loop through all access stanzas looking for a match
+        */
+        while(acc)
+        {
+            stanza_num++;
 
-			if( process_spa_data(opts, &ctx, acc, spa_pkt, &spadat, stanza_num,
-					raw_digest, conf_pkt_age) == KEEP_SEARCHING )
-			{
-			    if(ctx != NULL)
-			    {
-			        if(fko_destroy(ctx) == FKO_ERROR_ZERO_OUT_DATA)
-			            log_msg(LOG_WARNING,
-			                "[%s] (stanza #%d) fko_destroy() could not zero out sensitive data buffer.",
-			                spadat.pkt_source_ip, stanza_num
-			            );
-			        ctx = NULL;
-			    }
+            if( process_spa_data(opts, &ctx, acc, spa_pkt, &spadat, stanza_num,
+                    raw_digest, conf_pkt_age) == KEEP_SEARCHING )
+            {
+                if(ctx != NULL)
+                {
+                    if(fko_destroy(ctx) == FKO_ERROR_ZERO_OUT_DATA)
+                        log_msg(LOG_WARNING,
+                            "[%s] (stanza #%d) fko_destroy() could not zero out sensitive data buffer.",
+                            spadat.pkt_source_ip, stanza_num
+                        );
+                    ctx = NULL;
+                }
 
-			    acc = acc->next;
-			}
-			else
-			{
-				break;
-			}
-		}
+                acc = acc->next;
+            }
+            else
+            {
+                break;
+            }
+        }
     }
     else
     {
-    	process_spa_data(opts, &ctx, acc, spa_pkt, &spadat, stanza_num, raw_digest, conf_pkt_age);
+        process_spa_data(opts, &ctx, acc, spa_pkt, &spadat, stanza_num, raw_digest, conf_pkt_age);
     }
 
 cleanup:
@@ -1321,6 +1367,11 @@ cleanup:
             );
         ctx = NULL;
     }
+
+	if(spadat.service_data_list != NULL)
+	{
+		free_service_data_list(spadat.service_data_list);
+	}
 
     return;
 }

@@ -43,11 +43,11 @@ extern "C" {
   #ifdef DLL_EXPORTS
     #define DLL_API __declspec(dllexport)
   #else
-	#ifdef DLL_IMPORTS
-		#define DLL_API __declspec(dllimport)
-	#else
-		#define DLL_API
-	#endif
+    #ifdef DLL_IMPORTS
+        #define DLL_API __declspec(dllimport)
+    #else
+        #define DLL_API
+    #endif
   #endif
 #else
   #define DLL_API
@@ -61,6 +61,8 @@ extern "C" {
 */
 typedef enum {
     FKO_COMMAND_MSG = 0,
+    FKO_SERVICE_ACCESS_MSG,
+    FKO_CLIENT_TIMEOUT_SERVICE_ACCESS_MSG,
     FKO_ACCESS_MSG,
     FKO_NAT_ACCESS_MSG,
     FKO_CLIENT_TIMEOUT_ACCESS_MSG,
@@ -350,7 +352,7 @@ DLL_API int fko_new(fko_ctx_t *ctx);
 DLL_API int fko_new_with_data(fko_ctx_t *ctx, const char * const enc_msg,
     const char * const dec_key, const int dec_key_len, int encryption_mode,
     const char * const hmac_key, const int hmac_key_len, const int hmac_type,
-	const uint32_t sdp_client_id);
+    const uint32_t sdp_client_id);
 DLL_API int fko_destroy(fko_ctx_t ctx);
 DLL_API int fko_spa_data_final(fko_ctx_t ctx, const char * const enc_key,
     const int enc_key_len, const char * const hmac_key, const int hmac_key_len);

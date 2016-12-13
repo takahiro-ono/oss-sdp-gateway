@@ -989,6 +989,22 @@ validate_options(fko_srv_options_t *opts)
         clean_exit(opts, NO_FW_CLEANUP, EXIT_FAILURE);
     }
 
+    /* SDP Mode
+    */
+    if(opts->config[CONF_ALLOW_LEGACY_ACCESS_REQUESTS] == NULL)
+    {
+        set_config_entry(opts, CONF_ALLOW_LEGACY_ACCESS_REQUESTS, DEF_ALLOW_LEGACY_ACCESS_REQUESTS);
+    }
+    else if(
+            strncasecmp(opts->config[CONF_ALLOW_LEGACY_ACCESS_REQUESTS], "N", 1) != 0  &&
+            strncasecmp(opts->config[CONF_ALLOW_LEGACY_ACCESS_REQUESTS], "Y", 1) != 0
+           )
+    {
+        log_msg(LOG_ERR, "[*] var ALLOW_LEGACY_ACCESS_REQUESTS value '%s' not accepted, must be Y or N",
+                opts->config[CONF_ALLOW_LEGACY_ACCESS_REQUESTS]);
+        clean_exit(opts, NO_FW_CLEANUP, EXIT_FAILURE);
+    }
+
     /* Access Stanza Hash Table Length
      */
     if(opts->config[CONF_ACC_STANZA_HASH_TABLE_LENGTH] == NULL)
@@ -1356,6 +1372,9 @@ config_init(fko_srv_options_t *opts, int argc, char **argv)
                 break;
             case DISABLE_SDP_MODE:
                 set_config_entry(opts, CONF_DISABLE_SDP_MODE, "Y");
+                break;
+            case ALLOW_LEGACY_ACCESS_REQUESTS:
+                set_config_entry(opts, CONF_ALLOW_LEGACY_ACCESS_REQUESTS, "Y");
                 break;
             case DISABLE_SDP_CTRL_CLIENT:
                 set_config_entry(opts, CONF_DISABLE_SDP_CTRL_CLIENT, "Y");

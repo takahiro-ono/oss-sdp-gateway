@@ -171,6 +171,7 @@ INSERT INTO `gateway_controller` (`id`, `gateway_sdpid`, `controller_sdpid`) VAL
 
 CREATE TABLE IF NOT EXISTS `group` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
+  `valid` tinyint(4) NOT NULL DEFAULT '1',
   `name` varchar(1024) COLLATE utf8_bin NOT NULL,
   `Description` varchar(4096) COLLATE utf8_bin NOT NULL,
   PRIMARY KEY (`id`)
@@ -451,7 +452,6 @@ CREATE TABLE IF NOT EXISTS `service` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `name` varchar(1024) COLLATE utf8_bin NOT NULL,
   `description` varchar(4096) COLLATE utf8_bin NOT NULL,
-  `protocol` varchar(4) COLLATE utf8_bin NOT NULL DEFAULT 'TCP' COMMENT 'TCP, UDP',
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB  DEFAULT CHARSET=utf8 COLLATE=utf8_bin AUTO_INCREMENT=6 ;
 
@@ -489,7 +489,7 @@ CREATE TABLE IF NOT EXISTS `service_gateway` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `service_id` int(11) NOT NULL,
   `gateway_sdpid` int(11) NOT NULL,
-  `protocol_port` char(12) COLLATE utf8_bin NOT NULL COMMENT 'tcp/22  protocol and port service listens on',
+  `protocol` tinytext COLLATE utf8_bin NOT NULL COMMENT 'TCP, UDP',
   `port` int(10) unsigned NOT NULL,
   `nat_ip` varchar(128) COLLATE utf8_bin NOT NULL DEFAULT '' COMMENT '1.1.1.1   internal IP address',
   `nat_port` int(10) unsigned NOT NULL DEFAULT '0',
@@ -510,11 +510,11 @@ CREATE TABLE IF NOT EXISTS `service_gateway` (
 -- Dumping data for table `service_gateway`
 --
 
-INSERT INTO `service_gateway` (`id`, `service_id`, `gateway_sdpid`, `protocol_port`, `port`, `nat_ip`, `nat_port`) VALUES
-(1, 1, 222, 'tcp/5000', 5000, '', 0),
-(2, 2, 222, 'tcp/22', 22, '', 0),
-(3, 3, 222, 'tcp/25', 25, '192.168.1.250', 54321),
-(4, 4, 222, 'tcp/80', 80, '192.168.1.201', 80);
+INSERT INTO `service_gateway` (`id`, `service_id`, `gateway_sdpid`, `protocol`, `port`, `nat_ip`, `nat_port`) VALUES
+(1, 1, 222, 'TCP', 5000, '', 0),
+(2, 2, 222, 'TCP', 22, '', 0),
+(3, 3, 222, 'TCP', 25, '192.168.1.250', 54321),
+(4, 4, 222, 'TCP', 80, '', 0);
 
 --
 -- Triggers `service_gateway`

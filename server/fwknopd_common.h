@@ -124,6 +124,7 @@
 #define DEF_SYSLOG_FACILITY             "LOG_DAEMON"
 #define DEF_ENABLE_DESTINATION_RULE     "N"
 #define DEF_DISABLE_SDP_MODE            "N"
+#define DEF_ALLOW_LEGACY_ACCESS_REQUESTS "N"
 #define DEF_DISABLE_SDP_CTRL_CLIENT     "N"
 #define DEF_DISABLE_CONNECTION_TRACKING "N"
 #define DEF_MAX_WAIT_ACC_DATA           "30"
@@ -345,17 +346,18 @@ enum {
     CONF_AFL_PKT_FILE,
 #endif
     CONF_FAULT_INJECTION_TAG,
-	CONF_DISABLE_SDP_MODE,
-	CONF_ACC_STANZA_HASH_TABLE_LENGTH,
-	CONF_SERVICE_HASH_TABLE_LENGTH,
-	CONF_DISABLE_SDP_CTRL_CLIENT,
-	CONF_DISABLE_CONNECTION_TRACKING,
-	CONF_CONN_ID_FILE,
-	CONF_CONN_REPORT_INTERVAL,
-	CONF_MAX_WAIT_ACC_DATA,
-	CONF_SDP_CTRL_CLIENT_CONF,
-	CONF_FWKNOP_CLIENT_CONF,
-	CONF_CONFIG_DUMP_OUTPUT_PATH,
+    CONF_DISABLE_SDP_MODE,
+    CONF_ALLOW_LEGACY_ACCESS_REQUESTS,
+    CONF_ACC_STANZA_HASH_TABLE_LENGTH,
+    CONF_SERVICE_HASH_TABLE_LENGTH,
+    CONF_DISABLE_SDP_CTRL_CLIENT,
+    CONF_DISABLE_CONNECTION_TRACKING,
+    CONF_CONN_ID_FILE,
+    CONF_CONN_REPORT_INTERVAL,
+    CONF_MAX_WAIT_ACC_DATA,
+    CONF_SDP_CTRL_CLIENT_CONF,
+    CONF_FWKNOP_CLIENT_CONF,
+    CONF_CONFIG_DUMP_OUTPUT_PATH,
 
     NUMBER_OF_CONFIG_ENTRIES  /* Marks the end and number of entries */
 };
@@ -393,17 +395,17 @@ typedef struct acc_string_list
  */
 typedef struct acc_service_list
 {
-	uint32_t             service_id;
-	struct acc_service_list *next;
+    uint32_t             service_id;
+    struct acc_service_list *next;
 } acc_service_list_t;
 
 /* Access stanza list struct.
 */
 typedef struct acc_stanza
 {
-	uint32_t			 sdp_client_id;
-	char                *service_list_str;
-	acc_service_list_t  *service_list;
+    uint32_t             sdp_client_id;
+    char                *service_list_str;
+    acc_service_list_t  *service_list;
     char                *source;
     acc_int_list_t      *source_list;
     char                *destination;
@@ -611,6 +613,24 @@ typedef struct cmd_cycle_list
 
 #endif /* FIREWALL type */
 
+
+typedef struct service_data
+{
+    uint32_t service_id;
+    unsigned int  proto;
+    unsigned int  port;
+    char nat_ip_str[MAX_IPV4_STR_LEN];
+    unsigned int  nat_port;
+} service_data_t;
+
+typedef struct service_data_list
+{
+    service_data_t *service_data;
+    struct service_data_list *next;
+} service_data_list_t;
+
+
+
 /* SPA Packet info struct.
 */
 typedef struct spa_pkt_info
@@ -630,7 +650,7 @@ typedef struct spa_pkt_info
 */
 typedef struct spa_data
 {
-	uint32_t	    sdp_client_id;
+    uint32_t        sdp_client_id;
     char           *username;
     time_t          timestamp;
     char           *version;
@@ -646,17 +666,8 @@ typedef struct spa_data
     unsigned int    client_timeout;
     unsigned int    fw_access_timeout;
     char            *use_src_ip;
+    service_data_list_t *service_data_list;
 } spa_data_t;
-
-typedef struct service_data
-{
-	uint32_t service_id;
-	unsigned int  proto;
-	unsigned int  port;
-	char nat_ip_str[MAX_IPV4_STR_LEN];
-	unsigned int  nat_port;
-} service_data_t;
-
 
 /* fwknopd server configuration parameters and values
 */

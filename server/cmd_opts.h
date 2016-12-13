@@ -136,6 +136,7 @@ static char *config_map[NUMBER_OF_CONFIG_ENTRIES] = {
 #endif
     "FAULT_INJECTION_TAG",
 	"DISABLE_SDP_MODE",
+	"ALLOW_LEGACY_ACCESS_REQUESTS",
 	"ACC_STANZA_HASH_TABLE_LENGTH",
 	"SERVICE_HASH_TABLE_LENGTH",
 	"DISABLE_SDP_CTRL_CLIENT",
@@ -173,6 +174,7 @@ enum {
     EXIT_AFTER_PARSE_CONFIG,
     FAULT_INJECTION_TAG,
     DISABLE_SDP_MODE,
+	ALLOW_LEGACY_ACCESS_REQUESTS,
 	ACC_STANZA_HASH_TABLE_LENGTH,
 	SERVICE_HASH_TABLE_LENGTH,
 	DISABLE_SDP_CTRL_CLIENT,
@@ -203,6 +205,7 @@ static struct option cmd_opts[] =
     {"packet-limit",         1, NULL, 'C'},
     {"digest-file",          1, NULL, 'd'},
     {"disable-sdp",          0, NULL, DISABLE_SDP_MODE},
+    {"allow-legacy-spa",     0, NULL, ALLOW_LEGACY_ACCESS_REQUESTS},
 	{"disable-ctrl-client",  0, NULL, DISABLE_SDP_CTRL_CLIENT},
     {"disable-conn-track",   0, NULL, DISABLE_CONNECTION_TRACKING},
 	{"conn-id-file",         1, NULL, CONN_ID_FILE},

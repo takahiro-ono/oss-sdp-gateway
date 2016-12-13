@@ -73,6 +73,40 @@ have_allow_ip(const char *msg)
 }
 
 static int
+have_service_id(const char *msg)
+{
+    const char  *ndx = msg;
+    char        service_id_str[MAX_SERVICE_ID_STR_LEN+1] = {0};
+    int         startlen = strnlen(msg, MAX_SPA_MESSAGE_SIZE);
+    int         service_id_str_len=0, i=0, is_err;
+
+    if(startlen == MAX_SPA_MESSAGE_SIZE)
+        return(FKO_ERROR_INVALID_DATA_MESSAGE_PORT_MISSING);
+
+    /* Must have at least one digit for the service id
+    */
+    if(isdigit(*ndx) == 0)
+        return(FKO_ERROR_INVALID_SPA_ACCESS_MSG);
+
+    while(*ndx != '\0' && *ndx != ',')
+    {
+    	service_id_str_len++;
+        if((isdigit(*ndx) == 0) || (service_id_str_len > MAX_SERVICE_ID_STR_LEN))
+            return(FKO_ERROR_INVALID_SPA_ACCESS_MSG);
+        service_id_str[i] = *ndx;
+        ndx++;
+        i++;
+    }
+    service_id_str[i] = '\0';
+
+    strtoul_wrapper(service_id_str, 1, UINT32_MAX, NO_EXIT_UPON_ERR, &is_err);
+    if(is_err != FKO_SUCCESS)
+        return(FKO_ERROR_INVALID_SPA_ACCESS_MSG);
+
+    return FKO_SUCCESS;
+}
+
+static int
 have_port(const char *msg)
 {
     const char  *ndx = msg;
@@ -189,6 +223,9 @@ fko_set_spa_message(fko_ctx_t ctx, const char * const msg)
     */
     if(ctx->message_type == FKO_COMMAND_MSG)
         res = validate_cmd_msg(msg);
+    else if(ctx->message_type == FKO_SERVICE_ACCESS_MSG ||
+    		ctx->message_type == FKO_CLIENT_TIMEOUT_SERVICE_ACCESS_MSG)
+    	res = validate_service_access_msg(msg);
     else
         res = validate_access_msg(msg);
 
@@ -265,6 +302,40 @@ validate_cmd_msg(const char *msg)
 
     return(FKO_SUCCESS);
 }
+
+
+int
+validate_service_access_msg(const char *msg)
+{
+    const char   *ndx;
+    int     res         = FKO_SUCCESS;
+    int     startlen    = strnlen(msg, MAX_SPA_MESSAGE_SIZE);
+
+    if(startlen == MAX_SPA_MESSAGE_SIZE)
+        return(FKO_ERROR_INVALID_DATA_MESSAGE_ACCESS_MISSING);
+
+    /* Should always have a valid allow IP regardless of message type
+    */
+    if((res = have_allow_ip(msg)) != FKO_SUCCESS)
+        return(res);
+
+    /* Position ourselves beyond the allow IP and make sure we are
+     * still good.
+    */
+    ndx = strchr(msg, ',');
+    if(ndx == NULL || (1+(ndx - msg)) >= startlen)
+        return(FKO_ERROR_INVALID_SPA_ACCESS_MSG);
+
+    do {
+        ndx++;
+        res = have_service_id(ndx);
+        if(res != FKO_SUCCESS)
+            break;
+    } while((ndx = strchr(ndx, ',')));
+
+    return(res);
+}
+
 
 int
 validate_access_msg(const char *msg)

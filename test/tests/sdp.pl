@@ -183,6 +183,7 @@
         'fwknopd_cmdline'  => "$fwknopdCmd $default_server_conf_args_sdp $intf_str",
         'no_ip_check' => 1,
         'fw_rule_created' => $NEW_RULE_REQUIRED,
+        'fw_rule_removed' => $REQUIRE_NO_NEW_REMOVED,
         'client_positive_output_matches' =>
             [qr/sdp_com.*Failed to send SPA/],
         'server_positive_output_matches' => 

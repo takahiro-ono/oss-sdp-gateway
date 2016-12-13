@@ -63,6 +63,8 @@
 #define MAX_PORT_STR_LEN              5
 #define MAX_PORT                  65535
 
+#define MAX_SERVICE_ID_STR_LEN       11
+
 /* Misc.
 */
 #define FKO_ENCODE_TMP_BUF_SIZE    1024

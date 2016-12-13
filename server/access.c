@@ -1074,6 +1074,15 @@ expand_one_acc_ent_list(acc_stanza_t *acc)
         }
     }
 
+    if(acc->service_list_str != NULL && strlen(acc->service_list_str))
+    {
+        if(expand_acc_service_list(&(acc->service_list), acc->service_list_str) == 0)
+        {
+            log_msg(LOG_ERR, "[*] Fatal invalid SERVICE_LIST in access stanza");
+            return 0;
+        }
+    }
+
     /* Now expand the open_ports string.
     */
     if(acc->open_ports != NULL && strlen(acc->open_ports))
@@ -2577,6 +2586,8 @@ parse_access_file(fko_srv_options_t *opts)
         }
         else if(CONF_VAR_IS(var, "DESTINATION"))
             add_acc_string(&(curr_acc->destination), val, file_ptr, opts);
+        else if(CONF_VAR_IS(var, "SERVICE_LIST"))
+            add_acc_string(&(curr_acc->service_list_str), val, file_ptr, opts);
         else if(CONF_VAR_IS(var, "OPEN_PORTS"))
             add_acc_string(&(curr_acc->open_ports), val, file_ptr, opts);
         else if(CONF_VAR_IS(var, "RESTRICT_PORTS"))

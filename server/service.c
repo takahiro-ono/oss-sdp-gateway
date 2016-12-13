@@ -543,10 +543,12 @@ int process_service_msg(fko_srv_options_t *opts, int action, json_object *jdata)
 
 
 // look up service info
-service_data_t* get_service_data(fko_srv_options_t *opts, uint32_t service_id)
+int get_service_data(fko_srv_options_t *opts, uint32_t service_id, service_data_t**r_service_data)
 {
+    int rv = FWKNOPD_SUCCESS;
     bstring key = NULL;
     service_data_t *service_data = NULL;
+    service_data_t *copy_service_data = NULL;
     char id[SDP_MAX_SERVICE_ID_STR_LEN + 1] = {0};
 
     // convert the service id integer to a bstring
@@ -558,7 +560,8 @@ service_data_t* get_service_data(fko_srv_options_t *opts, uint32_t service_id)
     {
         log_msg(LOG_ERR, "Service table mutex lock error.");
         bdestroy(key);
-        return NULL;
+        *r_service_data = NULL;
+        return FWKNOPD_ERROR_BAD_SERVICE_DATA;
     }
 
     service_data = hash_table_get(opts->service_hash_tbl, key);
@@ -572,9 +575,173 @@ service_data_t* get_service_data(fko_srv_options_t *opts, uint32_t service_id)
             "Did not find service hash table node for service id %"PRIu32,
             service_id
         );
+        *r_service_data = NULL;
+        return FWKNOPD_ERROR_BAD_SERVICE_DATA;
+    }
+    else
+    {
+        if((copy_service_data = calloc(1, sizeof(service_data_t))) == NULL)
+        {
+            log_msg(LOG_ERR, "Fatal memory error creating service_data_t object");
+            return FWKNOPD_ERROR_MEMORY_ALLOCATION;
+        }
+
+        copy_service_data->service_id = service_data->service_id;
+        copy_service_data->proto      = service_data->proto;
+        copy_service_data->port       = service_data->port;
+        copy_service_data->nat_port   = service_data->nat_port;
+        strncpy(copy_service_data->nat_ip_str, service_data->nat_ip_str, MAX_IPV4_STR_LEN);
+
+        *r_service_data = copy_service_data;
     }
 
-    return service_data;
+    return rv;
+}
+
+void free_service_data_list(service_data_list_t *service_data_list)
+{
+    service_data_list_t *next = NULL;
+
+    while(service_data_list != NULL)
+    {
+        next = service_data_list->next;
+        if(service_data_list->service_data != NULL)
+            free(service_data_list->service_data);
+
+        free(service_data_list);
+        service_data_list = next;
+    }
+}
+
+
+int get_service_data_list(fko_srv_options_t *opts, char *service_str, service_data_list_t **r_service_data_list)
+{
+    int rv = FWKNOPD_SUCCESS, ctr = 0;
+    const int buf_len = SDP_MAX_SERVICE_ID_STR_LEN + 1;
+    char  buf[SDP_MAX_SERVICE_ID_STR_LEN + 1] = {0};
+    char *ndx, *start;
+    service_data_list_t *service_data_list = NULL;
+    service_data_list_t *new_guy = NULL;
+    service_data_list_t *last_guy = NULL;
+    service_data_t *service_data = NULL;
+    int id = 0, is_err = 0;
+
+    start = service_str;
+
+    for(ndx = start; *ndx != '\0'; ndx++)
+    {
+        if(*ndx == ',')
+        {
+            if((ctr >= buf_len)
+                    || (((ndx-start)+1) >= buf_len))
+            {
+                log_msg(LOG_ERR,
+                        "[*] Unable to create service_data_list from incoming data: %s",
+                        service_str);
+                rv = FWKNOPD_ERROR_BAD_SERVICE_DATA;
+                goto cleanup;
+            }
+            strlcpy(buf, start, (ndx-start)+1);
+
+            if((id = strtoul_wrapper(buf, 0, UINT32_MAX, NO_EXIT_UPON_ERR, &is_err)) == 0)
+            {
+                log_msg(LOG_ERR,
+                        "get_service_data_list() did not find valid service id number in buf %s",
+                        buf);
+                rv = FWKNOPD_ERROR_BAD_SERVICE_DATA;
+                goto cleanup;
+            }
+            else if((rv = get_service_data(opts, id, &service_data)) == FWKNOPD_ERROR_MEMORY_ALLOCATION)
+            {
+                goto cleanup;
+            }
+            else if(rv == FWKNOPD_SUCCESS && service_data != NULL)
+            {
+            	if((new_guy = calloc(1, sizeof(service_data_list_t))) == NULL)
+            	{
+            		free(service_data);
+                    rv = FWKNOPD_ERROR_MEMORY_ALLOCATION;
+                    goto cleanup;
+            	}
+
+            	new_guy->service_data = service_data;
+
+                if(service_data_list == NULL)
+                {
+                    service_data_list = new_guy;
+                }
+                else
+                {
+                    last_guy->next = new_guy;
+                }
+
+                last_guy = new_guy;
+                new_guy = NULL;
+            }
+
+            start = ndx+1;
+            ctr = 0;
+        }
+        ctr++;
+    }
+
+    if((ctr >= buf_len)
+            || (((ndx-start)+1) >= buf_len))
+    {
+        log_msg(LOG_ERR,
+                "[*] Unable to create service_data_list from incoming data: %s",
+                service_str);
+        rv = FWKNOPD_ERROR_BAD_SERVICE_DATA;
+        goto cleanup;
+    }
+    strlcpy(buf, start, (ndx-start)+1);
+
+    if((id = strtoul_wrapper(buf, 0, UINT32_MAX, NO_EXIT_UPON_ERR, &is_err)) == 0)
+    {
+        log_msg(LOG_ERR,
+                "get_service_data_list() did not find valid service id number in buf %s",
+                buf);
+        rv = FWKNOPD_ERROR_BAD_SERVICE_DATA;
+        goto cleanup;
+    }
+    else if((rv = get_service_data(opts, id, &service_data)) == FWKNOPD_ERROR_MEMORY_ALLOCATION)
+    {
+        goto cleanup;
+    }
+    else if(rv == FWKNOPD_SUCCESS && service_data != NULL)
+    {
+    	if((new_guy = calloc(1, sizeof(service_data_list_t))) == NULL)
+    	{
+    		free(service_data);
+            rv = FWKNOPD_ERROR_MEMORY_ALLOCATION;
+            goto cleanup;
+    	}
+
+    	new_guy->service_data = service_data;
+
+        if(service_data_list == NULL)
+        {
+            service_data_list = new_guy;
+        }
+        else
+        {
+            last_guy->next = new_guy;
+        }
+    }
+
+    if(service_data_list == NULL)
+    {
+        *r_service_data_list = NULL;
+        return FWKNOPD_ERROR_BAD_SERVICE_DATA;
+    }
+
+    *r_service_data_list = service_data_list;
+    return FWKNOPD_SUCCESS;
+
+cleanup:
+    free_service_data_list(service_data_list);
+    *r_service_data_list = NULL;
+    return rv;
 }
 
 

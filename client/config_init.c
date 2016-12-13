@@ -135,10 +135,11 @@ enum
     FWKNOP_CLI_ARG_RESOLVE_HTTP_ONLY,
     FWKNOP_CLI_ARG_WGET_CMD,
     FWKNOP_CLI_ARG_NO_SAVE_ARGS,
-	FWKNOP_CLI_ARG_DISABLE_SDP_MODE,
-	FWKNOP_CLI_ARG_SDP_CLIENT_ID,
-	FWKNOP_CLI_ARG_DISABLE_SDP_CTRL_CLIENT,
-	FWKNOP_CLI_ARG_SDP_CTRL_CLIENT_CONF,
+    FWKNOP_CLI_ARG_DISABLE_SDP_MODE,
+    FWKNOP_CLI_ARG_SDP_CLIENT_ID,
+    FWKNOP_CLI_ARG_SERVICE_IDS,
+    FWKNOP_CLI_ARG_DISABLE_SDP_CTRL_CLIENT,
+    FWKNOP_CLI_ARG_SDP_CTRL_CLIENT_CONF,
     FWKNOP_CLI_LAST_ARG
 } fwknop_cli_arg_t;
 
@@ -188,10 +189,11 @@ static fko_var_t fko_var_array[FWKNOP_CLI_LAST_ARG] =
     { "RESOLVE_HTTP_ONLY",     FWKNOP_CLI_ARG_RESOLVE_HTTP_ONLY     },
     { "WGET_CMD",              FWKNOP_CLI_ARG_WGET_CMD              },
     { "NO_SAVE_ARGS",          FWKNOP_CLI_ARG_NO_SAVE_ARGS          },
-	{ "DISABLE_SDP_MODE",      FWKNOP_CLI_ARG_DISABLE_SDP_MODE      },
-    { "SDP_CLIENT_ID", 		   FWKNOP_CLI_ARG_SDP_CLIENT_ID 		},
-	{ "DISABLE_CTRL_CLIENT",   FWKNOP_CLI_ARG_DISABLE_SDP_CTRL_CLIENT},
-	{ "SDP_CTRL_CLIENT_CONF",  FWKNOP_CLI_ARG_SDP_CTRL_CLIENT_CONF  }
+    { "DISABLE_SDP_MODE",      FWKNOP_CLI_ARG_DISABLE_SDP_MODE      },
+    { "SDP_CLIENT_ID",            FWKNOP_CLI_ARG_SDP_CLIENT_ID         },
+    { "SERVICE_IDS",            FWKNOP_CLI_ARG_SERVICE_IDS           },
+    { "DISABLE_CTRL_CLIENT",   FWKNOP_CLI_ARG_DISABLE_SDP_CTRL_CLIENT},
+    { "SDP_CTRL_CLIENT_CONF",  FWKNOP_CLI_ARG_SDP_CTRL_CLIENT_CONF  }
 
 };
 
@@ -1312,7 +1314,7 @@ parse_rc_param(fko_cli_options_t *options, const char *var_name, char * val)
         if (is_yes_str(val))
             options->disable_sdp_mode = 1;
         else
-        	options->disable_sdp_mode = 0;
+            options->disable_sdp_mode = 0;
     }
     /* SDP Client ID */
     else if (var->pos == FWKNOP_CLI_ARG_SDP_CLIENT_ID)
@@ -1323,11 +1325,17 @@ parse_rc_param(fko_cli_options_t *options, const char *var_name, char * val)
         else
             parse_error = -1;
     }
+    /* Service ID */
+    else if (var->pos == FWKNOP_CLI_ARG_SERVICE_IDS)
+    {
+        strlcpy(options->service_ids_str,
+                val, sizeof(options->service_ids_str));
+    }
     /* SDP Ctrl Client Config File */
     else if (var->pos == FWKNOP_CLI_ARG_SDP_CTRL_CLIENT_CONF)
     {
-    	strlcpy(options->sdp_ctrl_client_config_file,
-    			val, sizeof(options->sdp_ctrl_client_config_file));
+        strlcpy(options->sdp_ctrl_client_config_file,
+                val, sizeof(options->sdp_ctrl_client_config_file));
     }
     /* Disable SDP Ctrl Client */
     else if (var->pos == FWKNOP_CLI_ARG_DISABLE_SDP_CTRL_CLIENT)
@@ -1335,7 +1343,7 @@ parse_rc_param(fko_cli_options_t *options, const char *var_name, char * val)
         if (is_yes_str(val))
             options->disable_sdp_ctrl_client = 1;
         else
-        	options->disable_sdp_ctrl_client = 0;
+            options->disable_sdp_ctrl_client = 0;
     }
 
     /* The variable is not a configuration variable */
@@ -1510,10 +1518,16 @@ add_single_var_to_rc(FILE* fhandle, short var_pos, fko_cli_options_t *options)
             bool_to_yesno(options->no_save_args, val, sizeof(val));
             break;
         case FWKNOP_CLI_ARG_DISABLE_SDP_MODE:
-        	bool_to_yesno( (int)(options->disable_sdp_mode), val, sizeof(val));
-        	break;
+            bool_to_yesno( (int)(options->disable_sdp_mode), val, sizeof(val));
+            break;
         case FWKNOP_CLI_ARG_SDP_CLIENT_ID:
             snprintf(val, sizeof(val)-1, "%"PRIu32, options->sdp_client_id);
+            break;
+        case FWKNOP_CLI_ARG_SERVICE_IDS:
+            strlcpy(val, options->service_ids_str, sizeof(val));
+            break;
+        case FWKNOP_CLI_ARG_SDP_CTRL_CLIENT_CONF:
+            strlcpy(val, options->sdp_ctrl_client_config_file, sizeof(val));
             break;
         default:
             log_msg(LOG_VERBOSITY_WARNING,
@@ -1909,12 +1923,12 @@ validate_options(fko_cli_options_t *options)
          */
         if(!options->disable_sdp_mode)
         {
-        	if(options->sdp_client_id == FKO_DEFAULT_SDP_CLIENT_ID)
-        	{
-    			log_msg(LOG_VERBOSITY_ERROR,
-    				"SDP_CLIENT_ID must be specified when SDP mode is enabled");
-    			exit(EXIT_FAILURE);
-        	}
+            if(options->sdp_client_id == FKO_DEFAULT_SDP_CLIENT_ID)
+            {
+                log_msg(LOG_VERBOSITY_ERROR,
+                    "SDP_CLIENT_ID must be specified when SDP mode is enabled");
+                exit(EXIT_FAILURE);
+            }
         }
     }
 
@@ -2127,11 +2141,11 @@ config_init(fko_cli_options_t *options, int argc, char **argv)
                 add_var_to_bitmask(FWKNOP_CLI_ARG_SPA_SERVER, &var_bitmask);
                 break;
             case DISABLE_SDP_CTRL_CLIENT:
-            	options->disable_sdp_ctrl_client = 1;
-            	break;
+                options->disable_sdp_ctrl_client = 1;
+                break;
             case DISABLE_SDP_MODE:
-            	options->disable_sdp_mode = 1;
-            	break;
+                options->disable_sdp_mode = 1;
+                break;
             case 'E':
                 strlcpy(options->args_save_file, optarg, sizeof(options->args_save_file));
                 break;
@@ -2362,9 +2376,13 @@ config_init(fko_cli_options_t *options, int argc, char **argv)
                 add_var_to_bitmask(FWKNOP_CLI_ARG_RESOLVE_URL, &var_bitmask);
                 break;
             case SDP_CLIENT_ID:
-            	options->sdp_client_id = (uint32_t)strtol_wrapper(optarg, 0,
+                options->sdp_client_id = (uint32_t)strtol_wrapper(optarg, 0,
                         UINT32_MAX, EXIT_UPON_ERR, &is_err);
-            	add_var_to_bitmask(FWKNOP_CLI_ARG_SDP_CLIENT_ID, &var_bitmask);
+                add_var_to_bitmask(FWKNOP_CLI_ARG_SDP_CLIENT_ID, &var_bitmask);
+                break;
+            case SERVICE_IDS:
+                strlcpy(options->service_ids_str, optarg, sizeof(options->service_ids_str));
+                add_var_to_bitmask(FWKNOP_CLI_ARG_SERVICE_IDS, &var_bitmask);
                 break;
             case SERVER_RESOLVE_IPV4:
                 options->spa_server_resolve_ipv4 = 1;
@@ -2556,12 +2574,12 @@ usage(void)
       "                             line, the configuration is updated accordingly.\n"
       "     --sdp-id                Specify this 32 bit unsigned integer to \n"
       "                             indicate this client's SDP client ID.\n"
-	  "     --disable-sdp           Turn off SDP mode to revert to the classic \n"
-	  "                             SPA packet format. Even with SDP mode disabled \n"
-	  "                             this client is not backwards compatible. \n"
-	  "     --disable-ctrl-client   Do not connect to SDP Controller during this \n"
-	  "                             run. This is effectively the same as not \n"
-	  "                             setting SDP_CTRL_CLIENT_CONF in the stanza \n"
+      "     --disable-sdp           Turn off SDP mode to revert to the classic \n"
+      "                             SPA packet format. Even with SDP mode disabled \n"
+      "                             this client is not backwards compatible. \n"
+      "     --disable-ctrl-client   Do not connect to SDP Controller during this \n"
+      "                             run. This is effectively the same as not \n"
+      "                             setting SDP_CTRL_CLIENT_CONF in the stanza \n"
       "                             possibly being used. \n"
       " -A, --access                Provide a list of ports/protocols to open\n"
       "                             on the server (e.g. 'tcp/22').\n"
@@ -2729,7 +2747,7 @@ DECLARE_UTEST(check_var_bitmask, "Check var_bitmask functions")
     CU_ASSERT(var_bitmask.dw[0] == 1);
     remove_var_from_bitmask(FWKNOP_CLI_FIRST_ARG, &var_bitmask);
     CU_ASSERT(bitmask_has_var(FWKNOP_CLI_FIRST_ARG, &var_bitmask) == 0);
-    CU_ASSERT(var_bitmask.dw[0] == 0);	
+    CU_ASSERT(var_bitmask.dw[0] == 0);
 
     add_var_to_bitmask(FWKNOP_CLI_ARG_KEY_RIJNDAEL, &var_bitmask);
     CU_ASSERT(bitmask_has_var(FWKNOP_CLI_ARG_KEY_RIJNDAEL, &var_bitmask) == 1);

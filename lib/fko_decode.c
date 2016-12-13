@@ -194,6 +194,15 @@ parse_msg(char *tbuf, char **ndx, int *t_size, fko_ctx_t ctx)
             return(FKO_ERROR_INVALID_DATA_DECODE_MESSAGE_VALIDFAIL);
         }
     }
+    else if(ctx->message_type == FKO_SERVICE_ACCESS_MSG ||
+    		ctx->message_type == FKO_CLIENT_TIMEOUT_SERVICE_ACCESS_MSG)
+    {
+    	// Require a message like: 1.2.3.4,12,53
+    	if(validate_service_access_msg(ctx->message) != FKO_SUCCESS)
+    	{
+    		return(FKO_ERROR_INVALID_DATA_DECODE_ACCESS_VALIDFAIL);
+    	}
+    }
     else
     {
         /* Require a message similar to: 1.2.3.4,tcp/22
@@ -364,12 +373,14 @@ parse_msg_type(char *tbuf, char **ndx, int *t_size, fko_ctx_t ctx)
     {
         /* optional server_auth + digest */
         case FKO_COMMAND_MSG:
+        case FKO_SERVICE_ACCESS_MSG:
         case FKO_ACCESS_MSG:
             if(remaining_fields > 2)
                 return FKO_ERROR_INVALID_DATA_DECODE_WRONG_NUM_FIELDS;
             break;
 
         /* nat or client timeout + optional server_auth + digest */
+        case FKO_CLIENT_TIMEOUT_SERVICE_ACCESS_MSG:
         case FKO_NAT_ACCESS_MSG:
         case FKO_LOCAL_NAT_ACCESS_MSG:
         case FKO_CLIENT_TIMEOUT_ACCESS_MSG:
@@ -500,43 +511,43 @@ fko_decode_spa_data(fko_ctx_t ctx)
     */
     if(ctx->disable_sdp_mode)
     {
-    	num_field_parsers = FIELD_PARSERS;
-    	field_parser = calloc(num_field_parsers, sizeof(field_parser_ptr_t));
+        num_field_parsers = FIELD_PARSERS;
+        field_parser = calloc(num_field_parsers, sizeof(field_parser_ptr_t));
 
-    	field_parser[0]	= parse_rand_val;       /* Extract random value */
-    	field_parser[1]	= parse_username;       /* Extract username */
-    	field_parser[2]	= parse_timestamp;      /* Client timestamp */
-    	field_parser[3]	= parse_version;        /* SPA version */
-    	field_parser[4]	= parse_msg_type;       /* SPA msg type */
-    	field_parser[5]	= parse_msg;            /* SPA msg string */
-    	field_parser[6]	= parse_nat_msg;        /* SPA NAT msg string */
-    	field_parser[7]	= parse_server_auth;    /* optional server authentication method */
-    	field_parser[8]	= parse_client_timeout; /* client defined timeout */
+        field_parser[0]    = parse_rand_val;       /* Extract random value */
+        field_parser[1]    = parse_username;       /* Extract username */
+        field_parser[2]    = parse_timestamp;      /* Client timestamp */
+        field_parser[3]    = parse_version;        /* SPA version */
+        field_parser[4]    = parse_msg_type;       /* SPA msg type */
+        field_parser[5]    = parse_msg;            /* SPA msg string */
+        field_parser[6]    = parse_nat_msg;        /* SPA NAT msg string */
+        field_parser[7]    = parse_server_auth;    /* optional server authentication method */
+        field_parser[8]    = parse_client_timeout; /* client defined timeout */
     }
     else
     {
-    	num_field_parsers = SDP_FIELD_PARSERS;
-    	field_parser = calloc(num_field_parsers, sizeof(field_parser_ptr_t));
+        num_field_parsers = SDP_FIELD_PARSERS;
+        field_parser = calloc(num_field_parsers, sizeof(field_parser_ptr_t));
 
-    	field_parser[0]	= parse_rand_val;       /* Extract random value */
-    	field_parser[1]	= parse_timestamp;      /* Client timestamp */
-    	field_parser[2]	= parse_msg_type;       /* SPA msg type */
-    	field_parser[3]	= parse_msg;            /* SPA msg string */
-    	field_parser[4]	= parse_nat_msg;        /* SPA NAT msg string */
-    	field_parser[5]	= parse_server_auth;    /* optional server authentication method */
+        field_parser[0]    = parse_rand_val;       /* Extract random value */
+        field_parser[1]    = parse_timestamp;      /* Client timestamp */
+        field_parser[2]    = parse_msg_type;       /* SPA msg type */
+        field_parser[3]    = parse_msg;            /* SPA msg string */
+        field_parser[4]    = parse_nat_msg;        /* SPA NAT msg string */
+        field_parser[5]    = parse_server_auth;    /* optional server authentication method */
 
     }
     if (! is_valid_encoded_msg_len(ctx->encoded_msg_len))
     {
         free(field_parser);
-    	return(FKO_ERROR_INVALID_DATA_DECODE_MSGLEN_VALIDFAIL);
+        return(FKO_ERROR_INVALID_DATA_DECODE_MSGLEN_VALIDFAIL);
     }
 
     /* Make sure there are no non-ascii printable chars
     */
     for (i=0; i < (int)strnlen(ctx->encoded_msg, MAX_SPA_ENCODED_MSG_SIZE); i++)
     {
-    	if(isprint(ctx->encoded_msg[i]) == 0)
+        if(isprint(ctx->encoded_msg[i]) == 0)
         {
             free(field_parser);
             return(FKO_ERROR_INVALID_DATA_DECODE_NON_ASCII);
@@ -550,19 +561,19 @@ fko_decode_spa_data(fko_ctx_t ctx)
 
     if(ctx->disable_sdp_mode)
     {
-		if (num_fields(ndx) < MIN_SPA_FIELDS)
-	    {
-	        free(field_parser);
-			return(FKO_ERROR_INVALID_DATA_DECODE_LT_MIN_FIELDS);
-	    }
+        if (num_fields(ndx) < MIN_SPA_FIELDS)
+        {
+            free(field_parser);
+            return(FKO_ERROR_INVALID_DATA_DECODE_LT_MIN_FIELDS);
+        }
     }
     else
     {
-		if (num_fields(ndx) < MIN_SDP_SPA_FIELDS)
-	    {
-	        free(field_parser);
-			return(FKO_ERROR_INVALID_DATA_DECODE_LT_MIN_FIELDS);
-	    }
+        if (num_fields(ndx) < MIN_SDP_SPA_FIELDS)
+        {
+            free(field_parser);
+            return(FKO_ERROR_INVALID_DATA_DECODE_LT_MIN_FIELDS);
+        }
     }
 
     ndx += last_field(ndx);
