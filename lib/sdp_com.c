@@ -147,6 +147,7 @@ static int sdp_com_default_send_spa(sdp_com_t com)
         if(execvp(fwknop_argv[0], fwknop_argv) < 0)
         {
             log_msg(LOG_ERR, "Could not execute fwknop");
+            sdp_com_free_argv(fwknop_argv, &fwknop_argc);
             exit(SDP_ERROR_SPA);
         }
     }

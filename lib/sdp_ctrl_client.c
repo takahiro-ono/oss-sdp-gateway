@@ -314,7 +314,7 @@ int sdp_ctrl_client_stop(sdp_ctrl_client_t client)
     if(client == NULL || !client->initialized)
         return SDP_ERROR_UNINITIALIZED;
 
-    res = sdp_ctrl_client_get_running_pid(client, &old_pid);
+    sdp_ctrl_client_get_running_pid(client, &old_pid);
 
     if(old_pid > 0)
     {
@@ -393,7 +393,7 @@ int sdp_ctrl_client_restart(sdp_ctrl_client_t client)
     if(client == NULL || !client->initialized)
         return SDP_ERROR_UNINITIALIZED;
 
-    res = sdp_ctrl_client_get_running_pid(client, &old_pid);
+    sdp_ctrl_client_get_running_pid(client, &old_pid);
 
     if(old_pid > 0)
     {
@@ -558,7 +558,7 @@ void sdp_ctrl_client_describe(sdp_ctrl_client_t client)
     cp += sdp_append_msg_to_buf(dump_buf+cp, buf_len-cp, "                           fwknoprc file: %s\n", client->com->fwknoprc_file);
     cp += sdp_append_msg_to_buf(dump_buf+cp, buf_len-cp, "                            TLS key file: %s\n", client->com->key_file);
     cp += sdp_append_msg_to_buf(dump_buf+cp, buf_len-cp, "                           TLS cert file: %s\n", client->com->cert_file);
-    cp += sdp_append_msg_to_buf(dump_buf+cp, buf_len-cp, "                PID lock file descriptor: %d\n", client->pid_lock_fd);
+          sdp_append_msg_to_buf(dump_buf+cp, buf_len-cp, "                PID lock file descriptor: %d\n", client->pid_lock_fd);
 
     log_msg(LOG_DEBUG, "\n%s\n", dump_buf);
 }

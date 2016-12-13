@@ -15,9 +15,9 @@
  * Func: default_compare
  * Args: void *a, void *b
  * Expl: This is the default method for comparing two table keys. It casts both keys to bstrings
- * 		 as defined in the bstrlib library and runs a comparison. It returns 0 if the strings
- * 		 are identical. Otherwise, a positive or negative value may be returned depending on
- * 		 the differences between the strings.
+ *          as defined in the bstrlib library and runs a comparison. It returns 0 if the strings
+ *          are identical. Otherwise, a positive or negative value may be returned depending on
+ *          the differences between the strings.
  */
 static int default_compare(void *a, void *b)
 {
@@ -38,6 +38,9 @@ static uint32_t default_hash(void *a)
     uint32_t hash = 0;
     uint32_t i = 0;
 
+    if(key == NULL)
+        return -1;
+
     for(hash = i = 0; i < len; ++i)
     {
         hash += key[i];
@@ -56,8 +59,8 @@ static uint32_t default_hash(void *a)
 /**
  * Func: hash_table_create
  * Args: const uint32_t length - Number of buckets in the hash table. Accepts any value
- * 		     between 0 and MAX_NUMBER_OF_BUCKETS, inclusive. 0 results in a length of
- * 		     DEFAULT_NUMBER_OF_BUCKETS.
+ *              between 0 and MAX_NUMBER_OF_BUCKETS, inclusive. 0 results in a length of
+ *              DEFAULT_NUMBER_OF_BUCKETS.
  *
  *       hash_table_compare compare - Pointer to a function for comparing two keys. Accepts
  *           NULL, resulting in selecting the default compare function.
@@ -127,7 +130,7 @@ void hash_table_destroy(hash_table_t *tbl)
 
     // if the table exists
     if(tbl) {
-    	// if the array of buckets exists
+        // if the array of buckets exists
         if(tbl->buckets)
         {
             debug("HASH_TABLE_DESTROY: buckets is not null.");
@@ -255,12 +258,12 @@ error:
  *       int *bucket_num - set/returns the calculated bucket number.
  *
  *       hash_table_node_t **prev - this is set to null if the desired node is the first
- *       	in the bucket.
+ *           in the bucket.
  *
  * Expl: Non-public function for finding a hash table node.
  */
 static inline hash_table_node_t * hash_table_node_get(hash_table_t *tbl, void *key,
-		uint32_t *hash, int *bucket_num, hash_table_node_t **prev)
+        uint32_t *hash, int *bucket_num, hash_table_node_t **prev)
 {
     int i = 0;
     *prev = NULL;
@@ -271,7 +274,8 @@ static inline hash_table_node_t * hash_table_node_get(hash_table_t *tbl, void *k
     debug("Returned from table length check.");
 
     // calculate the hash value from the key
-    *hash = tbl->hash_func(key);
+    if((*hash = tbl->hash_func(key)) < 0)
+        goto error;
     debug("Got hash.");
 
     // get the bucket number from the hash value
@@ -292,7 +296,7 @@ static inline hash_table_node_t * hash_table_node_get(hash_table_t *tbl, void *k
         // make sure the hash and the key both match what's in the node
         if(node->hash == *hash && tbl->compare(node->key, key) == 0)
         {
-        	// found a match so return it
+            // found a match so return it
             debug("Entered if clause.");
             return node;
         }
@@ -314,7 +318,7 @@ static inline hash_table_node_t * hash_table_node_get(hash_table_t *tbl, void *k
     return node;
 
 error:
-	return NULL;
+    return NULL;
 
 
 }
@@ -328,13 +332,13 @@ error:
  *       void *data - pointer to the data.
  *
  * Expl: Function for setting a hash table node. If a node with the same key
- * 		 is found, it is completely destroyed and replaced by an entirely new node,
- * 		 including making sure the old key and data memory are freed.
+ *          is found, it is completely destroyed and replaced by an entirely new node,
+ *          including making sure the old key and data memory are freed.
  */
 int hash_table_set(hash_table_t *tbl, void *key, void *data)
 {
-	uint32_t hash = 0;
-	int bucket_num = 0;
+    uint32_t hash = 0;
+    int bucket_num = 0;
     hash_table_node_t *old_node = NULL;
     hash_table_node_t *prev_node = NULL;
     hash_table_node_t *new_node = NULL;
@@ -352,21 +356,21 @@ int hash_table_set(hash_table_t *tbl, void *key, void *data)
     // if prev_node was set, this node takes the old one's place in the list
     if(prev_node)
     {
-    	(prev_node)->next = new_node;
+        (prev_node)->next = new_node;
     }
     else
     {
         // this is the first node in the bucket
-    	tbl->buckets[bucket_num] = new_node;
+        tbl->buckets[bucket_num] = new_node;
     }
 
     // if we did find a node with this key
     if(old_node)
     {
-    	// grab the pointer to the next node in the list
-    	new_node->next = old_node->next;
+        // grab the pointer to the next node in the list
+        new_node->next = old_node->next;
 
-    	// destroy the old node
+        // destroy the old node
         tbl->delete_cb(old_node);
         free(old_node);
     }
@@ -388,8 +392,8 @@ error:
  */
 void *hash_table_get(hash_table_t *tbl, void *key)
 {
-	uint32_t hash = 0;
-	int bucket_num = 0;
+    uint32_t hash = 0;
+    int bucket_num = 0;
     hash_table_node_t *prev_node = NULL;
 
     hash_table_node_t *node = hash_table_node_get(tbl, key, &hash, &bucket_num, &prev_node);
@@ -405,11 +409,11 @@ void *hash_table_get(hash_table_t *tbl, void *key)
  * Args: hash_table_t *tbl - pointer to the hash table.
  *
  *       hash_table_traverse_cb traverse_cb - pointer to a function to call for each
- *       	populated node that's found.
+ *           populated node that's found.
  *
  * Expl: Function for traversing the hash table and calling the callback function
- * 		 for each populated node that's found. This returns 0 or prints an error
- * 		 and returns the value returned by the callback function.
+ *          for each populated node that's found. This returns 0 or prints an error
+ *          and returns the value returned by the callback function.
  */
 int hash_table_traverse(hash_table_t *tbl, hash_table_traverse_cb traverse_cb, void *cb_arg)
 {
@@ -422,7 +426,7 @@ int hash_table_traverse(hash_table_t *tbl, hash_table_traverse_cb traverse_cb, v
         node = tbl->buckets[i];
         while(node)
         {
-        	// in case the callback is deleting nodes
+            // in case the callback is deleting nodes
             next = node->next;
             rc = traverse_cb(node, cb_arg);
             if(rc != 0) return rc;

@@ -250,7 +250,7 @@ size_t j;
 
 	while (NULL == (b->data = (unsigned char *) bstr__alloc (b->mlen = i))) {
 		int k = (i >> 1) + (minl >> 1);
-		if (i == k || i < minl) {
+		if (i == k || i < minl || k == 0) {
 			bstr__free (b);
 			return NULL;
 		}
@@ -2405,15 +2405,28 @@ int i, c, v;
 		}
 	} else {
 		v = (bl->qty - 1) * len;
+
 		if ((bl->qty > 512 || len > 127) &&
-		    v / len != bl->qty - 1) return NULL; /* Wrap around ?? */
+		    v / len != bl->qty - 1)
+		{
+			bstr__free (b);
+			return NULL; /* Wrap around ?? */
+		}
+
 		c += v;
-		if (c < v) return NULL; /* Wrap around ?? */
+
+		if (c < v)
+		{
+			bstr__free (b);
+			return NULL; /* Wrap around ?? */
+		}
+
 		p = b->data = (unsigned char *) bstr__alloc (c);
 		if (p == NULL) {
 			bstr__free (b);
 			return NULL;
 		}
+
 		v = bl->entry[0]->slen;
 		bstr__memcpy (p, bl->entry[0]->data, v);
 		p += v;
@@ -2440,7 +2453,7 @@ int i, c, v;
  *  NULL is returned, otherwise a bstring with the correct result is returned.
  */
 bstring bjoin (const struct bstrList * bl, const_bstring sep) {
-	if (sep != NULL && (sep->slen < 0 || sep->data == NULL)) return NULL;
+	if (sep == NULL || (sep->slen < 0 || sep->data == NULL)) return NULL;
 	return bjoinblk (bl, sep->data, sep->slen);
 }
 

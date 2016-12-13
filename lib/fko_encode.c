@@ -127,7 +127,7 @@ fko_set_encoded_sdp_client_id(fko_ctx_t ctx, char *encoded_sdp_client_id)
 
     if(! is_valid_encoded_sdp_client_id_len(
                strnlen(ctx->encoded_sdp_client_id, B64_SDP_CLIENT_ID_STR_LEN)))
-    	return(FKO_ERROR_INVALID_DATA_ENCODE_SDPCLIENTLEN_VALIDFAIL);
+        return(FKO_ERROR_INVALID_DATA_ENCODE_SDPCLIENTLEN_VALIDFAIL);
 
 #if HAVE_LIBFIU
     fiu_return_on("fko_set_encoded_sdp_client_id", FKO_ERROR_INVALID_DATA_ENCODE_SDPCLIENTLEN_VALIDFAIL);
@@ -144,8 +144,8 @@ int
 fko_encode_sdp_spa_data(fko_ctx_t ctx)
 {
     int     res, offset = 0;
-    char   *tbuf;
-    char   *tbuf_sdp_client_id;
+    char   *tbuf = NULL;
+    char   *tbuf_sdp_client_id = NULL;
 
 #if HAVE_LIBFIU
     fiu_return_on("fko_encode_spa_data_init", FKO_ERROR_CTX_NOT_INITIALIZED);
@@ -192,16 +192,19 @@ fko_encode_sdp_spa_data(fko_ctx_t ctx)
 
     tbuf = calloc(1, FKO_ENCODE_TMP_BUF_SIZE);
     if(tbuf == NULL)
+    {
+        free(tbuf_sdp_client_id);
         return(FKO_ERROR_MEMORY_ALLOCATION);
+    }
 
     /* B64-encode the SDP client ID and strip off the '=='
      */
     res = b64_encode((unsigned char *)&(ctx->sdp_client_id), tbuf_sdp_client_id, FKO_SDP_CLIENT_ID_SIZE);
     if(res != (B64_SDP_CLIENT_ID_STR_LEN + 2))
     {
-    	free(tbuf_sdp_client_id);
-    	free(tbuf);
-    	return(FKO_ERROR_INVALID_DATA_ENCODE_SDPCLIENTLEN_VALIDFAIL);
+        free(tbuf_sdp_client_id);
+        free(tbuf);
+        return(FKO_ERROR_INVALID_DATA_ENCODE_SDPCLIENTLEN_VALIDFAIL);
     }
     strip_b64_eq(tbuf_sdp_client_id);
 
@@ -217,13 +220,18 @@ fko_encode_sdp_spa_data(fko_ctx_t ctx)
     free(tbuf_sdp_client_id);
 
     if(ctx->encoded_sdp_client_id == NULL)
+    {
+        free(tbuf);
         return(FKO_ERROR_MEMORY_ALLOCATION);
+    }
 
     ctx->encoded_sdp_client_id_len = strnlen(ctx->encoded_sdp_client_id, B64_SDP_CLIENT_ID_STR_LEN);
 
     if(! is_valid_encoded_sdp_client_id_len(ctx->encoded_sdp_client_id_len))
+    {
+        free(tbuf);
         return(FKO_ERROR_INVALID_DATA_ENCODE_SDPCLIENTLEN_VALIDFAIL);
-
+    }
 
     /* Put together all the other spa data one piece at a time, starting with the random value (i.e. nonce).
     */

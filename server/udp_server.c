@@ -220,20 +220,18 @@ run_udp_server(fko_srv_options_t *opts)
         pkt_len = recvfrom(s_sock, dgram_msg, MAX_SPA_PACKET_LEN,
                 0, (struct sockaddr *)&caddr, &clen);
 
-        dgram_msg[pkt_len] = 0x0;
-
-        if(opts->verbose)
+        if(pkt_len > 0 && pkt_len <= MAX_SPA_PACKET_LEN)
         {
-            memset(sipbuf, 0x0, MAX_IPV4_STR_LEN);
-            inet_ntop(AF_INET, &(caddr.sin_addr.s_addr), sipbuf, MAX_IPV4_STR_LEN);
-            log_msg(LOG_INFO, "udp_server: Got UDP datagram (%d bytes) from: %s",
-                    pkt_len, sipbuf);
-        }
+            dgram_msg[pkt_len] = 0x0;
 
-        /* Expect the data to not be too large
-        */
-        if(pkt_len <= MAX_SPA_PACKET_LEN)
-        {
+            if(opts->verbose)
+            {
+                memset(sipbuf, 0x0, MAX_IPV4_STR_LEN);
+                inet_ntop(AF_INET, &(caddr.sin_addr.s_addr), sipbuf, MAX_IPV4_STR_LEN);
+                log_msg(LOG_INFO, "udp_server: Got UDP datagram (%d bytes) from: %s",
+                        pkt_len, sipbuf);
+            }
+
             /* Copy the packet for SPA processing
             */
             strlcpy((char *)opts->spa_pkt.packet_data, dgram_msg, pkt_len+1);

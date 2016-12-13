@@ -770,12 +770,14 @@ add_service_list_ent(acc_service_list_t **slist, char *buf)
 /* Expand a service list string to a list of services.
 */
 int
-expand_acc_service_list(acc_service_list_t **slist, char *slist_str)
+expand_acc_service_list(acc_service_list_t **slist_r, char *slist_str)
 {
     char           *ndx, *start;
     char            buf[ACCESS_BUF_LEN] = {0};
+    acc_service_list_t *slist = NULL;
 
     start = slist_str;
+    *slist_r = NULL;
 
     for(ndx = start; *ndx != '\0'; ndx++)
     {
@@ -787,12 +789,18 @@ expand_acc_service_list(acc_service_list_t **slist, char *slist_str)
                 start++;
 
             if(((ndx-start)+1) >= ACCESS_BUF_LEN)
+            {
+            	free_acc_service_list(slist);
                 return 0;
+            }
 
             strlcpy(buf, start, (ndx-start)+1);
 
-            if(add_service_list_ent(slist, buf) == 0)
+            if(add_service_list_ent(&slist, buf) == 0)
+            {
+            	free_acc_service_list(slist);
                 return 0;
+            }
 
             start = ndx+1;
         }
@@ -804,13 +812,20 @@ expand_acc_service_list(acc_service_list_t **slist, char *slist_str)
         start++;
 
     if(((ndx-start)+1) >= ACCESS_BUF_LEN)
+    {
+    	free_acc_service_list(slist);
         return 0;
+    }
 
     strlcpy(buf, start, (ndx-start)+1);
 
-    if(add_service_list_ent(slist, buf) == 0)
+    if(add_service_list_ent(&slist, buf) == 0)
+    {
+    	free_acc_service_list(slist);
         return 0;
+    }
 
+    *slist_r = slist;
     return 1;
 }
 
