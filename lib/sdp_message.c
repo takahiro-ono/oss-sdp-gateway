@@ -192,7 +192,7 @@ int  sdp_message_make(const char *action, const json_object *data, char **r_out_
     json_object_object_add(jout_msg, sdp_key_action,  json_object_new_string(action));
 
     if(data != NULL)
-        json_object_object_add(jout_msg, sdp_key_data, (json_object*)data);
+        json_object_object_add(jout_msg, sdp_key_data, json_object_get((json_object*)data));
 
     out_msg = strndup(json_object_to_json_string(jout_msg), SDP_MSG_MAX_LEN);
 
