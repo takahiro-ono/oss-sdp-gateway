@@ -973,6 +973,11 @@ free_acc_stanza_data(acc_stanza_t *acc)
         free_acc_int_list(acc->destination_list);
     }
 
+    if(acc->service_list_str != NULL)
+    {
+    	free(acc->service_list_str);
+    }
+
     if(acc->service_list != NULL)
     {
         free_acc_service_list(acc->service_list);
@@ -1759,12 +1764,12 @@ make_acc_stanza_from_json(fko_srv_options_t *opts, json_object *jdata, acc_stanz
         // save the string, mainly just for printing
         stanza->service_list_str = service_list;
 
-        if(expand_acc_service_list(&(stanza->service_list), service_list) == 0)
-        {
-            log_msg(LOG_ERR, "Failed to parse service list in access stanza, invalid stanza entry");
-            rv = FWKNOPD_ERROR_BAD_STANZA_DATA;
-            goto cleanup;
-        }
+        //if(expand_acc_service_list(&(stanza->service_list), service_list) == 0)
+        //{
+        //    log_msg(LOG_ERR, "Failed to parse service list in access stanza, invalid stanza entry");
+        //    rv = FWKNOPD_ERROR_BAD_STANZA_DATA;
+        //    goto cleanup;
+        //}
     }
 
     sdp_get_json_string_field("destination", jdata, &(stanza->destination));
