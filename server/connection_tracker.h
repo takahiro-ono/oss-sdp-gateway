@@ -11,6 +11,7 @@
 #define CMD_BUFSIZE                     256
 #define MAX_CONNTRACK_COMMAND_ARGS_LEN  256
 #define STANDARD_CMD_OUT_BUFSIZE        4096
+#define CONNTRACK_CMD_OUT_BUFSIZE       1024*1024
 //#define CONN_ID_BUF_LEN                 21
 #define CRITERIA_BUF_LEN                CMD_BUFSIZE - 20
 
@@ -33,6 +34,7 @@ struct connection{
 };
 typedef struct connection *connection_t;
 
+int init_connection_tracker(fko_srv_options_t *opts);
 void destroy_connection_tracker(fko_srv_options_t *opts);
 int update_connections(fko_srv_options_t *opts);
 int validate_connections(fko_srv_options_t *opts);

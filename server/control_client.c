@@ -231,6 +231,20 @@ void *control_client_thread_func(void *arg)
         return NULL;
     }
 
+    // If connection tracking is enabled, initialize it
+    if(strncmp(opts->config[CONF_DISABLE_CONNECTION_TRACKING], "N", 1) == 0)
+    {
+		if( (rv = init_connection_tracker(opts)) != FWKNOPD_SUCCESS)
+		{
+			log_msg(LOG_ERR,
+				"[*] Failed to initialize connection tracking."
+			);
+			// send kill signal for main thread to catch and exit safely
+			kill(getpid(), SIGTERM);
+			return NULL;
+		}
+    }
+
     while(1)
     {
         // connect if necessary

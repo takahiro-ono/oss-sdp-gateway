@@ -31,6 +31,7 @@ static hash_table_t *latest_connection_hash_tbl = NULL;
 static connection_t msg_conn_list = NULL;
 static int verbosity = 0;
 static time_t next_ctrl_msg_due = 0;
+static char conntrack_buf[CONNTRACK_CMD_OUT_BUFSIZE] = {0};
 
 static int close_connections(fko_srv_options_t *opts, char *criteria);
 
@@ -368,6 +369,14 @@ static int create_connection_item_from_line(fko_srv_options_t *opts,
         this_conn->nat_dst_port = return_src_port;
     }
 
+    // if TIME_WAIT flag set, connection is closed
+    if( (ndx = strstr(line, "TIME_WAIT")) != NULL)
+    {
+        log_msg(LOG_DEBUG, "create_connection_item_from_line() TIME_WAIT flag is set "
+                "in line: \n     %s\n", line);
+        this_conn->end_time = now;
+    }
+
     if((res = get_service_id_by_details(opts, this_conn->protocol,
                                         this_conn->dst_port,
                                         this_conn->nat_dst_ip_str,
@@ -385,6 +394,7 @@ static int create_connection_item_from_line(fko_srv_options_t *opts,
         log_msg(LOG_ERR, "Unable to identify service for connection with following details:");
         print_connection_item(this_conn);
 
+        // function adds the connection item to the msg_conn_list so don't destroy it
         res = close_invalid_connection(opts, this_conn);
         *this_conn_r = NULL;
         return res;
@@ -395,81 +405,143 @@ static int create_connection_item_from_line(fko_srv_options_t *opts,
 }
 
 
+static int handle_conntrack_print_issue(char **line, char *next_line, char *bad_start, int *line_repaired)
+{
+	int rv = FWKNOPD_SUCCESS;
+	char *temp = NULL;
+
+	*line_repaired = 0;
+
+	if(*line == NULL || next_line == NULL || bad_start == NULL || line_repaired == NULL)
+	{
+		log_msg(LOG_ERR, "handle_conntrack_print_issue() null arg passed, doing nothing");
+		return rv;
+	}
+
+	if(bad_start <= *line)
+	{
+		log_msg(LOG_ERR, "handle_conntrack_print_issue() index to start of bad data is invalid");
+		return rv;
+	}
+
+	if((temp = calloc(1, (bad_start - *line) + strlen(next_line) + 1)) == NULL)
+	{
+		log_msg(LOG_ERR, "handle_conntrack_print_issue() fatal memory allocation error");
+		return FWKNOPD_ERROR_MEMORY_ALLOCATION;
+	}
+
+	memcpy(temp, *line, bad_start - *line);
+	strcat(temp, next_line);
+
+	*line = temp;
+	*line_repaired = 1;
+	return rv;
+}
+
+
 static int search_conntrack(fko_srv_options_t *opts,
                             char *criteria,
                             connection_t *conn_list_r,
                             int *conn_count_r)
 {
     char   cmd_buf[CMD_BUFSIZE];
-    char   cmd_out[STANDARD_CMD_OUT_BUFSIZE];
     int    conn_count = 0, res = FWKNOPD_SUCCESS;
     time_t now;
     int pid_status = 0;
     char *line = NULL;
+    char *next_line = NULL;
+    char *ndx = NULL;
+    int line_repaired = 0;
     connection_t this_conn = NULL;
     connection_t conn_list = NULL;
 
     time(&now);
 
     memset(cmd_buf, 0x0, CMD_BUFSIZE);
-    memset(cmd_out, 0x0, STANDARD_CMD_OUT_BUFSIZE);
+    memset(conntrack_buf, 0x0, CONNTRACK_CMD_OUT_BUFSIZE);
 
     if(criteria != NULL)
         snprintf(cmd_buf, CMD_BUFSIZE, "conntrack -L %s", criteria);
     else
         snprintf(cmd_buf, CMD_BUFSIZE, "conntrack -L");
 
-    res = run_extcmd(cmd_buf, cmd_out, STANDARD_CMD_OUT_BUFSIZE,
+    res = run_extcmd(cmd_buf, conntrack_buf, CONNTRACK_CMD_OUT_BUFSIZE,
             WANT_STDERR, NO_TIMEOUT, &pid_status, opts);
-    chop_newline(cmd_out);
+    conntrack_buf[CONNTRACK_CMD_OUT_BUFSIZE - 1] = 0x0;
 
     if(!EXTCMD_IS_SUCCESS(res))
     {
         log_msg(LOG_ERR,
                 "search_conntrack() Error %i from cmd:'%s': %s",
-                res, cmd_buf, cmd_out);
+                res, cmd_buf, conntrack_buf);
         return FWKNOPD_ERROR_CONNTRACK;
     }
 
-    line = strtok(cmd_out, "\n");
+    line = strtok(conntrack_buf, "\n");
     log_msg(LOG_DEBUG, "search_conntrack() first line from conntrack call: \n"
             "    %s\n", line);
 
-    // don't want first line, so move to second line
-    if(line != NULL)
-       line = strtok(NULL, "\n");
-
-    // walk through the rest of the lines
+    // walk through each of the lines
     while( line != NULL )
     {
+    	// handle issue with conntrack, prints a status message midstream,
+    	// inserting it in the middle of a line of data
+    	if( (ndx = strstr(line, "conntrack")) != NULL)
+    	{
+    		if(ndx == line)
+    		{
+                line = strtok(NULL, "\n");
+                continue;
+    		}
+
+    		log_msg(LOG_DEBUG, "Found corrupt conntrack line:\n    %s\n", line);
+
+    		next_line = strtok(NULL, "\n");
+
+    		if((res = handle_conntrack_print_issue(&line, next_line, ndx, &line_repaired))
+    				!= FWKNOPD_SUCCESS)
+    		{
+                goto cleanup;
+    		}
+
+    		log_msg(LOG_DEBUG, "Corrected conntrack line:\n    %s\n", line);
+    	}
+
         // extract connection info from line and create connection item
         if( (res = create_connection_item_from_line(opts, line, now, &this_conn)) != FWKNOPD_SUCCESS)
         {
-            destroy_connection_list(conn_list);
-            return res;
+            goto cleanup;
         }
 
-        if(this_conn == NULL)
+        if(this_conn != NULL)
         {
-            // line did not represent a connection of interest, carry on
-            line = strtok(NULL, "\n");
-            continue;
+            if( (res = add_to_connection_list(&conn_list, this_conn)) != FWKNOPD_SUCCESS)
+            {
+                destroy_connection_item(this_conn);
+                goto cleanup;
+            }
+
+            conn_count++;
         }
 
-        if( (res = add_to_connection_list(&conn_list, this_conn)) != FWKNOPD_SUCCESS)
+        if(line_repaired)
         {
-            destroy_connection_item(this_conn);
-            destroy_connection_list(conn_list);
-            return res;
+        	free(line);
+        	line_repaired = 0;
         }
-
-        conn_count++;
 
         line = strtok(NULL, "\n");
     }
 
     *conn_list_r = conn_list;
     *conn_count_r = conn_count;
+
+    return res;
+
+cleanup:
+    destroy_connection_list(conn_list);
+    if(line_repaired)
+    	free(line);
 
     return res;
 }
@@ -726,17 +798,20 @@ static int compare_connection_lists(connection_t *known_conns,
 {
     int rv = FWKNOPD_SUCCESS;
     int match = 0;
+    int conn_closed = 0;
     connection_t this_known_conn = *known_conns;
     connection_t prev_known_conn = NULL;
     connection_t next_conn = NULL;
     connection_t this_current_conn = NULL;
     connection_t prev_current_conn = NULL;
+    time_t now = time(NULL);
 
     log_msg(LOG_DEBUG, "compare_connection_lists() entered");
 
     while(this_known_conn != NULL)
     {
         match = 0;
+        conn_closed = 0;
         this_current_conn = *current_conns;
         prev_current_conn = NULL;
 
@@ -756,7 +831,12 @@ static int compare_connection_lists(connection_t *known_conns,
                     prev_current_conn->next = this_current_conn->next;
                 }
 
+                // if end_time was set, means TIME_WAIT flag was set
+                if(this_current_conn->end_time != 0)
+                    conn_closed = 1;
+
                 destroy_connection_item(this_current_conn);
+                this_current_conn = NULL;
                 break;
             }
 
@@ -768,7 +848,7 @@ static int compare_connection_lists(connection_t *known_conns,
         next_conn = this_known_conn->next;
 
         // if a match was found for this known connection
-        if(match)
+        if(match && !conn_closed)
         {
             // then it's still live, so
             // the conn stays in the known conn list
@@ -777,27 +857,50 @@ static int compare_connection_lists(connection_t *known_conns,
         }
         else
         {
-            // no match was found for this known connection
-            // the conn no longer exists, move from known conns to closed conns
-            // when removing a known conn, prev_known_conn should not be updated
-            this_known_conn->next = NULL;
+            // if end_time not set, this is first time we saw that it's closed
+        	// whether because it's missing from conntrack or TIME_WAIT flag set
+            // so need to add to closed_conns list to report to controller
+            if(this_known_conn->end_time == 0)
+            {
+                this_known_conn->end_time = now;
 
-            log_msg(LOG_DEBUG, "compare_connection_lists() adding previously known conn to closed list");
+                log_msg(LOG_DEBUG, "compare_connection_lists() adding previously known conn to closed list");
 
-            if( (rv = add_to_connection_list(closed_conns, this_known_conn))
+                if( (rv = duplicate_connection_item(this_known_conn, &this_current_conn))
+                		!= FWKNOPD_SUCCESS)
+                {
+                    goto cleanup;
+                }
+
+                this_current_conn->next = NULL;
+
+                if( (rv = add_to_connection_list(closed_conns, this_current_conn))
                         != FWKNOPD_SUCCESS)
-            {
-                goto cleanup;
+                {
+                	destroy_connection_item(this_current_conn);
+                    goto cleanup;
+                }
             }
 
-            // if we're removing the first conn in the known conn list
-            if(prev_known_conn == NULL)
+            // if no match was found, connection is truly gone from conntrack so
+            // can now remove from known connections
+            if(!match)
             {
-                *known_conns = next_conn;
-            }
-            else
-            {
-                prev_known_conn->next = next_conn;
+                // the conn no longer exists, remove from known conns
+                // when removing a known conn, prev_known_conn should not be updated
+                this_known_conn->next = NULL;
+
+                // if we're removing the first conn in the known conn list
+                if(prev_known_conn == NULL)
+                {
+                    *known_conns = next_conn;
+                }
+                else
+                {
+                    prev_known_conn->next = next_conn;
+                }
+
+                destroy_connection_item(this_known_conn);
             }
 
         }  // END if(match)
@@ -834,6 +937,8 @@ static int traverse_compare_latest_cb(hash_table_node_t *node, void *arg)
     time_t *end_time = (time_t*)arg;
     connection_t closed_conns = NULL;
     connection_t temp_conn = NULL;
+    connection_t prev_conn = NULL;
+    connection_t next_conn = NULL;
     bstring key = NULL;
 
     // just a safety check, shouldn't be possible
@@ -855,28 +960,58 @@ static int traverse_compare_latest_cb(hash_table_node_t *node, void *arg)
     // check whether this SDP ID still has any current connections
     if( (current_conns = hash_table_get(latest_connection_hash_tbl, key)) == NULL)
     {
-        // update each conn item with the closing time
+    	// only report those that haven't been reported yet
         temp_conn = known_conns;
         while(temp_conn != NULL)
         {
-            temp_conn->end_time = *end_time;
-            temp_conn = temp_conn->next;
+    		next_conn = temp_conn->next;
+
+            // don't report those already reported
+        	if(temp_conn->end_time != 0)
+        	{
+        		prev_conn = temp_conn;
+        	}
+        	else
+        	{
+        		temp_conn->end_time = *end_time;
+
+        		if(prev_conn != NULL)
+        			prev_conn->next = temp_conn->next;
+        		else
+        			node->data = (void*)(temp_conn->next);
+
+        		temp_conn->next = NULL;
+
+                // add to closed_conns
+                if( (rv = add_to_connection_list(&closed_conns, temp_conn))
+                        != FWKNOPD_SUCCESS)
+                {
+                    goto cleanup;
+                }
+        	}
+
+        	temp_conn = next_conn;
         }
 
-        log_msg(LOG_WARNING, "All connections closed for SDP ID %"PRIu32":",
-                known_conns->sdp_id);
-        print_connection_list(known_conns);
-
-
-        // add these closed connections to the ctrl message list
-        if( (rv = add_to_connection_list(&msg_conn_list, known_conns))
-                != FWKNOPD_SUCCESS)
+        if(closed_conns != NULL)
         {
-            goto cleanup;
+			log_msg(LOG_WARNING, "All connections closed for SDP ID %"PRIu32":",
+					known_conns->sdp_id);
+			print_connection_list(closed_conns);
+
+
+			// add these closed connections to the ctrl message list
+			if( (rv = add_to_connection_list(&msg_conn_list, closed_conns))
+					!= FWKNOPD_SUCCESS)
+			{
+				goto cleanup;
+			}
+
+			closed_conns = NULL;
         }
 
         // set node->data to NULL so the list is not deleted with the node
-        node->data = NULL;
+        //node->data = NULL;
 
         // this SDP ID no longer has connections, remove entirely from
         // known connection list, hash table traverser is fine with
@@ -896,8 +1031,9 @@ static int traverse_compare_latest_cb(hash_table_node_t *node, void *arg)
     // delete the entry in 'latest' conn hash table, we'll take it from here
     hash_table_delete(latest_connection_hash_tbl, key);
 
-    // following function removes closed conns from known_conns - leaving only
-    // old, still-open conns,
+    // following function removes conns from known_conns if no longer in
+    // conntrack - leaving only old, still-open conns and conns flagged as
+    // closed but still in conntrack,
     // removes previously known conns from copy_current_conns - leaving only
     // entirely new conns,
     // puts closed conns in closed_conns
@@ -922,26 +1058,16 @@ static int traverse_compare_latest_cb(hash_table_node_t *node, void *arg)
         key = NULL;
     }
 
+    node->data = known_conns;
+
     if(known_conns == NULL)
     {
         hash_table_delete(connection_hash_tbl, node->key);
-    }
-    else
-    {
-        node->data = known_conns;
     }
 
     // add closed conns to the ctrl message list
     if(closed_conns != NULL)
     {
-        // update each conn item with the closing time
-        temp_conn = closed_conns;
-        while(temp_conn != NULL)
-        {
-            temp_conn->end_time = *end_time;
-            temp_conn = temp_conn->next;
-        }
-
         log_msg(LOG_WARNING, "Following connections closed for SDP ID %"PRIu32":",
                 closed_conns->sdp_id);
         print_connection_list(closed_conns);
@@ -1365,7 +1491,7 @@ cleanup:
 
 
 
-static int init_connection_tracking(fko_srv_options_t *opts)
+int init_connection_tracker(fko_srv_options_t *opts)
 {
     int hash_table_len = 0;
     int is_err = FWKNOPD_SUCCESS;
@@ -1447,16 +1573,13 @@ int update_connections(fko_srv_options_t *opts)
     int pres_conn_count = 0;
     time_t now = 0;
 
-    // if it's first time, init the conn tracking table
+    // did someone init the conn tracking tables
     if(connection_hash_tbl == NULL)
     {
-        if( (res = init_connection_tracking(opts)) != FWKNOPD_SUCCESS)
-        {
-            log_msg(LOG_ERR,
-                "[*] Failed to initialize connection tracking."
-            );
-            return res;
-        }
+		log_msg(LOG_ERR,
+			"[*] Connection tracking was not initialized."
+		);
+		return res;
     }
 
     // first get list of current connections

@@ -3287,7 +3287,7 @@ sub controller_cycle() {
         ($rv, $fw_rule_created, $fw_rule_removed)
             = &fw_check($rv, $fw_rule_created, $fw_rule_removed, $test_hr);
             
-        sleep 120 if $test_hr->{'wait_for_conn_close'};
+        #sleep 120 if $test_hr->{'wait_for_conn_close'};
         
         ### if configured, remove all access for sdp id
         ### to test connection closing
@@ -7454,7 +7454,7 @@ sub specs() {
 
 sub is_valgrind_running() {
     return &run_cmd("ps axuww | grep valgrind " .
-        "| grep -v perl | grep -v grep",
+        "| grep -v test-fwknop | grep -v grep",
         $cmd_out_tmp, $curr_test_file);
 }
 
