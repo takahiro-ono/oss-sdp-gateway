@@ -519,6 +519,18 @@ uninstall-local:
 	if test -f $(DESTDIR)$(sysconfdir)/fwknop/access.conf.inst; then \
 		rm -f $(DESTDIR)$(sysconfdir)/fwknop/access.conf.inst; \
 	fi
+	if test -f $(DESTDIR)$(sysconfdir)/fwknop/gate_sdp_ctrl_client.conf; then \
+		rm -f $(DESTDIR)$(sysconfdir)/fwknop/gate_sdp_ctrl_client.conf; \
+	fi
+	if test -f $(DESTDIR)$(sysconfdir)/fwknop/gate_sdp_ctrl_client.conf.inst; then \
+		rm -f $(DESTDIR)$(sysconfdir)/fwknop/gate_sdp_ctrl_client.conf.inst; \
+	fi
+	if test -f $(DESTDIR)$(sysconfdir)/fwknop/gate.fwknoprc; then \
+		rm -f $(DESTDIR)$(sysconfdir)/fwknop/gate.fwknoprc; \
+	fi
+	if test -f $(DESTDIR)$(sysconfdir)/fwknop/gate.fwknoprc.inst; then \
+		rm -f $(DESTDIR)$(sysconfdir)/fwknop/gate.fwknoprc.inst; \
+	fi
 
 install-exec-hook:
 	if test -d $(DESTDIR)$(sysconfdir)/fwknop; then \
@@ -536,11 +548,29 @@ install-exec-hook:
 			mv $(DESTDIR)$(sysconfdir)/fwknop/access.conf.inst $(DESTDIR)$(sysconfdir)/fwknop/access.conf; \
 		fi \
 	fi
+	if test -f $(DESTDIR)$(sysconfdir)/fwknop/gate_sdp_ctrl_client.conf; then :; \
+	else \
+		if test -f $(DESTDIR)$(sysconfdir)/fwknop/gate_sdp_ctrl_client.conf.inst; then \
+			mv $(DESTDIR)$(sysconfdir)/fwknop/gate_sdp_ctrl_client.conf.inst $(DESTDIR)$(sysconfdir)/fwknop/gate_sdp_ctrl_client.conf; \
+		fi \
+	fi
+	if test -f $(DESTDIR)$(sysconfdir)/fwknop/gate.fwknoprc; then :; \
+	else \
+		if test -f $(DESTDIR)$(sysconfdir)/fwknop/gate.fwknoprc.inst; then \
+			mv $(DESTDIR)$(sysconfdir)/fwknop/gate.fwknoprc.inst $(DESTDIR)$(sysconfdir)/fwknop/gate.fwknoprc; \
+		fi \
+	fi
 	if test -f $(DESTDIR)$(sysconfdir)/fwknop/fwknopd.conf.inst; then \
 		chmod 600 $(DESTDIR)$(sysconfdir)/fwknop/fwknopd.conf.inst; \
 	fi
 	if test -f $(DESTDIR)$(sysconfdir)/fwknop/access.conf.inst; then \
 		chmod 600 $(DESTDIR)$(sysconfdir)/fwknop/access.conf.inst; \
+	fi
+	if test -f $(DESTDIR)$(sysconfdir)/fwknop/gate_sdp_ctrl_client.conf.inst; then \
+		chmod 600 $(DESTDIR)$(sysconfdir)/fwknop/gate_sdp_ctrl_client.conf.inst; \
+	fi
+	if test -f $(DESTDIR)$(sysconfdir)/fwknop/gate.fwknoprc.inst; then \
+		chmod 600 $(DESTDIR)$(sysconfdir)/fwknop/gate.fwknoprc.inst; \
 	fi
 	if test -f $(DESTDIR)$(sysconfdir)/fwknop/fwknopd.conf; then \
 		chmod 600 $(DESTDIR)$(sysconfdir)/fwknop/fwknopd.conf; \
@@ -548,3 +578,10 @@ install-exec-hook:
 	if test -f $(DESTDIR)$(sysconfdir)/fwknop/access.conf; then \
 		chmod 600 $(DESTDIR)$(sysconfdir)/fwknop/access.conf; \
 	fi
+	if test -f $(DESTDIR)$(sysconfdir)/fwknop/gate_sdp_ctrl_client.conf; then \
+		chmod 600 $(DESTDIR)$(sysconfdir)/fwknop/gate_sdp_ctrl_client.conf; \
+	fi
+	if test -f $(DESTDIR)$(sysconfdir)/fwknop/gate.fwknoprc; then \
+		chmod 600 $(DESTDIR)$(sysconfdir)/fwknop/gate.fwknoprc; \
+	fi
+	

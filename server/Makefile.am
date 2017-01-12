@@ -52,7 +52,7 @@ fwknopddir        = @sysconfdir@/fwknop
 
 dist_man_MANS     = fwknopd.8
 
-dist_fwknopd_DATA = fwknopd.conf.inst access.conf.inst
+dist_fwknopd_DATA = fwknopd.conf.inst access.conf.inst gate_sdp_ctrl_client.conf.inst gate.fwknoprc.inst
 
 EXTRA_DIST        = fwknopd.8.in
 
