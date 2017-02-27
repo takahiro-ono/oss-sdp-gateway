@@ -234,7 +234,7 @@
 #define MAX_SPA_PACKET_LEN      1500 /* --DSS check this? */
 #define MAX_HOSTNAME_LEN        64
 #define MAX_DECRYPTED_SPA_LEN   1024
-#define MAX_SDP_CLIENT_ID_STR_LEN 11
+#define MAX_SDP_ID_STR_LEN 11
 
 /* The minimum possible valid SPA data size.
 */
@@ -403,7 +403,7 @@ typedef struct acc_service_list
 */
 typedef struct acc_stanza
 {
-    uint32_t             sdp_client_id;
+    uint32_t             sdp_id;
     char                *service_list_str;
     acc_service_list_t  *service_list;
     char                *source;
@@ -641,8 +641,8 @@ typedef struct spa_pkt_info
     unsigned int    packet_dst_ip;
     unsigned short  packet_src_port;
     unsigned short  packet_dst_port;
-    uint32_t        sdp_client_id;
-    char            sdp_client_id_str[MAX_SDP_CLIENT_ID_STR_LEN];
+    uint32_t        sdp_id;
+    char            sdp_id_str[MAX_SDP_ID_STR_LEN];
     unsigned char   packet_data[MAX_SPA_PACKET_LEN+1];
 } spa_pkt_info_t;
 
@@ -650,7 +650,7 @@ typedef struct spa_pkt_info
 */
 typedef struct spa_data
 {
-    uint32_t        sdp_client_id;
+    uint32_t        sdp_id;
     char           *username;
     time_t          timestamp;
     char           *version;

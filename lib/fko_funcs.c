@@ -145,8 +145,8 @@ fko_new(fko_ctx_t *r_ctx)
     /* Default is to use SDP mode
     */
     ctx->disable_sdp_mode = FKO_DEFAULT_DISABLE_SDP_MODE;
-    ctx->encoded_sdp_client_id = NULL;
-    ctx->encoded_sdp_client_id_len = 0;
+    ctx->encoded_sdp_id = NULL;
+    ctx->encoded_sdp_id_len = 0;
 
 #if HAVE_LIBGPGME
     /* Set gpg signature verify on.
@@ -170,7 +170,7 @@ int
 fko_new_with_data(fko_ctx_t *r_ctx, const char * const enc_msg,
     const char * const dec_key, const int dec_key_len,
     int encryption_mode, const char * const hmac_key,
-    const int hmac_key_len, const int hmac_type, const uint32_t sdp_client_id)
+    const int hmac_key_len, const int hmac_type, const uint32_t sdp_id)
 {
     fko_ctx_t   ctx = NULL;
     int         res = FKO_SUCCESS; /* Are we optimistic or what? */
@@ -197,8 +197,8 @@ fko_new_with_data(fko_ctx_t *r_ctx, const char * const enc_msg,
         return(FKO_ERROR_MEMORY_ALLOCATION);
 
     // if SDP client ID is nonzero, SDP mode is enabled
-    ctx->sdp_client_id = sdp_client_id;
-    if(sdp_client_id > 0)
+    ctx->sdp_id = sdp_id;
+    if(sdp_id > 0)
     	ctx->disable_sdp_mode = 0;
     else
     	ctx->disable_sdp_mode = 1;
@@ -256,7 +256,7 @@ fko_new_with_data(fko_ctx_t *r_ctx, const char * const enc_msg,
 		}
     }
 
-	if(sdp_client_id > 0)
+	if(sdp_id > 0)
 	{
 		/* The HMAC has been successfully verified (if it was present)
 		 * If this is SDP mode, time to remove the SDP client ID from the packet data
@@ -265,7 +265,7 @@ fko_new_with_data(fko_ctx_t *r_ctx, const char * const enc_msg,
 		 * This will also copy the encoded version of the ID to the
 		 * context (really just for certain tests).
 		 */
-		res = fko_strip_sdp_client_id(ctx);
+		res = fko_strip_sdp_id(ctx);
 		if(res != FKO_SUCCESS)
 		{
 			fko_destroy(ctx);
@@ -346,8 +346,8 @@ fko_destroy(fko_ctx_t ctx)
         if(zero_free(ctx->raw_digest, ctx->raw_digest_len) != FKO_SUCCESS)
             zero_free_rv = FKO_ERROR_ZERO_OUT_DATA;
 
-    if(ctx->encoded_sdp_client_id != NULL)
-        if(zero_free(ctx->encoded_sdp_client_id, ctx->encoded_sdp_client_id_len) != FKO_SUCCESS)
+    if(ctx->encoded_sdp_id != NULL)
+        if(zero_free(ctx->encoded_sdp_id, ctx->encoded_sdp_id_len) != FKO_SUCCESS)
             zero_free_rv = FKO_ERROR_ZERO_OUT_DATA;
 
     if(ctx->encoded_msg != NULL)
@@ -535,14 +535,14 @@ fko_get_disable_sdp_mode(fko_ctx_t ctx, uint16_t *disable_sdp_mode)
 /* Set sdp client id
  */
 int
-fko_set_sdp_client_id(fko_ctx_t ctx, uint32_t sdp_client_id)
+fko_set_sdp_id(fko_ctx_t ctx, uint32_t sdp_id)
 {
     /* Must be initialized
     */
     if(!CTX_INITIALIZED(ctx))
         return(FKO_ERROR_CTX_NOT_INITIALIZED);
 
-    ctx->sdp_client_id = sdp_client_id;
+    ctx->sdp_id = sdp_id;
 
     return(FKO_SUCCESS);
 }
@@ -550,14 +550,14 @@ fko_set_sdp_client_id(fko_ctx_t ctx, uint32_t sdp_client_id)
 /* Get sdp client id
  */
 int
-fko_get_sdp_client_id(fko_ctx_t ctx, uint32_t *sdp_client_id)
+fko_get_sdp_id(fko_ctx_t ctx, uint32_t *sdp_id)
 {
     /* Must be initialized
     */
     if(!CTX_INITIALIZED(ctx))
         return(FKO_ERROR_CTX_NOT_INITIALIZED);
 
-    *sdp_client_id = ctx->sdp_client_id;
+    *sdp_id = ctx->sdp_id;
 
     return(FKO_SUCCESS);
 }
@@ -571,14 +571,14 @@ fko_get_sdp_client_id(fko_ctx_t ctx, uint32_t *sdp_client_id)
  * context (really just for certain tests).
  */
 int
-fko_strip_sdp_client_id(fko_ctx_t ctx)
+fko_strip_sdp_id(fko_ctx_t ctx)
 {
 	char *tbuf = NULL;
 	char *ndx = NULL;
 	int res = 0;
 
 	// first store the encoded sdp client id in the context
-	tbuf = calloc(1, B64_SDP_CLIENT_ID_STR_LEN + 1);
+	tbuf = calloc(1, B64_SDP_ID_STR_LEN + 1);
 	if(tbuf == NULL)
 	{
 		fko_destroy(ctx);
@@ -586,9 +586,9 @@ fko_strip_sdp_client_id(fko_ctx_t ctx)
 		return FKO_ERROR_MEMORY_ALLOCATION;
 	}
 
-	strncpy(tbuf, ctx->encrypted_msg, B64_SDP_CLIENT_ID_STR_LEN);
-	tbuf[B64_SDP_CLIENT_ID_STR_LEN] = '\0';
-	res = fko_set_encoded_sdp_client_id(ctx, tbuf);
+	strncpy(tbuf, ctx->encrypted_msg, B64_SDP_ID_STR_LEN);
+	tbuf[B64_SDP_ID_STR_LEN] = '\0';
+	res = fko_set_encoded_sdp_id(ctx, tbuf);
 	free(tbuf);
 	tbuf = NULL;
 
@@ -598,7 +598,7 @@ fko_strip_sdp_client_id(fko_ctx_t ctx)
 	}
 
 	// the ID is always 6 bytes
-	ndx = ctx->encrypted_msg + B64_SDP_CLIENT_ID_STR_LEN;
+	ndx = ctx->encrypted_msg + B64_SDP_ID_STR_LEN;
 
 	tbuf = strndup(ndx, MAX_SPA_ENCODED_MSG_SIZE);
 	if(tbuf == NULL)
@@ -699,10 +699,10 @@ fko_spa_data_final(fko_ctx_t ctx,
     else
     {
         debug("fko_spa_data_final() : calculating new message len, but first...");
-        debug("fko_spa_data_final() : sdp client id string len: %d", ctx->encoded_sdp_client_id_len);
+        debug("fko_spa_data_final() : sdp client id string len: %d", ctx->encoded_sdp_id_len);
 
     	// remove the unwanted data and insert the SDP client ID at this time
-        new_msg_len = ctx->encoded_sdp_client_id_len + strlen(tmp_ptr) + 1;
+        new_msg_len = ctx->encoded_sdp_id_len + strlen(tmp_ptr) + 1;
         if(! is_valid_encoded_msg_len(new_msg_len))
             return(FKO_ERROR_INVALID_DATA_ENCODE_MSGLEN_VALIDFAIL);
 
@@ -714,10 +714,10 @@ fko_spa_data_final(fko_ctx_t ctx,
 
 
         // put 'em together
-        debug("fko_spa_data_final() : copying sdp client id string: %s;", ctx->encoded_sdp_client_id);
+        debug("fko_spa_data_final() : copying sdp client id string: %s;", ctx->encoded_sdp_id);
         debug("fko_spa_data_final() : encrypted_(encoded)_msg: \n\t%s;", ctx->encrypted_msg);
         debug("fko_spa_data_final() : tmp_ptr: \n\t%s;", tmp_ptr);
-        strlcpy(tbuf, ctx->encoded_sdp_client_id, new_msg_len);
+        strlcpy(tbuf, ctx->encoded_sdp_id, new_msg_len);
         debug("fko_spa_data_final() : concatting rest of message...");
         strlcat(tbuf, tmp_ptr, new_msg_len);
         debug("fko_spa_data_final() : tbuf: \n\t%s;", tbuf);

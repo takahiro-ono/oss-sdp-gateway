@@ -78,10 +78,10 @@ append_b64(char* tbuf, char *str)
 /* Retrieve encoded form of SDP Client ID from the context
  */
 int
-fko_get_encoded_sdp_client_id(fko_ctx_t ctx, char **encoded_sdp_client_id)
+fko_get_encoded_sdp_id(fko_ctx_t ctx, char **encoded_sdp_id)
 {
 #if HAVE_LIBFIU
-    fiu_return_on("fko_get_encoded_sdp_client_id_init", FKO_ERROR_CTX_NOT_INITIALIZED);
+    fiu_return_on("fko_get_encoded_sdp_id_init", FKO_ERROR_CTX_NOT_INITIALIZED);
 #endif
 
     /* Must be initialized
@@ -90,19 +90,19 @@ fko_get_encoded_sdp_client_id(fko_ctx_t ctx, char **encoded_sdp_client_id)
         return(FKO_ERROR_CTX_NOT_INITIALIZED);
 
 #if HAVE_LIBFIU
-    fiu_return_on("fko_get_encoded_sdp_client_id_val", FKO_ERROR_INVALID_DATA);
+    fiu_return_on("fko_get_encoded_sdp_id_val", FKO_ERROR_INVALID_DATA);
 #endif
 
-    *encoded_sdp_client_id = ctx->encoded_sdp_client_id;
+    *encoded_sdp_id = ctx->encoded_sdp_id;
 
     return(FKO_SUCCESS);
 }
 
 int
-fko_set_encoded_sdp_client_id(fko_ctx_t ctx, char *encoded_sdp_client_id)
+fko_set_encoded_sdp_id(fko_ctx_t ctx, char *encoded_sdp_id)
 {
 #if HAVE_LIBFIU
-    fiu_return_on("fko_set_encoded_sdp_client_id_init", FKO_ERROR_CTX_NOT_INITIALIZED);
+    fiu_return_on("fko_set_encoded_sdp_id_init", FKO_ERROR_CTX_NOT_INITIALIZED);
 #endif
 
     /* Must be initialized
@@ -110,30 +110,30 @@ fko_set_encoded_sdp_client_id(fko_ctx_t ctx, char *encoded_sdp_client_id)
     if(!CTX_INITIALIZED(ctx))
         return(FKO_ERROR_CTX_NOT_INITIALIZED);
 
-    if(encoded_sdp_client_id == NULL)
+    if(encoded_sdp_id == NULL)
         return(FKO_ERROR_INVALID_DATA);
 
 #if HAVE_LIBFIU
-    fiu_return_on("fko_set_encoded_sdp_client_id_val", FKO_ERROR_INVALID_DATA);
+    fiu_return_on("fko_set_encoded_sdp_id_val", FKO_ERROR_INVALID_DATA);
 #endif
 
-    ctx->encoded_sdp_client_id = strndup(encoded_sdp_client_id, B64_SDP_CLIENT_ID_STR_LEN);
-    if(ctx->encoded_sdp_client_id == NULL)
+    ctx->encoded_sdp_id = strndup(encoded_sdp_id, B64_SDP_ID_STR_LEN);
+    if(ctx->encoded_sdp_id == NULL)
         return(FKO_ERROR_MEMORY_ALLOCATION);
 
 #if HAVE_LIBFIU
-    fiu_return_on("fko_set_encoded_sdp_client_id", FKO_ERROR_MEMORY_ALLOCATION);
+    fiu_return_on("fko_set_encoded_sdp_id", FKO_ERROR_MEMORY_ALLOCATION);
 #endif
 
-    if(! is_valid_encoded_sdp_client_id_len(
-               strnlen(ctx->encoded_sdp_client_id, B64_SDP_CLIENT_ID_STR_LEN)))
+    if(! is_valid_encoded_sdp_id_len(
+               strnlen(ctx->encoded_sdp_id, B64_SDP_ID_STR_LEN)))
         return(FKO_ERROR_INVALID_DATA_ENCODE_SDPCLIENTLEN_VALIDFAIL);
 
 #if HAVE_LIBFIU
-    fiu_return_on("fko_set_encoded_sdp_client_id", FKO_ERROR_INVALID_DATA_ENCODE_SDPCLIENTLEN_VALIDFAIL);
+    fiu_return_on("fko_set_encoded_sdp_id", FKO_ERROR_INVALID_DATA_ENCODE_SDPCLIENTLEN_VALIDFAIL);
 #endif
 
-    ctx->encoded_sdp_client_id_len = B64_SDP_CLIENT_ID_STR_LEN;
+    ctx->encoded_sdp_id_len = B64_SDP_ID_STR_LEN;
 
     return(FKO_SUCCESS);
 }
@@ -145,7 +145,7 @@ fko_encode_sdp_spa_data(fko_ctx_t ctx)
 {
     int     res, offset = 0;
     char   *tbuf = NULL;
-    char   *tbuf_sdp_client_id = NULL;
+    char   *tbuf_sdp_id = NULL;
 
 #if HAVE_LIBFIU
     fiu_return_on("fko_encode_spa_data_init", FKO_ERROR_CTX_NOT_INITIALIZED);
@@ -164,8 +164,8 @@ fko_encode_sdp_spa_data(fko_ctx_t ctx)
     fiu_return_on("fko_encode_spa_data_valid", FKO_ERROR_INCOMPLETE_SPA_DATA);
 #endif
 
-    debug("fko_encode_sdp_spa_data() : checking sdp client id, which is: %"PRIu32";", ctx->sdp_client_id);
-    if(  ctx->sdp_client_id == FKO_DEFAULT_SDP_CLIENT_ID
+    debug("fko_encode_sdp_spa_data() : checking sdp client id, which is: %"PRIu32";", ctx->sdp_id);
+    if(  ctx->sdp_id == FKO_DEFAULT_SDP_ID
       || ctx->message  == NULL || strnlen(ctx->message, MAX_SPA_MESSAGE_SIZE)  == 0)
     {
         return(FKO_ERROR_INCOMPLETE_SPA_DATA);
@@ -186,48 +186,48 @@ fko_encode_sdp_spa_data(fko_ctx_t ctx)
     /* Allocate our initial tmp buffers.
     */
     // the 4 byte client id always gets encoded to 6 bytes + '==' + \0
-    tbuf_sdp_client_id = calloc(1, B64_SDP_CLIENT_ID_STR_LEN*2);
-    if(tbuf_sdp_client_id == NULL)
+    tbuf_sdp_id = calloc(1, B64_SDP_ID_STR_LEN*2);
+    if(tbuf_sdp_id == NULL)
         return(FKO_ERROR_MEMORY_ALLOCATION);
 
     tbuf = calloc(1, FKO_ENCODE_TMP_BUF_SIZE);
     if(tbuf == NULL)
     {
-        free(tbuf_sdp_client_id);
+        free(tbuf_sdp_id);
         return(FKO_ERROR_MEMORY_ALLOCATION);
     }
 
     /* B64-encode the SDP client ID and strip off the '=='
      */
-    res = b64_encode((unsigned char *)&(ctx->sdp_client_id), tbuf_sdp_client_id, FKO_SDP_CLIENT_ID_SIZE);
-    if(res != (B64_SDP_CLIENT_ID_STR_LEN + 2))
+    res = b64_encode((unsigned char *)&(ctx->sdp_id), tbuf_sdp_id, FKO_SDP_ID_SIZE);
+    if(res != (B64_SDP_ID_STR_LEN + 2))
     {
-        free(tbuf_sdp_client_id);
+        free(tbuf_sdp_id);
         free(tbuf);
         return(FKO_ERROR_INVALID_DATA_ENCODE_SDPCLIENTLEN_VALIDFAIL);
     }
-    strip_b64_eq(tbuf_sdp_client_id);
+    strip_b64_eq(tbuf_sdp_id);
 
-    /* If encoded_sdp_client_id is not null, then we assume it needs to
+    /* If encoded_sdp_id is not null, then we assume it needs to
      * be freed before re-assignment.
     */
-    if(ctx->encoded_sdp_client_id != NULL)
-        free(ctx->encoded_sdp_client_id);
+    if(ctx->encoded_sdp_id != NULL)
+        free(ctx->encoded_sdp_id);
 
     /* Copy our encoded data into the context.
     */
-    ctx->encoded_sdp_client_id = strdup(tbuf_sdp_client_id);
-    free(tbuf_sdp_client_id);
+    ctx->encoded_sdp_id = strdup(tbuf_sdp_id);
+    free(tbuf_sdp_id);
 
-    if(ctx->encoded_sdp_client_id == NULL)
+    if(ctx->encoded_sdp_id == NULL)
     {
         free(tbuf);
         return(FKO_ERROR_MEMORY_ALLOCATION);
     }
 
-    ctx->encoded_sdp_client_id_len = strnlen(ctx->encoded_sdp_client_id, B64_SDP_CLIENT_ID_STR_LEN);
+    ctx->encoded_sdp_id_len = strnlen(ctx->encoded_sdp_id, B64_SDP_ID_STR_LEN);
 
-    if(! is_valid_encoded_sdp_client_id_len(ctx->encoded_sdp_client_id_len))
+    if(! is_valid_encoded_sdp_id_len(ctx->encoded_sdp_id_len))
     {
         free(tbuf);
         return(FKO_ERROR_INVALID_DATA_ENCODE_SDPCLIENTLEN_VALIDFAIL);

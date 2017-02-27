@@ -42,8 +42,8 @@ enum {
 struct sdp_creds{
     char *encryption_key;
     char *hmac_key;
-    char *tls_client_key;
-    char *tls_client_cert;
+    char *tls_key;
+    char *tls_cert;
 };
 
 typedef struct sdp_creds *sdp_creds_t;

@@ -35,7 +35,7 @@
 
 /* Function prototypes
 */
-int     is_valid_encoded_sdp_client_id_len(const int len);
+int     is_valid_encoded_sdp_id_len(const int len);
 int     is_valid_encoded_msg_len(const int len);
 int     is_valid_pt_msg_len(const int len);
 int     is_valid_ipv4_addr(const char * const ip_str);

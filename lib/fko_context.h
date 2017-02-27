@@ -58,7 +58,7 @@ struct fko_context {
 
     /* FKO SPA user-definable message data */
     char           *rand_val;
-    uint32_t	    sdp_client_id;
+    uint32_t	    sdp_id;
     char           *username;
     time_t          timestamp;
     short           message_type;
@@ -87,8 +87,8 @@ struct fko_context {
     int             raw_digest_len;
 
     /* Computed processed data (encodings, etc.) */
-    char		   *encoded_sdp_client_id;
-    int				encoded_sdp_client_id_len;
+    char		   *encoded_sdp_id;
+    int				encoded_sdp_id_len;
     char           *encoded_msg;
     int             encoded_msg_len;
     char           *encrypted_msg;

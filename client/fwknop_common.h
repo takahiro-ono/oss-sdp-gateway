@@ -74,7 +74,7 @@
 */
 typedef struct fko_cli_options
 {
-    uint32_t sdp_client_id;
+    uint32_t sdp_id;
     char service_ids_str[MAX_PATH_LEN];
     char sdp_ctrl_client_config_file[MAX_PATH_LEN];
     char access_str[MAX_PATH_LEN];

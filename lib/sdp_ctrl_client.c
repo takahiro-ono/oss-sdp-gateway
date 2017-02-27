@@ -1888,7 +1888,7 @@ int  sdp_ctrl_client_save_credentials(sdp_ctrl_client_t client, sdp_creds_t cred
 
     // store certificate file
     log_msg(LOG_DEBUG, "Storing certificate file");
-    if((rv = sdp_save_to_file(client->com->cert_file, creds->tls_client_cert)) != SDP_SUCCESS)
+    if((rv = sdp_save_to_file(client->com->cert_file, creds->tls_cert)) != SDP_SUCCESS)
     {
         log_msg(LOG_ERR, "Failed to store client certificate to: %s", client->com->cert_file);
         return rv;
@@ -1896,7 +1896,7 @@ int  sdp_ctrl_client_save_credentials(sdp_ctrl_client_t client, sdp_creds_t cred
 
     // store key file
     log_msg(LOG_DEBUG, "Storing key file");
-    if((rv = sdp_save_to_file(client->com->key_file, creds->tls_client_key)) != SDP_SUCCESS)
+    if((rv = sdp_save_to_file(client->com->key_file, creds->tls_key)) != SDP_SUCCESS)
     {
         log_msg(LOG_ERR, "Failed to store client key to: %s", client->com->key_file);
         sdp_restore_file(client->com->cert_file);

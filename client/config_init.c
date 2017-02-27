@@ -136,7 +136,7 @@ enum
     FWKNOP_CLI_ARG_WGET_CMD,
     FWKNOP_CLI_ARG_NO_SAVE_ARGS,
     FWKNOP_CLI_ARG_DISABLE_SDP_MODE,
-    FWKNOP_CLI_ARG_SDP_CLIENT_ID,
+    FWKNOP_CLI_ARG_SDP_ID,
     FWKNOP_CLI_ARG_SERVICE_IDS,
     FWKNOP_CLI_ARG_DISABLE_SDP_CTRL_CLIENT,
     FWKNOP_CLI_ARG_SDP_CTRL_CLIENT_CONF,
@@ -190,7 +190,7 @@ static fko_var_t fko_var_array[FWKNOP_CLI_LAST_ARG] =
     { "WGET_CMD",              FWKNOP_CLI_ARG_WGET_CMD              },
     { "NO_SAVE_ARGS",          FWKNOP_CLI_ARG_NO_SAVE_ARGS          },
     { "DISABLE_SDP_MODE",      FWKNOP_CLI_ARG_DISABLE_SDP_MODE      },
-    { "SDP_CLIENT_ID",            FWKNOP_CLI_ARG_SDP_CLIENT_ID         },
+    { "SDP_ID",            FWKNOP_CLI_ARG_SDP_ID         },
     { "SERVICE_IDS",            FWKNOP_CLI_ARG_SERVICE_IDS           },
     { "DISABLE_CTRL_CLIENT",   FWKNOP_CLI_ARG_DISABLE_SDP_CTRL_CLIENT},
     { "SDP_CTRL_CLIENT_CONF",  FWKNOP_CLI_ARG_SDP_CTRL_CLIENT_CONF  }
@@ -898,20 +898,20 @@ create_fwknoprc(const char *rcfile)
         "# 88 on 192.168.1.55 with timeout.\n"
         "#\n"
         "#[myssh]\n"
-        "#SDP_CLIENT_ID       12345\n"
+        "#SDP_ID       12345\n"
         "#SPA_SERVER          192.168.1.20\n"
         "#SERVICE_IDS         123\n"
         "#ALLOW_IP            resolve\n"
         "#\n"
         "#[mynatreq]\n"
-        "#SDP_CLIENT_ID       12345\n"
+        "#SDP_ID       12345\n"
         "#SPA_SERVER          192.168.1.20\n"
         "#SERVICE_IDS         456\n"
         "#ALLOW_IP            10.21.2.6\n"
         "#CLIENT_TIMEOUT      60\n"
         "#\n"
         "#[mynatreq_legacy]\n"
-        "#SDP_CLIENT_ID       12345\n"
+        "#SDP_ID       12345\n"
         "#SPA_SERVER          192.168.1.20\n"
         "#ACCESS              tcp/8088\n"
         "#ALLOW_IP            10.21.2.6\n"
@@ -1328,11 +1328,11 @@ parse_rc_param(fko_cli_options_t *options, const char *var_name, char * val)
             options->disable_sdp_mode = 0;
     }
     /* SDP Client ID */
-    else if (var->pos == FWKNOP_CLI_ARG_SDP_CLIENT_ID)
+    else if (var->pos == FWKNOP_CLI_ARG_SDP_ID)
     {
         tmpint = strtol_wrapper(val, 0, UINT32_MAX, NO_EXIT_UPON_ERR, &is_err);;
         if(is_err == FKO_SUCCESS)
-            options->sdp_client_id = (uint32_t)tmpint;
+            options->sdp_id = (uint32_t)tmpint;
         else
             parse_error = -1;
     }
@@ -1531,8 +1531,8 @@ add_single_var_to_rc(FILE* fhandle, short var_pos, fko_cli_options_t *options)
         case FWKNOP_CLI_ARG_DISABLE_SDP_MODE:
             bool_to_yesno( (int)(options->disable_sdp_mode), val, sizeof(val));
             break;
-        case FWKNOP_CLI_ARG_SDP_CLIENT_ID:
-            snprintf(val, sizeof(val)-1, "%"PRIu32, options->sdp_client_id);
+        case FWKNOP_CLI_ARG_SDP_ID:
+            snprintf(val, sizeof(val)-1, "%"PRIu32, options->sdp_id);
             break;
         case FWKNOP_CLI_ARG_SERVICE_IDS:
             strlcpy(val, options->service_ids_str, sizeof(val));
@@ -1930,14 +1930,14 @@ validate_options(fko_cli_options_t *options)
             }
         }
 
-        /* If SDP mode, must have defined sdp_client_id
+        /* If SDP mode, must have defined sdp_id
          */
         if(!options->disable_sdp_mode)
         {
-            if(options->sdp_client_id == FKO_DEFAULT_SDP_CLIENT_ID)
+            if(options->sdp_id == FKO_DEFAULT_SDP_ID)
             {
                 log_msg(LOG_VERBOSITY_ERROR,
-                    "SDP_CLIENT_ID must be specified when SDP mode is enabled");
+                    "SDP_ID must be specified when SDP mode is enabled");
                 exit(EXIT_FAILURE);
             }
         }
@@ -2046,7 +2046,7 @@ set_defaults(fko_cli_options_t *options)
     options->input_fd       = FD_INVALID;
 
     options->disable_sdp_mode = FKO_DEFAULT_DISABLE_SDP_MODE;
-    options->sdp_client_id    = FKO_DEFAULT_SDP_CLIENT_ID;
+    options->sdp_id    = FKO_DEFAULT_SDP_ID;
 
     return;
 }
@@ -2386,10 +2386,10 @@ config_init(fko_cli_options_t *options, int argc, char **argv)
                 strlcpy(options->resolve_url, optarg, rlen);
                 add_var_to_bitmask(FWKNOP_CLI_ARG_RESOLVE_URL, &var_bitmask);
                 break;
-            case SDP_CLIENT_ID:
-                options->sdp_client_id = (uint32_t)strtol_wrapper(optarg, 0,
+            case SDP_ID:
+                options->sdp_id = (uint32_t)strtol_wrapper(optarg, 0,
                         UINT32_MAX, EXIT_UPON_ERR, &is_err);
-                add_var_to_bitmask(FWKNOP_CLI_ARG_SDP_CLIENT_ID, &var_bitmask);
+                add_var_to_bitmask(FWKNOP_CLI_ARG_SDP_ID, &var_bitmask);
                 break;
             case SERVICE_IDS:
                 strlcpy(options->service_ids_str, optarg, sizeof(options->service_ids_str));

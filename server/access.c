@@ -1232,7 +1232,7 @@ traverse_dump_hash_cb(hash_table_node_t *node, void *dest)
     acc_stanza_t *acc = (acc_stanza_t *)(node->data);
 
     fprintf((FILE*)dest,
-        "SDP_CLIENT_ID:  %"PRIu32"\n"
+        "SDP_ID:  %"PRIu32"\n"
         "==============================================================\n"
         "                     SOURCE:  %s\n"
         "                DESTINATION:  %s\n"
@@ -1274,7 +1274,7 @@ traverse_dump_hash_cb(hash_table_node_t *node, void *dest)
         "GPG_IGNORE_SIG_VERIFY_ERROR:  %s\n"
         "              GPG_REMOTE_ID:  %s\n"
         "         GPG_FINGERPRINT_ID:  %s\n",
-        acc->sdp_client_id,
+        acc->sdp_id,
         acc->source,
         (acc->destination == NULL) ? "<not set>" : acc->destination,
         (acc->service_list_str == NULL) ? "<not set>" : acc->service_list_str,
@@ -1413,7 +1413,7 @@ acc_stanza_add(fko_srv_options_t *opts, char *val)
         if( val == NULL || (strnlen(val, SDP_MAX_CLIENT_ID_STR_LEN) < 1))
         {
             log_msg(LOG_ERR,
-                "[*] Fatal error - SDP_CLIENT_ID string invalid"
+                "[*] Fatal error - SDP_ID string invalid"
             );
             free_acc_stanza_data(new_acc);
             free(new_acc);
@@ -1743,7 +1743,7 @@ make_acc_stanza_from_json(fko_srv_options_t *opts, json_object *jdata, acc_stanz
     char *service_list = NULL;
     acc_stanza_t *stanza = calloc(1, sizeof(acc_stanza_t));
 
-    if((rv = sdp_get_json_int_field("sdp_client_id", jdata, (int*)&(stanza->sdp_client_id))) != SDP_SUCCESS)
+    if((rv = sdp_get_json_int_field("sdp_id", jdata, (int*)&(stanza->sdp_id))) != SDP_SUCCESS)
     {
         log_msg(LOG_ERR, "Did not find SDP Client ID in access stanza, invalid stanza entry");
         goto cleanup;
@@ -1776,7 +1776,7 @@ make_acc_stanza_from_json(fko_srv_options_t *opts, json_object *jdata, acc_stanz
     sdp_get_json_string_field("open_ports", jdata, &(stanza->open_ports));
     sdp_get_json_string_field("restrict_ports", jdata, &(stanza->restrict_ports));
 
-    if(sdp_get_json_string_field("key", jdata, &(stanza->key)) == SDP_SUCCESS)
+    if(sdp_get_json_string_field("spa_encryption_key", jdata, &(stanza->key)) == SDP_SUCCESS)
     {
         if((stanza->key_len = strnlen(stanza->key, MAX_KEY_LEN + 1)) > MAX_KEY_LEN)
         {
@@ -1788,7 +1788,7 @@ make_acc_stanza_from_json(fko_srv_options_t *opts, json_object *jdata, acc_stanz
         add_acc_bool(&(stanza->use_rijndael), "Y");
     }
 
-    if(sdp_get_json_string_field("key_base64", jdata, &(stanza->key_base64)) == SDP_SUCCESS)
+    if(sdp_get_json_string_field("spa_encryption_key_base64", jdata, &(stanza->key_base64)) == SDP_SUCCESS)
     {
         if(strnlen(stanza->key_base64, MAX_B64_KEY_LEN + 1) > MAX_B64_KEY_LEN)
         {
@@ -1834,7 +1834,7 @@ make_acc_stanza_from_json(fko_srv_options_t *opts, json_object *jdata, acc_stanz
         free(tmp);
     }
 
-    if(sdp_get_json_string_field("hmac_key", jdata, &(stanza->hmac_key)) == SDP_SUCCESS)
+    if(sdp_get_json_string_field("spa_hmac_key", jdata, &(stanza->hmac_key)) == SDP_SUCCESS)
     {
         if((stanza->hmac_key_len = strnlen(stanza->key, MAX_KEY_LEN + 1)) > MAX_KEY_LEN)
         {
@@ -1844,7 +1844,7 @@ make_acc_stanza_from_json(fko_srv_options_t *opts, json_object *jdata, acc_stanz
         }
     }
 
-    if(sdp_get_json_string_field("hmac_key_base64", jdata, &(stanza->hmac_key_base64)) == SDP_SUCCESS)
+    if(sdp_get_json_string_field("spa_hmac_key_base64", jdata, &(stanza->hmac_key_base64)) == SDP_SUCCESS)
     {
         if(strnlen(stanza->hmac_key_base64, MAX_B64_KEY_LEN + 1) > MAX_B64_KEY_LEN)
         {
@@ -2179,13 +2179,13 @@ make_acc_stanza_from_json(fko_srv_options_t *opts, json_object *jdata, acc_stanz
     // do sanity check on data
     if(!acc_data_is_valid(opts, user_pw, sudo_user_pw, stanza))
     {
-        log_msg(LOG_ERR, "[*] Validation failed on stanza for SDP ID %d", stanza->sdp_client_id);
+        log_msg(LOG_ERR, "[*] Validation failed on stanza for SDP ID %d", stanza->sdp_id);
         rv = FWKNOPD_ERROR_BAD_STANZA_DATA;
     }
 
     if(expand_one_acc_ent_list(stanza) != SUCCESS)
     {
-        log_msg(LOG_ERR, "[*] Access list expansion failed on stanza for SDP ID %d", stanza->sdp_client_id);
+        log_msg(LOG_ERR, "[*] Access list expansion failed on stanza for SDP ID %d", stanza->sdp_id);
         rv = FWKNOPD_ERROR_BAD_STANZA_DATA;
     }
 
@@ -2222,9 +2222,9 @@ remove_access_stanzas(hash_table_t *acc_table, int access_array_len, json_object
     for(idx = 0; idx < access_array_len; idx++)
     {
         jentry = json_object_array_get_idx(jdata, idx);
-        if((rv = sdp_get_json_int_field("sdp_client_id", jentry, &sdp_id)) != SDP_SUCCESS)
+        if((rv = sdp_get_json_int_field("sdp_id", jentry, &sdp_id)) != SDP_SUCCESS)
         {
-            log_msg(LOG_ERR, "Did not find sdp_client_id field in data array entry.");
+            log_msg(LOG_ERR, "Did not find sdp_id field in data array entry.");
             continue;
         }
 
@@ -2276,7 +2276,7 @@ modify_access_table(fko_srv_options_t *opts, int access_array_len, json_object *
         }
 
         // convert the sdp id integer to a bstring
-        snprintf(id, SDP_MAX_CLIENT_ID_STR_LEN, "%d", new_acc->sdp_client_id);
+        snprintf(id, SDP_MAX_CLIENT_ID_STR_LEN, "%d", new_acc->sdp_id);
         key = bfromcstr(id);
 
         if( hash_table_set(opts->acc_stanza_hash_tbl, key, new_acc) != FKO_SUCCESS )
@@ -2290,7 +2290,7 @@ modify_access_table(fko_srv_options_t *opts, int access_array_len, json_object *
             return FKO_ERROR_MEMORY_ALLOCATION;
         }
 
-        log_msg(LOG_NOTICE, "Added access entry for SDP ID %d", new_acc->sdp_client_id);
+        log_msg(LOG_NOTICE, "Added access entry for SDP ID %d", new_acc->sdp_id);
         nodes++;
     }
 
@@ -2430,7 +2430,7 @@ parse_access_file(fko_srv_options_t *opts)
     FILE           *file_ptr;
     char           *ndx;
     int             got_source = 0, is_err;
-    int             got_sdp_client_id=0;
+    int             got_sdp_id=0;
     unsigned int    num_lines = 0;
 
     char            access_line_buf[MAX_LINE_LEN] = {0};
@@ -2554,7 +2554,7 @@ parse_access_file(fko_srv_options_t *opts)
             }
             else if (curr_acc == NULL)
             {
-                /* The stanza must start with "SDP_CLIENT_ID" variable
+                /* The stanza must start with "SDP_ID" variable
                  * in SDP mode
                 */
                 continue;
@@ -2563,7 +2563,7 @@ parse_access_file(fko_srv_options_t *opts)
             add_acc_string(&(curr_acc->source), val, file_ptr, opts);
             got_source++;
         }
-        else if(CONF_VAR_IS(var, "SDP_CLIENT_ID"))
+        else if(CONF_VAR_IS(var, "SDP_ID"))
         {
             // Don't need this field in legacy mode, so ignore completely
             if(strncasecmp(opts->config[CONF_DISABLE_SDP_MODE], "Y", 1) == 0)
@@ -2585,21 +2585,21 @@ parse_access_file(fko_srv_options_t *opts)
             /* Start new stanza.
             */
             curr_acc = acc_stanza_add(opts, val);
-            curr_acc->sdp_client_id = (uint32_t)strtol_wrapper(val, 0,
+            curr_acc->sdp_id = (uint32_t)strtol_wrapper(val, 0,
                                         UINT32_MAX, NO_EXIT_UPON_ERR, &is_err);
             if(is_err != FKO_SUCCESS)
             {
                 log_msg(LOG_ERR,
-                    "[*] SDP_CLIENT_ID value not in range in access file: '%s'",
+                    "[*] SDP_ID value not in range in access file: '%s'",
                     opts->config[CONF_ACCESS_FILE] );
                 fclose(file_ptr);
                 clean_exit(opts, NO_FW_CLEANUP, EXIT_FAILURE);
             }
-            got_sdp_client_id++;
+            got_sdp_id++;
         }
         else if (curr_acc == NULL)
         {
-            /* The stanza must start with "SOURCE" or "SDP_CLIENT_ID" variable
+            /* The stanza must start with "SOURCE" or "SDP_ID" variable
              * depending on mode
             */
             continue;

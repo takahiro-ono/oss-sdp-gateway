@@ -66,7 +66,7 @@ enum {
     FD_SET_ALT,
     FAULT_INJECTION_TAG,
     DISABLE_SDP_MODE,
-    SDP_CLIENT_ID,
+    SDP_ID,
     SERVICE_IDS,
     DISABLE_SDP_CTRL_CLIENT,
 
@@ -147,7 +147,7 @@ static struct option cmd_opts[] =
     {"resolve-ip-https",    0, NULL, 'R'}, /* synonym, default is HTTPS */
     {"resolve-http-only",   0, NULL, RESOLVE_HTTP_ONLY},
     {"resolve-url",         1, NULL, RESOLVE_URL},
-    {"sdp-id",              1, NULL, SDP_CLIENT_ID},
+    {"sdp-id",              1, NULL, SDP_ID},
     {"services",            1, NULL, SERVICE_IDS},
     {"server-resolve-ipv4", 0, NULL, SERVER_RESOLVE_IPV4},
     {"show-last",           0, NULL, SHOW_LAST_ARGS},

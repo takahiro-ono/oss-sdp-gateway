@@ -59,10 +59,10 @@ preprocess_spa_data(const fko_srv_options_t *opts, spa_pkt_info_t *spa_pkt)
 {
 
     char    *ndx = (char *)&(spa_pkt->packet_data);
-    char    *decoded_sdp_client_id = NULL;
-    char    *encoded_sdp_client_id = NULL;
+    char    *decoded_sdp_id = NULL;
+    char    *encoded_sdp_id = NULL;
     int      i, pkt_data_len = 0;
-    uint32_t sdp_client_id = 0;
+    uint32_t sdp_id = 0;
 
     pkt_data_len = spa_pkt->packet_data_len;
 
@@ -151,36 +151,36 @@ preprocess_spa_data(const fko_srv_options_t *opts, spa_pkt_info_t *spa_pkt)
     if(strncasecmp(opts->config[CONF_DISABLE_SDP_MODE], "N", 1) == 0)
     {
         // make space for the decoded string, really need 5 bytes, but 8 will work
-        decoded_sdp_client_id = calloc(1, FKO_SDP_CLIENT_ID_SIZE*2);
-        if(decoded_sdp_client_id == NULL)
+        decoded_sdp_id = calloc(1, FKO_SDP_ID_SIZE*2);
+        if(decoded_sdp_id == NULL)
             return(FKO_ERROR_MEMORY_ALLOCATION);
 
         // Copy out the SDP client ID, NOT extracting yet
-        encoded_sdp_client_id = strndup((char *)(spa_pkt->packet_data), B64_SDP_CLIENT_ID_STR_LEN);
+        encoded_sdp_id = strndup((char *)(spa_pkt->packet_data), B64_SDP_ID_STR_LEN);
 
         // decode from b64 to original data
-        if(1 > fko_base64_decode(encoded_sdp_client_id, (unsigned char*)decoded_sdp_client_id))
+        if(1 > fko_base64_decode(encoded_sdp_id, (unsigned char*)decoded_sdp_id))
         {
             // decode returned error or at least a zero-length string
-            free(encoded_sdp_client_id);
-            free(decoded_sdp_client_id);
+            free(encoded_sdp_id);
+            free(decoded_sdp_id);
             return(SPA_MSG_NOT_SPA_DATA);
         }
-        free(encoded_sdp_client_id);
+        free(encoded_sdp_id);
 
         // copy to a proper uint32_t
-        memcpy((void*)(&sdp_client_id), decoded_sdp_client_id, FKO_SDP_CLIENT_ID_SIZE);
-        if(sdp_client_id == 0)
+        memcpy((void*)(&sdp_id), decoded_sdp_id, FKO_SDP_ID_SIZE);
+        if(sdp_id == 0)
         {
             // client ID must not be zero
-            free(decoded_sdp_client_id);
+            free(decoded_sdp_id);
             return(SPA_MSG_NOT_SPA_DATA);
         }
-        spa_pkt->sdp_client_id = sdp_client_id;
-        free(decoded_sdp_client_id);
+        spa_pkt->sdp_id = sdp_id;
+        free(decoded_sdp_id);
 
         // make a string version too
-        snprintf(spa_pkt->sdp_client_id_str, MAX_SDP_CLIENT_ID_STR_LEN, "%"PRIu32, sdp_client_id);
+        snprintf(spa_pkt->sdp_id_str, MAX_SDP_ID_STR_LEN, "%"PRIu32, sdp_id);
     }
 
     return(FKO_SUCCESS);
@@ -285,7 +285,7 @@ get_spa_data_fields(fko_ctx_t ctx, spa_data_t *spdat)
     if(res != FKO_SUCCESS)
         return(res);
 
-    res = fko_get_sdp_client_id(ctx, &(spdat->sdp_client_id));
+    res = fko_get_sdp_id(ctx, &(spdat->sdp_id));
     if(res != FKO_SUCCESS)
         return(res);
 
@@ -394,22 +394,22 @@ src_check(fko_srv_options_t *opts, spa_pkt_info_t *spa_pkt, spa_data_t *spadat)
 /* Look for the SDP Client ID in the hash table
  */
 static int
-sdp_client_id_check(fko_srv_options_t *opts, spa_pkt_info_t *spa_pkt, acc_stanza_t **acc)
+sdp_id_check(fko_srv_options_t *opts, spa_pkt_info_t *spa_pkt, acc_stanza_t **acc)
 {
-    bstring sdp_client_id = NULL;
+    bstring sdp_id = NULL;
 
-    if(spa_pkt->sdp_client_id == 0)
+    if(spa_pkt->sdp_id == 0)
     {
         log_msg(LOG_WARNING,
                 "No access data found for SDP Client ID: %"PRIu32"...obviously",
-                spa_pkt->sdp_client_id);
+                spa_pkt->sdp_id);
         return 0;
     }
 
-    sdp_client_id = bfromcstr(spa_pkt->sdp_client_id_str);
-    if(sdp_client_id == NULL)
+    sdp_id = bfromcstr(spa_pkt->sdp_id_str);
+    if(sdp_id == NULL)
     {
-        log_msg(LOG_ERR, "Failed to convert sdp_client_id_str to bstring. Value: %s", spa_pkt->sdp_client_id_str);
+        log_msg(LOG_ERR, "Failed to convert sdp_id_str to bstring. Value: %s", spa_pkt->sdp_id_str);
         return 0;
     }
 
@@ -420,16 +420,16 @@ sdp_client_id_check(fko_srv_options_t *opts, spa_pkt_info_t *spa_pkt, acc_stanza
         return 0;
     }
 
-    *acc = hash_table_get(opts->acc_stanza_hash_tbl, sdp_client_id);
+    *acc = hash_table_get(opts->acc_stanza_hash_tbl, sdp_id);
     pthread_mutex_unlock(&(opts->acc_hash_tbl_mutex));
 
-    bdestroy(sdp_client_id);
+    bdestroy(sdp_id);
     if(*acc)
         return 1;  //found what we were looking for
 
     log_msg(LOG_WARNING,
         "No access data found for SDP Client ID: %"PRIu32,
-        spa_pkt->sdp_client_id);
+        spa_pkt->sdp_id);
     return 0;
 }
 
@@ -635,7 +635,7 @@ handle_rijndael_enc(acc_stanza_t *acc, spa_pkt_info_t *spa_pkt,
     {
         *res = fko_new_with_data(ctx, (char *)spa_pkt->packet_data,
             acc->key, acc->key_len, acc->encryption_mode, acc->hmac_key,
-            acc->hmac_key_len, acc->hmac_type, spa_pkt->sdp_client_id);
+            acc->hmac_key_len, acc->hmac_type, spa_pkt->sdp_id);
         *attempted_decrypt = 1;
         if(*res == FKO_SUCCESS)
             *cmd_exec_success = 1;
@@ -658,7 +658,7 @@ handle_gpg_enc(acc_stanza_t *acc, spa_pkt_info_t *spa_pkt,
         {
             *res = fko_new_with_data(ctx, (char *)spa_pkt->packet_data, NULL,
                     0, FKO_ENC_MODE_ASYMMETRIC, acc->hmac_key,
-                    acc->hmac_key_len, acc->hmac_type, spa_pkt->sdp_client_id);
+                    acc->hmac_key_len, acc->hmac_type, spa_pkt->sdp_id);
 
             if(*res != FKO_SUCCESS)
             {
@@ -1299,7 +1299,7 @@ incoming_spa(fko_srv_options_t *opts)
     }
     else
     {
-        if(! sdp_client_id_check(opts, spa_pkt, &acc))
+        if(! sdp_id_check(opts, spa_pkt, &acc))
             goto cleanup;
     }
 

@@ -241,7 +241,7 @@ run_udp_server(fko_srv_options_t *opts)
             opts->spa_pkt.packet_dst_ip   = saddr.sin_addr.s_addr;
             opts->spa_pkt.packet_src_port = ntohs(caddr.sin_port);
             opts->spa_pkt.packet_dst_port = ntohs(saddr.sin_port);
-            opts->spa_pkt.sdp_client_id   = 0;
+            opts->spa_pkt.sdp_id   = 0;
 
             incoming_spa(opts);
         }

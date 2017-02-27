@@ -225,7 +225,7 @@ process_packet(unsigned char *args, const struct pcap_pkthdr *packet_header,
     opts->spa_pkt.packet_dst_ip   = dst_ip;
     opts->spa_pkt.packet_src_port = src_port;
     opts->spa_pkt.packet_dst_port = dst_port;
-    opts->spa_pkt.sdp_client_id = 0;
+    opts->spa_pkt.sdp_id = 0;
 
     incoming_spa(opts);
 

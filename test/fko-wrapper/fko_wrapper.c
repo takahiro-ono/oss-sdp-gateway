@@ -41,7 +41,7 @@
 #define SPA_MSG2        "123.123.123.123,tcp/22"
 #define SPA_NAT_MSG     "1.2.3.4,1234"
 #define SERVER_AUTH_MSG "passwd"
-#define SDP_CLIENT_ID    99999
+#define SDP_ID    99999
 
 #define IS_EMPTY_LINE(x) ( \
     x == '#' || x == '\n' || x == '\r' || x == ';' || x == '\0' \
@@ -315,10 +315,10 @@ test_loop_compounded(int disable_sdp)
     fko_ctx_t  ctx = NULL, decrypt_ctx = NULL;
     char *spa_data = NULL;
     int i, j, k, l, res;
-    uint32_t sdp_client_id = SDP_CLIENT_ID;
+    uint32_t sdp_id = SDP_ID;
 
     if(disable_sdp)
-    	sdp_client_id = 0;
+    	sdp_id = 0;
 
     for (i=0; i<FCN_CALLS; i++) {
 
@@ -330,9 +330,9 @@ test_loop_compounded(int disable_sdp)
             if (res != FKO_SUCCESS)
                 printf("fko_set_disable_sdp_mode(): %s\n", fko_errstr(res));
 
-        	res = fko_set_sdp_client_id(ctx, sdp_client_id);
+        	res = fko_set_sdp_id(ctx, sdp_id);
             if (res != FKO_SUCCESS)
-                printf("fko_set_sdp_client_id(): %s\n", fko_errstr(res));
+                printf("fko_set_sdp_id(): %s\n", fko_errstr(res));
 
             res = fko_set_spa_message_type(ctx, j);
             if (res != FKO_SUCCESS)
@@ -376,7 +376,7 @@ test_loop_compounded(int disable_sdp)
                         if (res == FKO_SUCCESS) {
 
                             res = fko_new_with_data(&decrypt_ctx, spa_data, NULL,
-                                0, FKO_ENC_MODE_CBC, HMAC_KEY, l, FKO_HMAC_SHA256, sdp_client_id);
+                                0, FKO_ENC_MODE_CBC, HMAC_KEY, l, FKO_HMAC_SHA256, sdp_id);
 
                             if (res == FKO_SUCCESS) {
                                 res = fko_decrypt_spa_data(decrypt_ctx, ENC_KEY, k);
@@ -414,7 +414,7 @@ test_loop(int new_ctx_flag, int destroy_ctx_flag, int disable_sdp)
     fko_ctx_t  ctx = NULL, decrypt_ctx = NULL;
     int        i, j;
     char       *spa_data = NULL, encode_buf[100], decode_buf[100];
-    uint32_t   sdp_client_id = SDP_CLIENT_ID;
+    uint32_t   sdp_id = SDP_ID;
 
     printf("[+] test_loop(): %s, %s\n",
             new_ctx_flag == NEW_CTX ? "NEW_CTX" : "NO_NEW_CTX",
@@ -509,7 +509,7 @@ test_loop(int new_ctx_flag, int destroy_ctx_flag, int disable_sdp)
 
     if(disable_sdp)
     {
-    	sdp_client_id = 0;
+    	sdp_id = 0;
 
         spa_func_getset_uint16(&ctx, "fko_set_disable_sdp_mode",
                 &fko_set_disable_sdp_mode, "fko_get_spa_hmac_type",
@@ -518,9 +518,9 @@ test_loop(int new_ctx_flag, int destroy_ctx_flag, int disable_sdp)
     }
     else
     {
-        spa_func_getset_uint32(&ctx, "fko_set_sdp_client_id",
-                &fko_set_sdp_client_id, "fko_get_sdp_client_id",
-                &fko_get_sdp_client_id, 0, UINT32_MAX, sdp_client_id,
+        spa_func_getset_uint32(&ctx, "fko_set_sdp_id",
+                &fko_set_sdp_id, "fko_get_sdp_id",
+                &fko_get_sdp_id, 0, UINT32_MAX, sdp_id,
 				new_ctx_flag, destroy_ctx_flag);
     }
 
@@ -551,7 +551,7 @@ test_loop(int new_ctx_flag, int destroy_ctx_flag, int disable_sdp)
 
     printf("fko_new_with_data(): %s (data: %s)\n",
         fko_errstr(fko_new_with_data(&decrypt_ctx, spa_data, NULL,
-        0, FKO_ENC_MODE_CBC, NULL, 0, FKO_HMAC_SHA256, sdp_client_id)), spa_data);
+        0, FKO_ENC_MODE_CBC, NULL, 0, FKO_HMAC_SHA256, sdp_id)), spa_data);
 
     /* verify hmac, decrypt, and display ctx all together*/
     /* this piece cannot be done in SDP mode
@@ -582,8 +582,8 @@ test_loop(int new_ctx_flag, int destroy_ctx_flag, int disable_sdp)
     if(!disable_sdp)
     {
 		/* now remove the sdp client id in order to decrypt */
-		printf("fko_strip_sdp_client_id() (1): %s\n",
-			fko_errstr(fko_strip_sdp_client_id(decrypt_ctx)));
+		printf("fko_strip_sdp_id() (1): %s\n",
+			fko_errstr(fko_strip_sdp_id(decrypt_ctx)));
     }
 
     /* now decrypt */
@@ -639,7 +639,7 @@ test_loop(int new_ctx_flag, int destroy_ctx_flag, int disable_sdp)
     printf("fko_new_with_data(): %s (data: %s)\n",
         fko_errstr(fko_new_with_data(&decrypt_ctx, "tooshort", ENC_KEY,
         strlen(ENC_KEY), FKO_ENC_MODE_CBC, HMAC_KEY, strlen(HMAC_KEY),
-        FKO_HMAC_SHA256, sdp_client_id)), "tooshort");
+        FKO_HMAC_SHA256, sdp_id)), "tooshort");
 
     return;
 }

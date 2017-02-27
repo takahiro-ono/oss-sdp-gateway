@@ -1186,12 +1186,12 @@ static void forward_access_rule(const fko_srv_options_t * const opts,
                 fwd_chain->table,
                 spadat->use_src_ip,
                 exp_ts,
-                spadat->sdp_client_id
+                spadat->sdp_id
             );
 
             connmark_rule(opts, rule_buf, NULL, spadat->use_src_ip,
                 NULL, ANY_PROTO, ANY_PORT, NULL, NAT_ANY_PORT,
-                fwd_chain, spadat->sdp_client_id, exp_ts, now, "connmark",
+                fwd_chain, spadat->sdp_id, exp_ts, now, "connmark",
                 "*/*");
         }
 
@@ -1218,7 +1218,7 @@ static void forward_access_rule(const fko_srv_options_t * const opts,
              */
             connmark_rule(opts, NULL, IPT_CONNMARK_ARGS, spadat->use_src_ip,
                 nat_ip, fst_proto, nat_port, NULL, NAT_ANY_PORT,
-                fwd_chain, spadat->sdp_client_id, exp_ts, now, "connmark",
+                fwd_chain, spadat->sdp_id, exp_ts, now, "connmark",
                 spadat->spa_message_remain);
         }
 
@@ -1461,7 +1461,7 @@ process_spa_request(const fko_srv_options_t * const opts,
                             next_service->service_data->nat_port,
                             next_service->service_data->nat_ip_str,
                             next_service->service_data->nat_port,
-                            in_chain, spadat->sdp_client_id, exp_ts, now, "connmark",
+                            in_chain, spadat->sdp_id, exp_ts, now, "connmark",
                             spadat->spa_message_remain);
                     }
 
@@ -1521,7 +1521,7 @@ process_spa_request(const fko_srv_options_t * const opts,
                         (fwc.use_destination ? spadat->pkt_destination_ip : IPT_ANY_IP),
                         next_service->service_data->proto,
                         next_service->service_data->port, NULL, NAT_ANY_PORT,
-                        in_chain, spadat->sdp_client_id, exp_ts, now, "connmark",
+                        in_chain, spadat->sdp_id, exp_ts, now, "connmark",
                         spadat->spa_message_remain);
                 }
 
@@ -1623,7 +1623,7 @@ process_spa_request(const fko_srv_options_t * const opts,
                 connmark_rule(opts, NULL, IPT_CONNMARK_ARGS, spadat->use_src_ip,
                     (fwc.use_destination ? spadat->pkt_destination_ip : IPT_ANY_IP),
                     fst_proto, nat_port, nat_ip, nat_port,
-                    in_chain, spadat->sdp_client_id, exp_ts, now, "connmark",
+                    in_chain, spadat->sdp_id, exp_ts, now, "connmark",
                     spadat->spa_message_remain);
             }
 
@@ -1666,7 +1666,7 @@ process_spa_request(const fko_srv_options_t * const opts,
                 connmark_rule(opts, NULL, IPT_CONNMARK_ARGS, spadat->use_src_ip,
                     (fwc.use_destination ? spadat->pkt_destination_ip : IPT_ANY_IP),
                     ple->proto, ple->port, NULL, NAT_ANY_PORT,
-                    in_chain, spadat->sdp_client_id, exp_ts, now, "connmark",
+                    in_chain, spadat->sdp_id, exp_ts, now, "connmark",
                     spadat->spa_message_remain);
             }
 

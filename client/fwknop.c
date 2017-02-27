@@ -167,7 +167,7 @@ main(int argc, char **argv)
     int                 key_len = 0, orig_key_len = 0, hmac_key_len = 0, enc_mode;
     int                 tmp_port = 0;
     char                dump_buf[CTX_DUMP_BUFSIZE];
-    uint32_t            sdp_client_id = 0;
+    uint32_t            sdp_id = 0;
 
     fko_cli_options_t   options;
 
@@ -369,10 +369,10 @@ main(int argc, char **argv)
     }
     else
     {
-        res = fko_set_sdp_client_id(ctx, options.sdp_client_id);
+        res = fko_set_sdp_id(ctx, options.sdp_id);
         if(res != FKO_SUCCESS)
         {
-            errmsg("fko_set_sdp_client_id", res);
+            errmsg("fko_set_sdp_id", res);
             clean_exit(ctx, &options, key, &key_len,
                     hmac_key, &hmac_key_len, EXIT_FAILURE);
         }
@@ -633,10 +633,10 @@ main(int argc, char **argv)
          * This also verifies the HMAC and truncates it if there are no
          * problems.
         */
-        res = fko_get_sdp_client_id(ctx, &sdp_client_id);
+        res = fko_get_sdp_id(ctx, &sdp_id);
         if(res != FKO_SUCCESS)
         {
-            errmsg("fko_get_sdp_client_id", res);
+            errmsg("fko_get_sdp_id", res);
             if(fko_destroy(ctx2) == FKO_ERROR_ZERO_OUT_DATA)
                 log_msg(LOG_VERBOSITY_ERROR,
                         "[*] Could not zero out sensitive data buffer.");
@@ -646,7 +646,7 @@ main(int argc, char **argv)
         }
 
         res = fko_new_with_data(&ctx2, spa_data, NULL,
-            0, enc_mode, hmac_key, hmac_key_len, options.hmac_type, sdp_client_id);
+            0, enc_mode, hmac_key, hmac_key_len, options.hmac_type, sdp_id);
         if(res != FKO_SUCCESS)
         {
             errmsg("fko_new_with_data", res);
