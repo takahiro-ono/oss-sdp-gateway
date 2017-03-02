@@ -725,6 +725,7 @@ int sdp_com_send_msg(sdp_com_t com, const char *msg)
     int bytes_sent = 0;
     char ssl_error_string[SDP_MAX_LINE_LEN];
     int ssl_error = 0;
+    sdp_header header;
 
     log_msg(LOG_DEBUG, "Entered sdp_com_send_msg");
 
@@ -750,6 +751,18 @@ int sdp_com_send_msg(sdp_com_t com, const char *msg)
     log_msg(LOG_DEBUG, "Message to send: ");
     log_msg(LOG_DEBUG, "  %s", msg);
 
+    header.length = msg_len;
+
+    if((bytes_sent = SSL_write(com->ssl, &header, SDP_COM_HEADER_LEN)) != SDP_COM_HEADER_LEN){
+        ssl_error = sdp_com_get_ssl_error(com->ssl, bytes_sent, ssl_error_string);
+
+        log_msg(LOG_ERR, "Error from SSL_write: %s", ssl_error_string);
+
+        // All other cases, tear down and start again
+        sdp_com_disconnect(com);
+        return SDP_ERROR_SOCKET_WRITE;
+    }
+    
     // encrypt and send
     if((bytes_sent = SSL_write(com->ssl, msg, msg_len)) != msg_len)
     {
@@ -781,6 +794,8 @@ int sdp_com_get_msg(sdp_com_t com, char **r_msg, int *r_bytes)
     int bytes = 0;
     int total_bytes = 0;
     char *msg = NULL;
+    unsigned int data_length = 0;
+    sdp_header header;
 
     if(com == NULL || !com->initialized)
         return SDP_ERROR_UNINITIALIZED;
@@ -798,11 +813,33 @@ int sdp_com_get_msg(sdp_com_t com, char **r_msg, int *r_bytes)
     }
     */
 
-    if((bytes = SSL_read(com->ssl, com->recv_buffer, SDP_COM_MAX_MSG_BLOCK_LEN)) <= 0)
-    {
+    if((bytes = SSL_read(com->ssl, &header, SDP_COM_HEADER_LEN)) <= 0) {
         log_msg(LOG_DEBUG, "No data to read right now");
         *r_bytes = 0;
         return SDP_SUCCESS;
+    }
+
+    if (bytes != SDP_COM_HEADER_LEN) {
+        log_msg(LOG_ERR, "Header found was shorter than minimum message size");
+        return SDP_ERROR_INVALID_MSG_SHORT;
+    }
+
+    data_length = header.length;
+
+    if (data_length > SDP_COM_MAX_MSG_BLOCK_LEN) {
+        log_msg(LOG_ERR, "Header found was longer than the maximum message size");
+        return SDP_ERROR_INVALID_MSG_LONG;
+    }
+
+    if((bytes = SSL_read(com->ssl, com->recv_buffer, data_length)) <= 0)
+    {
+        log_msg(LOG_ERR, "Data found was shorter than minimum message size");
+        return SDP_ERROR_INVALID_MSG_SHORT;
+    }
+
+    if (bytes != data_length) {
+        log_msg(LOG_ERR, "Data read was short %d of %d", bytes, data_length);
+        return SDP_ERROR_INVALID_MSG_SHORT;
     }
 
     log_msg(LOG_DEBUG, "Initial socket read returned %d bytes", bytes);
