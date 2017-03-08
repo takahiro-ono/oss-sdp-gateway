@@ -250,8 +250,8 @@ static int sdp_com_socket_connect(sdp_com_t com)
     // cleanup old ssl object if necessary
     if(com->ssl != NULL)
     {
-    	SSL_free(com->ssl);
-    	com->ssl = NULL;
+        SSL_free(com->ssl);
+        com->ssl = NULL;
     }
 
     snprintf(port, SDP_COM_MAX_PORT_STRING_BUFFER_LEN, "%u", com->ctrl_port);
@@ -515,7 +515,7 @@ void sdp_com_destroy(sdp_com_t com)
         free(com->ctrl_stanza);
 
     if(com->fwknop_path != NULL)
-    	free(com->fwknop_path);
+        free(com->fwknop_path);
 
     if(com->fwknoprc_file != NULL)
         free(com->fwknoprc_file);
@@ -606,30 +606,30 @@ int sdp_com_connect(sdp_com_t com)
         // connect
         if((rv = sdp_com_socket_connect(com)) != SDP_SUCCESS)
         {
-        	if(com->max_conn_attempts == 0)
-        	{
+            if(com->max_conn_attempts == 0)
+            {
                 log_msg(LOG_WARNING,
                         "Connection attempt %d failed, unlimited attempts remaining",
                         com->conn_attempts );
-        	}
-        	else
-        	{
-				if((attempts_remaining = com->max_conn_attempts - com->conn_attempts) == 1)
-					plural = "";
-				else
-					plural = "s";
+            }
+            else
+            {
+                if((attempts_remaining = com->max_conn_attempts - com->conn_attempts) == 1)
+                    plural = "";
+                else
+                    plural = "s";
 
-				log_msg(LOG_WARNING,
-						"Connection attempt %d failed, %d attempt%s remaining",
-						com->conn_attempts, attempts_remaining, plural );
+                log_msg(LOG_WARNING,
+                        "Connection attempt %d failed, %d attempt%s remaining",
+                        com->conn_attempts, attempts_remaining, plural );
 
-				if(com->conn_attempts >= com->max_conn_attempts)
-				{
-					log_msg(LOG_ERR,
-							"Too many failed connection attempts. Exiting now");
-					break;
-				}
-        	}
+                if(com->conn_attempts >= com->max_conn_attempts)
+                {
+                    log_msg(LOG_ERR,
+                            "Too many failed connection attempts. Exiting now");
+                    break;
+                }
+            }
 
             log_msg(LOG_WARNING,
                     "Waiting %d seconds until retry",
@@ -638,7 +638,7 @@ int sdp_com_connect(sdp_com_t com)
 
             interval *= 2;
             if(interval > SDP_COM_MAX_RETRY_INTERVAL_SECONDS)
-            	interval = SDP_COM_MAX_RETRY_INTERVAL_SECONDS;
+                interval = SDP_COM_MAX_RETRY_INTERVAL_SECONDS;
         }
         else
         {
@@ -721,10 +721,12 @@ int sdp_com_show_certs(sdp_com_t com)
 
 int sdp_com_send_msg(sdp_com_t com, const char *msg)
 {
-    int msg_len = 0;
+    uint32_t msg_len = 0;
     int bytes_sent = 0;
     char ssl_error_string[SDP_MAX_LINE_LEN];
     int ssl_error = 0;
+    //sdp_header header;
+    char header[4];
 
     log_msg(LOG_DEBUG, "Entered sdp_com_send_msg");
 
@@ -750,6 +752,22 @@ int sdp_com_send_msg(sdp_com_t com, const char *msg)
     log_msg(LOG_DEBUG, "Message to send: ");
     log_msg(LOG_DEBUG, "  %s", msg);
 
+    //header.length = htonl(msg_len);
+    header[0] = (char)( (msg_len >> 24) & 0xFF );
+    header[1] = (char)( (msg_len >> 16) & 0xFF );
+    header[2] = (char)( (msg_len >> 8) & 0xFF );
+    header[3] = (char)(  msg_len & 0xFF );
+
+    if((bytes_sent = SSL_write(com->ssl, header, SDP_COM_HEADER_LEN)) != SDP_COM_HEADER_LEN){
+        ssl_error = sdp_com_get_ssl_error(com->ssl, bytes_sent, ssl_error_string);
+
+        log_msg(LOG_ERR, "Error from SSL_write: %s", ssl_error_string);
+
+        // All other cases, tear down and start again
+        sdp_com_disconnect(com);
+        return SDP_ERROR_SOCKET_WRITE;
+    }
+    
     // encrypt and send
     if((bytes_sent = SSL_write(com->ssl, msg, msg_len)) != msg_len)
     {
@@ -781,6 +799,8 @@ int sdp_com_get_msg(sdp_com_t com, char **r_msg, int *r_bytes)
     int bytes = 0;
     int total_bytes = 0;
     char *msg = NULL;
+    unsigned int data_length = 0;
+    sdp_header header;
 
     if(com == NULL || !com->initialized)
         return SDP_ERROR_UNINITIALIZED;
@@ -798,11 +818,34 @@ int sdp_com_get_msg(sdp_com_t com, char **r_msg, int *r_bytes)
     }
     */
 
-    if((bytes = SSL_read(com->ssl, com->recv_buffer, SDP_COM_MAX_MSG_BLOCK_LEN)) <= 0)
-    {
+    if((bytes = SSL_read(com->ssl, &header, SDP_COM_HEADER_LEN)) <= 0) {
         log_msg(LOG_DEBUG, "No data to read right now");
         *r_bytes = 0;
         return SDP_SUCCESS;
+    }
+
+    if (bytes != SDP_COM_HEADER_LEN) {
+        log_msg(LOG_ERR, "Header found was shorter than minimum message size");
+        return SDP_ERROR_INVALID_MSG_SHORT;
+    }
+
+    data_length = ntohl(header.length);
+
+    if (data_length > SDP_COM_MAX_MSG_BLOCK_LEN) {
+        log_msg(LOG_ERR, "Header length field indicates message sizes longer than the maximum");
+        log_msg(LOG_ERR, "Length field: %u; maximum: %d", data_length, SDP_COM_MAX_MSG_BLOCK_LEN);
+        return SDP_ERROR_INVALID_MSG_LONG;
+    }
+
+    if((bytes = SSL_read(com->ssl, com->recv_buffer, data_length)) <= 0)
+    {
+        log_msg(LOG_ERR, "Data found was shorter than minimum message size");
+        return SDP_ERROR_INVALID_MSG_SHORT;
+    }
+
+    if (bytes != data_length) {
+        log_msg(LOG_ERR, "Data read was short %d of %d", bytes, data_length);
+        return SDP_ERROR_INVALID_MSG_SHORT;
     }
 
     log_msg(LOG_DEBUG, "Initial socket read returned %d bytes", bytes);

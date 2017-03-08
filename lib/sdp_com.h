@@ -14,6 +14,13 @@
 #include <openssl/err.h>
 
 
+
+typedef struct sdp_header {
+    uint32_t length;
+} sdp_header;
+
+#define SDP_COM_HEADER_LEN sizeof(sdp_header)
+
 enum {
 	SDP_COM_SSL_CONNECT_SUCCESS = 1,
 	SDP_COM_MAX_PORT_STRING_BUFFER_LEN = 6,
