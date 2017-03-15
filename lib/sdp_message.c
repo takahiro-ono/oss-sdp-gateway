@@ -217,7 +217,7 @@ int sdp_message_process(const char *msg, ctrl_action_t *r_action, void **r_data)
     jmsg = json_tokener_parse(msg);
 
     // find and interpret the message action
-    if(sdp_get_message_action(jmsg, &action) != SDP_SUCCESS)
+    if((rv = sdp_get_message_action(jmsg, &action)) != SDP_SUCCESS)
         goto cleanup;
 
     // if it's 'credentials good', nothing else to parse
@@ -234,7 +234,10 @@ int sdp_message_process(const char *msg, ctrl_action_t *r_action, void **r_data)
 
     // if data field is missing, flunk out
     if( !json_object_object_get_ex(jmsg, sdp_key_data, &jdata))
+    {
+        rv = SDP_ERROR_INVALID_MSG;
         goto cleanup;
+    }
 
     log_msg(LOG_DEBUG, "Data portion of controller's message:");
     log_msg(LOG_DEBUG, "%s", json_object_to_json_string_ext(jdata, JSON_C_TO_STRING_PRETTY));
@@ -262,7 +265,7 @@ int sdp_message_process(const char *msg, ctrl_action_t *r_action, void **r_data)
         if(json_object_get_type(jdata) != json_type_array)
         {
             log_msg(LOG_ERR, "jdata object was not json_type_array as expected");
-            action = INVALID_CTRL_ACTION;
+            rv = SDP_ERROR_INVALID_MSG;
             goto cleanup;
         }
 
@@ -283,7 +286,7 @@ cleanup:
     // holds a ref to just the data portion
 	if(jmsg != NULL && json_object_get_type(jmsg) != json_type_null) json_object_put(jmsg);
 
-    if(action != INVALID_CTRL_ACTION)
+    if(rv == SDP_SUCCESS)
     {
         *r_action = action;
         rv = SDP_SUCCESS;
