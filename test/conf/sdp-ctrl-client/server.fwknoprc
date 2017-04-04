@@ -1,7 +1,7 @@
 [default]
 
 [sdp_ctrl_gate]
-SDP_CLIENT_ID               222
+SDP_ID                      222
 ALLOW_IP                    10.11.12.2 
 SERVICE_IDS                 1
 #ACCESS                      tcp/5000

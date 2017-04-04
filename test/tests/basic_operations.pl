@@ -474,7 +474,7 @@
         'exec_err' => $YES,
         'user_group_mismatch' => $YES,
         'server_access_file' => [
-        	"SDP_CLIENT_ID  $sdp_client_id",
+        	"SDP_ID     $sdp_client_id",
             'SOURCE     any',
             'KEY        testtest'
         ],
@@ -492,7 +492,7 @@
         'exec_err' => $YES,
         'sudo_user_group_mismatch' => $YES,
         'server_access_file' => [
-        	"SDP_CLIENT_ID  $sdp_client_id",
+        	"SDP_ID     $sdp_client_id",
             'SOURCE     any',
             'KEY        testtest'
         ],
@@ -2256,7 +2256,7 @@
         'fwknopd_cmdline' => "$server_rewrite_conf_files --fw-list",
         'exec_err' => $YES,
         'server_access_file' => [
-        	"SDP_CLIENT_ID  $sdp_client_id",
+        	"SDP_ID     $sdp_client_id",
             'SOURCE any',
             'KEY    testtest'
         ],
@@ -2273,7 +2273,7 @@
         'fwknopd_cmdline' => "$server_rewrite_conf_files --fw-list",
         'exec_err' => $YES,
         'server_access_file' => [
-        	"SDP_CLIENT_ID  $sdp_client_id",
+        	"SDP_ID     $sdp_client_id",
             'SOURCE any',
             'KEY    testtest'
         ],
@@ -2383,7 +2383,7 @@
                 "-d $default_digest_file -p $default_pid_file -i invalidintf -f",
         'positive_output_matches' => [qr/pcap_open_live.*error/],
         'server_access_file' => [
-        	"SDP_CLIENT_ID  $sdp_client_id",
+        	"SDP_ID     $sdp_client_id",
             'SOURCE     any',
             'KEY        testtest'
         ],
@@ -2399,7 +2399,7 @@
         'fwknopd_cmdline' => "$server_rewrite_conf_files --exit-parse-config",
         'exec_err' => $YES,
         'server_access_file' => [
-        	"SDP_CLIENT_ID  $sdp_client_id",
+        	"SDP_ID     $sdp_client_id",
             'SOURCE                  any',
             'KEY                    testtest',
             'ACCESS_EXPIRE_EPOCH    999999999999999999999999999999999999'
@@ -2420,7 +2420,7 @@
                 "-c $rewrite_fwknopd_conf -a $rewrite_access_conf " .
                 "-d $default_digest_file -p $default_pid_file -D",
         'server_access_file' => [
-        	"SDP_CLIENT_ID  $sdp_client_id",
+        	"SDP_ID     $sdp_client_id",
             'SOURCE     any',
             'KEY        testtest'
         ],
@@ -2437,7 +2437,7 @@
                 "-c $rewrite_fwknopd_conf -a $rewrite_access_conf " .
                 "-d $default_digest_file -p $default_pid_file -D",
         'server_access_file' => [
-        	"SDP_CLIENT_ID  $sdp_client_id",
+        	"SDP_ID     $sdp_client_id",
             'SOURCE     any',
             'KEY        testtest'
         ],
@@ -2454,7 +2454,7 @@
                 "-c $rewrite_fwknopd_conf -a $rewrite_access_conf " .
                 "-d $default_digest_file -p $default_pid_file -D",
         'server_access_file' => [
-        	"SDP_CLIENT_ID  $sdp_client_id",
+        	"SDP_ID     $sdp_client_id",
             'SOURCE     any',
             'KEY        testtest'
         ],
@@ -2471,7 +2471,7 @@
                 "-c $rewrite_fwknopd_conf -a $rewrite_access_conf " .
                 "-d $default_digest_file -p $default_pid_file -D",
         'server_access_file' => [
-        	"SDP_CLIENT_ID  $sdp_client_id",
+        	"SDP_ID     $sdp_client_id",
             'SOURCE     any',
             'KEY        testtest'
         ],
@@ -2488,7 +2488,7 @@
                 "-c $rewrite_fwknopd_conf -a $rewrite_access_conf " .
                 "-d $default_digest_file -p $default_pid_file -D",
         'server_access_file' => [
-        	"SDP_CLIENT_ID  $sdp_client_id",
+        	"SDP_ID     $sdp_client_id",
             'SOURCE     any',
             'KEY        testtest'
         ],
@@ -2505,7 +2505,7 @@
                 "-c $rewrite_fwknopd_conf -a $rewrite_access_conf " .
                 "-d $default_digest_file -p $default_pid_file -D",
         'server_access_file' => [
-        	"SDP_CLIENT_ID  $sdp_client_id",
+        	"SDP_ID     $sdp_client_id",
             'SOURCE     any',
             'KEY        testtest'
         ],
@@ -2522,7 +2522,7 @@
                 "-c $rewrite_fwknopd_conf -a $rewrite_access_conf " .
                 "-d $default_digest_file -p $default_pid_file -D",
         'server_access_file' => [
-         	"SDP_CLIENT_ID  $sdp_client_id",
+         	"SDP_ID     $sdp_client_id",
             'SOURCE     any',
             'KEY        testtest'
         ],
@@ -2539,7 +2539,7 @@
                 "-c $rewrite_fwknopd_conf -a $rewrite_access_conf " .
                 "-d $default_digest_file -p $default_pid_file -D",
         'server_access_file' => [
-        	"SDP_CLIENT_ID  $sdp_client_id",
+        	"SDP_ID     $sdp_client_id",
             'SOURCE     any',
             'KEY        testtest'
         ],
@@ -2556,7 +2556,7 @@
                 "-c $rewrite_fwknopd_conf -a $rewrite_access_conf " .
                 "-d $default_digest_file -p $default_pid_file -D",
         'server_access_file' => [
-        	"SDP_CLIENT_ID  $sdp_client_id",
+        	"SDP_ID     $sdp_client_id",
             'SOURCE     any',
             'KEY        testtest'
         ],
@@ -2574,7 +2574,7 @@
                 "-c $rewrite_fwknopd_conf -a $rewrite_access_conf " .
                 "-d $default_digest_file -p $default_pid_file -D --syslog-enable",
         'server_access_file' => [
-        	"SDP_CLIENT_ID  $sdp_client_id",
+        	"SDP_ID     $sdp_client_id",
             'SOURCE     any',
             'KEY        testtest'
         ],
@@ -2777,7 +2777,7 @@
         'fwknopd_cmdline' => $server_rewrite_conf_files,
         'exec_err' => $YES,
         'server_access_file' => [
-        	"SDP_CLIENT_ID  $sdp_client_id",
+        	"SDP_ID     $sdp_client_id",
             'SOURCE any',
             'KEY    testtest',
         ],
@@ -2794,7 +2794,7 @@
         'fwknopd_cmdline' => $server_rewrite_conf_files,
         'exec_err' => $YES,
         'server_access_file' => [
-         	"SDP_CLIENT_ID  $sdp_client_id",
+         	"SDP_ID     $sdp_client_id",
             'SOURCE any',
             'KEY    testtest',
         ],
@@ -2811,7 +2811,7 @@
         'fwknopd_cmdline' => $server_rewrite_conf_files,
         'exec_err' => $YES,
         'server_access_file' => [
-        	"SDP_CLIENT_ID  $sdp_client_id",
+        	"SDP_ID     $sdp_client_id",
             'SOURCE any',
             'KEY    testtest',
         ],
@@ -2830,7 +2830,7 @@
         'fwknopd_cmdline' => $server_rewrite_conf_files,
         'exec_err' => $YES,
         'server_access_file' => [
-        	"SDP_CLIENT_ID  $sdp_client_id",
+        	"SDP_ID     $sdp_client_id",
             'SOURCE             any',
             'KEY                testtest',
             'CMD_CYCLE_OPEN     /some/cmd -args',
@@ -2848,7 +2848,7 @@
         'fwknopd_cmdline' => $server_rewrite_conf_files,
         'exec_err' => $YES,
         'server_access_file' => [
-        	"SDP_CLIENT_ID  $sdp_client_id",
+        	"SDP_ID     $sdp_client_id",
             'SOURCE             any',
             'KEY                testtest',
             'CMD_CYCLE_CLOSE    /some/cmd -args',
@@ -2866,7 +2866,7 @@
         'fwknopd_cmdline' => $server_rewrite_conf_files,
         'exec_err' => $YES,
         'server_access_file' => [
-        	"SDP_CLIENT_ID  $sdp_client_id",
+        	"SDP_ID     $sdp_client_id",
             'SOURCE             any',
             'KEY                testtest',
             'CMD_CYCLE_OPEN     /some/cmd -args',
@@ -2885,7 +2885,7 @@
         'fwknopd_cmdline' => $server_rewrite_conf_files,
         'exec_err' => $YES,
         'server_access_file' => [
-        	"SDP_CLIENT_ID  $sdp_client_id",
+        	"SDP_ID     $sdp_client_id",
             'SOURCE             any',
             'KEY                testtest',
             'CMD_CYCLE_OPEN     ' . 'A'x500,
@@ -2905,7 +2905,7 @@
         'fwknopd_cmdline' => $server_rewrite_conf_files,
         'exec_err' => $YES,
         'server_access_file' => [
-        	"SDP_CLIENT_ID  $sdp_client_id",
+        	"SDP_ID     $sdp_client_id",
             'SOURCE             any',
             'KEY                testtest',
             'CMD_CYCLE_CLOSE     ' . 'A'x500,
@@ -2925,7 +2925,7 @@
         'fwknopd_cmdline' => $server_rewrite_conf_files,
         'exec_err' => $YES,
         'server_access_file' => [
-        	"SDP_CLIENT_ID  $sdp_client_id",
+        	"SDP_ID     $sdp_client_id",
             'SOURCE             any',
             'KEY                testtest',
             'CMD_CYCLE_OPEN     /some/cmd -args',
@@ -2962,7 +2962,7 @@
         'fwknopd_cmdline' => $server_rewrite_conf_files,
         'exec_err' => $YES,
         'server_access_file' => [
-        	"SDP_CLIENT_ID  $sdp_client_id",
+        	"SDP_ID     $sdp_client_id",
             'SOURCE     any',
             'KEY        testtest'
         ],
@@ -2979,7 +2979,7 @@
         'fwknopd_cmdline' => $server_rewrite_conf_files,
         'exec_err' => $YES,
         'server_access_file' => [
-        	"SDP_CLIENT_ID  $sdp_client_id",
+        	"SDP_ID     $sdp_client_id",
             'SOURCE     any',
             'KEY        testtest'
         ],
@@ -2997,7 +2997,7 @@
         'fwknopd_cmdline' => "$server_rewrite_conf_files --exit-parse-config",
         'exec_err' => $YES,
         'server_access_file' => [
-        	"SDP_CLIENT_ID  $sdp_client_id",
+        	"SDP_ID     $sdp_client_id",
             'SOURCE     any',
             'KEY        testtest'
         ],
@@ -3014,7 +3014,7 @@
         'fwknopd_cmdline' => "$server_rewrite_conf_files --exit-parse-config",
         'exec_err' => $YES,
         'server_access_file' => [
-        	"SDP_CLIENT_ID  $sdp_client_id",
+        	"SDP_ID     $sdp_client_id",
             'SOURCE     any',
             'KEY        testtest'
         ],
@@ -3029,7 +3029,7 @@
         'function' => \&server_conf_files,
         'fwknopd_cmdline' => "$server_rewrite_conf_files --exit-parse-config",
         'server_access_file' => [
-        	"SDP_CLIENT_ID  $sdp_client_id",
+        	"SDP_ID     $sdp_client_id",
             'SOURCE     any',
             'KEY        testtest'
         ],
@@ -3046,7 +3046,7 @@
         'fwknopd_cmdline' => $server_rewrite_conf_files,
         'exec_err' => $YES,
         'server_access_file' => [
-        	"SDP_CLIENT_ID  $sdp_client_id",
+        	"SDP_ID     $sdp_client_id",
             'SOURCE     any',
             'KEY        testtest'
         ],
@@ -3064,7 +3064,7 @@
         'fwknopd_cmdline' => $server_rewrite_conf_files,
         'exec_err' => $YES,
         'server_access_file' => [
-        	"SDP_CLIENT_ID  $sdp_client_id",
+        	"SDP_ID     $sdp_client_id",
             'SOURCE     any',
             'KEY        __CHANGEME__'
         ],
@@ -3081,7 +3081,7 @@
         'fwknopd_cmdline' => $server_rewrite_conf_files,
         'exec_err' => $YES,
         'server_access_file' => [
-        	"SDP_CLIENT_ID  $sdp_client_id",
+        	"SDP_ID     $sdp_client_id",
             'SOURCE      any',
             'KEY_BASE64  __CHANGEME__'
         ],
@@ -3098,7 +3098,7 @@
         'fwknopd_cmdline' => $server_rewrite_conf_files,
         'exec_err' => $YES,
         'server_access_file' => [
-        	"SDP_CLIENT_ID  $sdp_client_id",
+        	"SDP_ID     $sdp_client_id",
             'SOURCE      any',
             'KEY_BASE64  %%%%%%%%%%%%%'
         ],
@@ -3115,7 +3115,7 @@
         'fwknopd_cmdline' => $server_rewrite_conf_files,
         'exec_err' => $YES,
         'server_access_file' => [
-        	"SDP_CLIENT_ID  $sdp_client_id",
+        	"SDP_ID     $sdp_client_id",
             'SOURCE      any',
             'KEY         testtest',
             'HMAC_KEY    __CHANGEME__'
@@ -3133,7 +3133,7 @@
         'fwknopd_cmdline' => $server_rewrite_conf_files,
         'exec_err' => $YES,
         'server_access_file' => [
-        	"SDP_CLIENT_ID  $sdp_client_id",
+        	"SDP_ID     $sdp_client_id",
             'SOURCE             any',
             'KEY                testtest',
             'HMAC_KEY_BASE64    __CHANGEME__'
@@ -3152,7 +3152,7 @@
         'fwknopd_cmdline' => $server_rewrite_conf_files,
         'exec_err' => $YES,
         'server_access_file' => [
-        	"SDP_CLIENT_ID  $sdp_client_id",
+        	"SDP_ID     $sdp_client_id",
             'SOURCE      any',
             'KEY         testtest',
             'HMAC_KEY_BASE64  %%%%%%%%%%%%%'
@@ -3170,7 +3170,7 @@
         'fwknopd_cmdline' => $server_rewrite_conf_files,
         'exec_err' => $YES,
         'server_access_file' => [
-        	"SDP_CLIENT_ID  $sdp_client_id",
+        	"SDP_ID     $sdp_client_id",
             'SOURCE                         any',
             'REQUIRE_SOURCE                 Y',
             'KEY                            testtest',
@@ -3192,7 +3192,7 @@
         'fwknopd_cmdline' => $server_rewrite_conf_files,
         'exec_err' => $YES,
         'server_access_file' => [
-         	"SDP_CLIENT_ID  $sdp_client_id",
+         	"SDP_ID     $sdp_client_id",
             'SOURCE                         any',
             'HMAC_KEY                       testtest',
             'GPG_DECRYPT_PW                 testtest'
@@ -3210,7 +3210,7 @@
         'fwknopd_cmdline' => $server_rewrite_conf_files,
         'exec_err' => $YES,
         'server_access_file' => [
-        	"SDP_CLIENT_ID  $sdp_client_id",
+        	"SDP_ID     $sdp_client_id",
             'SOURCE                         any',
             'HMAC_KEY                       hmactest',
             'GPG_DECRYPT_PW                 testtest',
@@ -3230,7 +3230,7 @@
         'fwknopd_cmdline' => $server_rewrite_conf_files,
         'exec_err' => $YES,
         'server_access_file' => [
-        	"SDP_CLIENT_ID  $sdp_client_id",
+        	"SDP_ID     $sdp_client_id",
             'SOURCE                 any',
             'KEY                    testtest',
             'FW_ACCESS_TIMEOUT      999999999999'
@@ -3248,7 +3248,7 @@
         'fwknopd_cmdline' => $server_rewrite_conf_files,
         'exec_err' => $YES,
         'server_access_file' => [
-        	"SDP_CLIENT_ID  $sdp_client_id",
+        	"SDP_ID     $sdp_client_id",
             'SOURCE                 any',
             'KEY                    testtest',
             'ENCRYPTION_MODE        invalid'
@@ -3266,7 +3266,7 @@
         'fwknopd_cmdline' => $server_rewrite_conf_files,
         'exec_err' => $YES,
         'server_access_file' => [
-        	"SDP_CLIENT_ID  $sdp_client_id",
+        	"SDP_ID     $sdp_client_id",
             'SOURCE                 any',
             'KEY                    testtest',
             'CMD_EXEC_USER          invalid'
@@ -3284,7 +3284,7 @@
         'fwknopd_cmdline' => $server_rewrite_conf_files,
         'exec_err' => $YES,
         'server_access_file' => [
-        	"SDP_CLIENT_ID  $sdp_client_id",
+        	"SDP_ID     $sdp_client_id",
             'SOURCE                 any',
             'KEY                    testtest',
             'CMD_EXEC_GROUP         invalid'
@@ -3303,7 +3303,7 @@
         'fwknopd_cmdline' => "$server_rewrite_conf_files --exit-parse-config",
         'exec_err' => $YES,
         'server_access_file' => [
-        	"SDP_CLIENT_ID  $sdp_client_id",
+        	"SDP_ID     $sdp_client_id",
             'SOURCE     any',
             'KEY        testtest'
         ],
@@ -3320,7 +3320,7 @@
         'fwknopd_cmdline' => "$server_rewrite_conf_files --exit-parse-config",
         'exec_err' => $YES,
         'server_access_file' => [
-        	"SDP_CLIENT_ID  $sdp_client_id",
+        	"SDP_ID     $sdp_client_id",
             'SOURCE     any',
             'KEY        testtest'
         ],
@@ -3337,7 +3337,7 @@
         'fwknopd_cmdline' => "$server_rewrite_conf_files --exit-parse-config",
         'exec_err' => $YES,
         'server_access_file' => [
-        	"SDP_CLIENT_ID  $sdp_client_id",
+        	"SDP_ID     $sdp_client_id",
             'SOURCE     any',
             'KEY        testtest'
         ],
@@ -3354,7 +3354,7 @@
         'fwknopd_cmdline' => "$server_rewrite_conf_files --exit-parse-config",
         'exec_err' => $YES,
         'server_access_file' => [
-        	"SDP_CLIENT_ID  $sdp_client_id",
+        	"SDP_ID     $sdp_client_id",
             'SOURCE     any',
             'KEY        testtest'
         ],
@@ -3383,7 +3383,7 @@
         'fwknopd_cmdline' => "$server_rewrite_conf_files --exit-parse-config",
         'exec_err' => $YES,
         'server_access_file' => [
-        	"SDP_CLIENT_ID  $sdp_client_id",
+        	"SDP_ID     $sdp_client_id",
             'SOURCE                  any',
             'KEY                     testtest',
             'FORCE_MASQUERADE        Y'
@@ -3403,7 +3403,7 @@
         'fwknopd_cmdline' => "$server_rewrite_conf_files --exit-parse-config",
         'exec_err' => $YES,
         'server_access_file' => [
-        	"SDP_CLIENT_ID  $sdp_client_id",
+        	"SDP_ID     $sdp_client_id",
             'SOURCE     any',
             'KEY        testtest'
         ],
@@ -3420,7 +3420,7 @@
         'fwknopd_cmdline' => "$server_rewrite_conf_files --exit-parse-config",
         'exec_err' => $YES,
         'server_access_file' => [
-        	"SDP_CLIENT_ID  $sdp_client_id",
+        	"SDP_ID     $sdp_client_id",
             'SOURCE     any',
             'KEY        testtest'
         ],
@@ -3437,7 +3437,7 @@
         'fwknopd_cmdline' => $server_rewrite_conf_files,
         'exec_err' => $YES,
         'server_access_file' => [
-        	"SDP_CLIENT_ID  $sdp_client_id",
+        	"SDP_ID     $sdp_client_id",
             'SOURCE     any',
             'KEY        testtest'
         ],
@@ -3455,7 +3455,7 @@
         'fwknopd_cmdline' => $server_rewrite_conf_files,
         'exec_err' => $YES,
         'server_access_file' => [
-        	"SDP_CLIENT_ID  $sdp_client_id",
+        	"SDP_ID     $sdp_client_id",
             'SOURCE     1.1.1.1/aaaaaaaaaaaaaaaaaaaaa',
             'KEY        testtest'
         ],
@@ -3472,7 +3472,7 @@
         'fwknopd_cmdline' => $server_rewrite_conf_files,
         'exec_err' => $YES,
         'server_access_file' => [
-        	"SDP_CLIENT_ID  $sdp_client_id",
+        	"SDP_ID     $sdp_client_id",
             'SOURCE     aaaaaaaaaaaaaaaaaaaaa',
             'KEY        testtest'
         ],
@@ -3489,7 +3489,7 @@
         'fwknopd_cmdline' => $server_rewrite_conf_files,
         'exec_err' => $YES,
         'server_access_file' => [
-        	"SDP_CLIENT_ID  $sdp_client_id",
+        	"SDP_ID     $sdp_client_id",
             'SOURCE     123.123.123.123/255.255.255.258',
             'KEY        testtest'
         ],
@@ -3506,7 +3506,7 @@
         'fwknopd_cmdline' => $server_rewrite_conf_files,
         'exec_err' => $YES,
         'server_access_file' => [
-        	"SDP_CLIENT_ID  $sdp_client_id",
+        	"SDP_ID     $sdp_client_id",
             'SOURCE     123.123.123.123/33',
             'KEY        testtest'
         ],
@@ -3523,7 +3523,7 @@
         'fwknopd_cmdline' => $server_rewrite_conf_files,
         'exec_err' => $YES,
         'server_access_file' => [
-        	"SDP_CLIENT_ID  $sdp_client_id",
+        	"SDP_ID     $sdp_client_id",
             'SOURCE     1.1.1.1/1234.1.1.1',
             'KEY        testtest'
         ],
@@ -3540,7 +3540,7 @@
         'fwknopd_cmdline' => $server_rewrite_conf_files,
         'exec_err' => $YES,
         'server_access_file' => [
-        	"SDP_CLIENT_ID  $sdp_client_id",
+        	"SDP_ID     $sdp_client_id",
             'SOURCE     1.1.1.1/255.255.255.0, 2.2.2.2/33, 123.123.123.123/24',
             'KEY        testtest'
         ],
@@ -3557,7 +3557,7 @@
         'fwknopd_cmdline' => $server_rewrite_conf_files,
         'exec_err' => $YES,
         'server_access_file' => [
-        	"SDP_CLIENT_ID  $sdp_client_id",
+        	"SDP_ID     $sdp_client_id",
             'SOURCE     1.1.1.1/',
             'KEY        testtest'
         ],
@@ -3574,7 +3574,7 @@
         'fwknopd_cmdline' => $server_rewrite_conf_files,
         'exec_err' => $YES,
         'server_access_file' => [
-        	"SDP_CLIENT_ID  $sdp_client_id",
+        	"SDP_ID     $sdp_client_id",
             'SOURCE     1.1.1.1/0',
             'KEY        testtest'
         ],
@@ -3591,7 +3591,7 @@
         'fwknopd_cmdline' => $server_rewrite_conf_files,
         'exec_err' => $YES,
         'server_access_file' => [
-        	"SDP_CLIENT_ID  $sdp_client_id",
+        	"SDP_ID     $sdp_client_id",
             'SOURCE     1.1.1.1/299.255.255.0',
             'KEY        testtest'
         ],
@@ -3610,7 +3610,7 @@
         'fwknopd_cmdline' => $server_rewrite_conf_files,
         'exec_err' => $YES,
         'server_access_file' => [
-        	"SDP_CLIENT_ID  $sdp_client_id",
+        	"SDP_ID     $sdp_client_id",
             'SOURCE       any',
             'DESTINATION  1.1.1.1/aaaaaaaaaaaaaaaaaaaaaa',
             'KEY          testtest'
@@ -3628,7 +3628,7 @@
         'fwknopd_cmdline' => $server_rewrite_conf_files,
         'exec_err' => $YES,
         'server_access_file' => [
-        	"SDP_CLIENT_ID  $sdp_client_id",
+        	"SDP_ID     $sdp_client_id",
             'SOURCE       any',
             'DESTINATION  aaaaaaaaaaaaaaaaaaaaaa',
             'KEY          testtest'
@@ -3646,7 +3646,7 @@
         'fwknopd_cmdline' => $server_rewrite_conf_files,
         'exec_err' => $YES,
         'server_access_file' => [
-         	"SDP_CLIENT_ID  $sdp_client_id",
+         	"SDP_ID     $sdp_client_id",
             'SOURCE       any',
             'DESTINATION  123.123.123.123/255.255.255.258',
             'KEY          testtest'
@@ -3664,7 +3664,7 @@
         'fwknopd_cmdline' => $server_rewrite_conf_files,
         'exec_err' => $YES,
         'server_access_file' => [
-        	"SDP_CLIENT_ID  $sdp_client_id",
+        	"SDP_ID     $sdp_client_id",
             'SOURCE       any',
             'DESTINATION  123.123.123.123/33',
             'KEY          testtest'
@@ -3682,7 +3682,7 @@
         'fwknopd_cmdline' => $server_rewrite_conf_files,
         'exec_err' => $YES,
         'server_access_file' => [
-        	"SDP_CLIENT_ID  $sdp_client_id",
+        	"SDP_ID     $sdp_client_id",
             'SOURCE       any',
             'DESTINATION  1.1.1.1/1234.1.1.1',
             'KEY          testtest'
@@ -3700,7 +3700,7 @@
         'fwknopd_cmdline' => $server_rewrite_conf_files,
         'exec_err' => $YES,
         'server_access_file' => [
-         	"SDP_CLIENT_ID  $sdp_client_id",
+         	"SDP_ID     $sdp_client_id",
             'SOURCE       any',
             'DESTINATION  1.1.1.1/255.255.255.0, 2.2.2.2/33, 123.123.123.123/24',
             'KEY          testtest'
@@ -3718,7 +3718,7 @@
         'fwknopd_cmdline' => $server_rewrite_conf_files,
         'exec_err' => $YES,
         'server_access_file' => [
-         	"SDP_CLIENT_ID  $sdp_client_id",
+         	"SDP_ID     $sdp_client_id",
             'SOURCE       any',
             'DESTINATION  1.1.1.1/',
             'KEY          testtest'
@@ -3736,7 +3736,7 @@
         'fwknopd_cmdline' => $server_rewrite_conf_files,
         'exec_err' => $YES,
         'server_access_file' => [
-        	"SDP_CLIENT_ID  $sdp_client_id",
+        	"SDP_ID     $sdp_client_id",
             'SOURCE       any',
             'DESTINATION  1.1.1.1/0',
             'KEY          testtest'
@@ -3754,7 +3754,7 @@
         'fwknopd_cmdline' => $server_rewrite_conf_files,
         'exec_err' => $YES,
         'server_access_file' => [
-        	"SDP_CLIENT_ID  $sdp_client_id",
+        	"SDP_ID     $sdp_client_id",
             'SOURCE       any',
             'DESTINATION  1.1.1.1/299.255.255.0',
             'KEY          testtest'
@@ -3773,7 +3773,7 @@
         'fwknopd_cmdline' => $server_rewrite_conf_files,
         'exec_err' => $YES,
         'server_access_file' => [
-         	"SDP_CLIENT_ID  $sdp_client_id",
+         	"SDP_ID     $sdp_client_id",
             'SOURCE       1.1.1.1',
             'OPEN_PORTS   tcp',
             'KEY          testtest'
@@ -3791,7 +3791,7 @@
         'fwknopd_cmdline' => $server_rewrite_conf_files,
         'exec_err' => $YES,
         'server_access_file' => [
-         	"SDP_CLIENT_ID  $sdp_client_id",
+         	"SDP_ID     $sdp_client_id",
             'SOURCE       1.1.1.1',
             'OPEN_PORTS   icmp/22',
             'KEY          testtest'
@@ -3809,7 +3809,7 @@
         'fwknopd_cmdline' => $server_rewrite_conf_files,
         'exec_err' => $YES,
         'server_access_file' => [
-            "SDP_CLIENT_ID  $sdp_client_id",
+            "SDP_ID     $sdp_client_id",
 			'SOURCE       1.1.1.1',
             'OPEN_PORTS   tcp/22, udp/53, tcp/12345, udp/123, icmp/1, tcp/23',
             'KEY          testtest'
@@ -3828,7 +3828,7 @@
         'fwknopd_cmdline' => $server_rewrite_conf_files,
         'exec_err' => $YES,
         'server_access_file' => [
-            "SDP_CLIENT_ID  $sdp_client_id",
+            "SDP_ID     $sdp_client_id",
             'SOURCE     1.1.1.1',
             'OPEN_PORTS   tcp/22, udp/53, tcp/12345, udp/123, icmp/1, tcp/23',
         ],
@@ -3861,7 +3861,7 @@
         'fwknopd_cmdline' => $server_rewrite_conf_files,
         'exec_err' => $YES,
         'server_access_file' => [
-            "SDP_CLIENT_ID  $sdp_client_id",
+            "SDP_ID     $sdp_client_id",
             'SOURCE          1.1.1.1',
             'DESTINATION     1.2.3.4',
         ],
@@ -3879,7 +3879,7 @@
         'fwknopd_cmdline' => $server_rewrite_conf_files,
         'exec_err' => $YES,
         'server_access_file' => [
-            "SDP_CLIENT_ID  $sdp_client_id",
+            "SDP_ID     $sdp_client_id",
             'SOURCE any',
             'KEY    ' . 'A'x1200
         ],
@@ -3896,7 +3896,7 @@
         'fwknopd_cmdline' => $server_rewrite_conf_files,
         'exec_err' => $YES,
         'server_access_file' => [
-            "SDP_CLIENT_ID  $sdp_client_id",
+            "SDP_ID     $sdp_client_id",
             'SOURCE any',
             'FORCE_NAT a a'
         ],
@@ -3913,7 +3913,7 @@
         'fwknopd_cmdline' => $server_rewrite_conf_files,
         'exec_err' => $YES,
         'server_access_file' => [
-            "SDP_CLIENT_ID  $sdp_client_id",
+            "SDP_ID     $sdp_client_id",
             'SOURCE any',
             'FORCE_NAT a a'
         ],
@@ -3930,7 +3930,7 @@
         'fwknopd_cmdline' => $server_rewrite_conf_files,
         'exec_err' => $YES,
         'server_access_file' => [
-            "SDP_CLIENT_ID  $sdp_client_id",
+            "SDP_ID     $sdp_client_id",
             'SOURCE any',
             'FORCE_NAT 1.2.3.4 999999'
         ],
@@ -3947,7 +3947,7 @@
         'fwknopd_cmdline' => $server_rewrite_conf_files,
         'exec_err' => $YES,
         'server_access_file' => [
-            "SDP_CLIENT_ID  $sdp_client_id",
+            "SDP_ID     $sdp_client_id",
             'SOURCE any',
             'FORCE_NAT 1.2.3.4.9 1234'
         ],
@@ -3964,7 +3964,7 @@
         'fwknopd_cmdline' => $server_rewrite_conf_files,
         'exec_err' => $YES,
         'server_access_file' => [
-            "SDP_CLIENT_ID  $sdp_client_id",
+            "SDP_ID     $sdp_client_id",
             'SOURCE any',
             'FORCE_SNAT 1.2.3.4.9 1234'
         ],
@@ -3981,7 +3981,7 @@
         'fwknopd_cmdline' => $server_rewrite_conf_files,
         'exec_err' => $YES,
         'server_access_file' => [
-            "SDP_CLIENT_ID  $sdp_client_id",
+            "SDP_ID     $sdp_client_id",
             'SOURCE any',
             'FORCE_SNAT a'
         ],
@@ -3998,7 +3998,7 @@
         'fwknopd_cmdline' => $server_rewrite_conf_files,
         'exec_err' => $YES,
         'server_access_file' => [
-            "SDP_CLIENT_ID  $sdp_client_id",
+            "SDP_ID     $sdp_client_id",
             'SOURCE any',
             'FORCE_SNAT a'
         ],
@@ -4015,7 +4015,7 @@
         'fwknopd_cmdline' => $server_rewrite_conf_files,
         'exec_err' => $YES,
         'server_access_file' => [
-            "SDP_CLIENT_ID  $sdp_client_id",
+            "SDP_ID     $sdp_client_id",
             'SOURCE         any',
             'KEY            testtest',
             'FORCE_SNAT     1.2.3.4'
@@ -4033,7 +4033,7 @@
         'fwknopd_cmdline' => "$server_rewrite_conf_files --exit-parse-config",
         'exec_err' => $YES,
         'server_access_file' => [
-            "SDP_CLIENT_ID  $sdp_client_id",
+            "SDP_ID     $sdp_client_id",
             'SOURCE         any',
             'KEY            testtest',
             'FORCE_SNAT     1.2.3.4',
@@ -4053,7 +4053,7 @@
         'fwknopd_cmdline' => $server_rewrite_conf_files,
         'exec_err' => $YES,
         'server_access_file' => [
-            "SDP_CLIENT_ID  $sdp_client_id",
+            "SDP_ID     $sdp_client_id",
             'SOURCE                 any',
             'KEY                    testtest',
             'FORCE_MASQUERADE       Y'

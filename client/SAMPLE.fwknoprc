@@ -1,7 +1,7 @@
 [default]
 
 [sdp_ctrl_gate]
-SDP_CLIENT_ID               333
+SDP_ID                      333
 ALLOW_IP                    192.168.1.9 
 SERVICE_IDS                 1
 SPA_SERVER                  192.168.1.99
@@ -11,7 +11,7 @@ USE_HMAC                    Y
 
 
 [service_gate]
-SDP_CLIENT_ID               333
+SDP_ID                      333
 ALLOW_IP                    192.168.1.9 
 SERVICE_IDS                 2,3,4
 SPA_SERVER                  192.168.1.99
