@@ -25,6 +25,25 @@
 //const char *conn_id_key = "connection_id";
 const char *sdp_id_key  = "sdp_id";
 
+//#define DEBUG_CONNECTION_TRACKER
+#ifdef DEBUG_CONNECTION_TRACKER
+static int new_unknown_conn_count;
+static int new_unknown_conn_count_closed;
+static int new_unknown_conn_count_open;
+static int new_unknown_conn_count_before_walk;
+static int known_conn_cnt_before_update;
+static int known_conn_cnt_before_update_closed;
+static int known_conn_cnt_before_update_open;
+static int known_conn_cnt_after_update;
+static int known_conn_cnt_after_update_closed;
+static int known_conn_cnt_after_update_open;
+static int final_known_cnt;
+static int known_conns_deleted_during_comp;
+static int known_conns_deleted;
+#endif
+
+
+static int msg_conn_list_count = 0;
 static hash_table_t *connection_hash_tbl = NULL;
 static hash_table_t *latest_connection_hash_tbl = NULL;
 //static uint64_t last_conn_id = 0;
@@ -266,6 +285,7 @@ static int close_invalid_connection(fko_srv_options_t *opts, connection_t this_c
     {
         return rv;
     }
+    msg_conn_list_count++;
 
     return rv;
 }
@@ -407,35 +427,35 @@ static int create_connection_item_from_line(fko_srv_options_t *opts,
 
 static int handle_conntrack_print_issue(char **line, char *next_line, char *bad_start, int *line_repaired)
 {
-	int rv = FWKNOPD_SUCCESS;
-	char *temp = NULL;
+    int rv = FWKNOPD_SUCCESS;
+    char *temp = NULL;
 
-	*line_repaired = 0;
+    *line_repaired = 0;
 
-	if(*line == NULL || next_line == NULL || bad_start == NULL || line_repaired == NULL)
-	{
-		log_msg(LOG_ERR, "handle_conntrack_print_issue() null arg passed, doing nothing");
-		return rv;
-	}
+    if(*line == NULL || next_line == NULL || bad_start == NULL || line_repaired == NULL)
+    {
+        log_msg(LOG_ERR, "handle_conntrack_print_issue() null arg passed, doing nothing");
+        return rv;
+    }
 
-	if(bad_start <= *line)
-	{
-		log_msg(LOG_ERR, "handle_conntrack_print_issue() index to start of bad data is invalid");
-		return rv;
-	}
+    if(bad_start <= *line)
+    {
+        log_msg(LOG_ERR, "handle_conntrack_print_issue() index to start of bad data is invalid");
+        return rv;
+    }
 
-	if((temp = calloc(1, (bad_start - *line) + strlen(next_line) + 1)) == NULL)
-	{
-		log_msg(LOG_ERR, "handle_conntrack_print_issue() fatal memory allocation error");
-		return FWKNOPD_ERROR_MEMORY_ALLOCATION;
-	}
+    if((temp = calloc(1, (bad_start - *line) + strlen(next_line) + 1)) == NULL)
+    {
+        log_msg(LOG_ERR, "handle_conntrack_print_issue() fatal memory allocation error");
+        return FWKNOPD_ERROR_MEMORY_ALLOCATION;
+    }
 
-	memcpy(temp, *line, bad_start - *line);
-	strcat(temp, next_line);
+    memcpy(temp, *line, bad_start - *line);
+    strcat(temp, next_line);
 
-	*line = temp;
-	*line_repaired = 1;
-	return rv;
+    *line = temp;
+    *line_repaired = 1;
+    return rv;
 }
 
 
@@ -484,28 +504,28 @@ static int search_conntrack(fko_srv_options_t *opts,
     // walk through each of the lines
     while( line != NULL )
     {
-    	// handle issue with conntrack, prints a status message midstream,
-    	// inserting it in the middle of a line of data
-    	if( (ndx = strstr(line, "conntrack")) != NULL)
-    	{
-    		if(ndx == line)
-    		{
+        // handle issue with conntrack, prints a status message midstream,
+        // inserting it in the middle of a line of data
+        if( (ndx = strstr(line, "conntrack")) != NULL)
+        {
+            if(ndx == line)
+            {
                 line = strtok(NULL, "\n");
                 continue;
-    		}
+            }
 
-    		log_msg(LOG_DEBUG, "Found corrupt conntrack line:\n    %s\n", line);
+            log_msg(LOG_DEBUG, "Found corrupt conntrack line:\n    %s\n", line);
 
-    		next_line = strtok(NULL, "\n");
+            next_line = strtok(NULL, "\n");
 
-    		if((res = handle_conntrack_print_issue(&line, next_line, ndx, &line_repaired))
-    				!= FWKNOPD_SUCCESS)
-    		{
+            if((res = handle_conntrack_print_issue(&line, next_line, ndx, &line_repaired))
+                    != FWKNOPD_SUCCESS)
+            {
                 goto cleanup;
-    		}
+            }
 
-    		log_msg(LOG_DEBUG, "Corrected conntrack line:\n    %s\n", line);
-    	}
+            log_msg(LOG_DEBUG, "Corrected conntrack line:\n    %s\n", line);
+        }
 
         // extract connection info from line and create connection item
         if( (res = create_connection_item_from_line(opts, line, now, &this_conn)) != FWKNOPD_SUCCESS)
@@ -526,8 +546,8 @@ static int search_conntrack(fko_srv_options_t *opts,
 
         if(line_repaired)
         {
-        	free(line);
-        	line_repaired = 0;
+            free(line);
+            line_repaired = 0;
         }
 
         line = strtok(NULL, "\n");
@@ -541,7 +561,7 @@ static int search_conntrack(fko_srv_options_t *opts,
 cleanup:
     destroy_connection_list(conn_list);
     if(line_repaired)
-    	free(line);
+        free(line);
 
     return res;
 }
@@ -751,6 +771,10 @@ static int check_conntrack(fko_srv_options_t *opts, int *conn_count_r)
         this_conn = next;
     }
 
+#ifdef DEBUG_CONNECTION_TRACKER
+    log_msg(LOG_ALERT, "           conntrack connection count: %6d", conn_count);
+#endif
+
     *conn_count_r = conn_count;
 
     return res;
@@ -806,6 +830,20 @@ static int compare_connection_lists(connection_t *known_conns,
     connection_t prev_current_conn = NULL;
     time_t now = time(NULL);
 
+#ifdef DEBUG_CONNECTION_TRACKER
+    int known_conns_count_pre = 0;
+    int known_conns_count_post = 0;
+    int known_conns_del = 0;
+
+    while(this_known_conn != NULL)
+    {
+        known_conns_count_pre++;
+        this_known_conn = this_known_conn->next;
+    }
+
+    this_known_conn = *known_conns;
+#endif
+
     log_msg(LOG_DEBUG, "compare_connection_lists() entered");
 
     while(this_known_conn != NULL)
@@ -854,20 +892,28 @@ static int compare_connection_lists(connection_t *known_conns,
             // the conn stays in the known conn list
             // just move to next known conn
             prev_known_conn = this_known_conn;
+#ifdef DEBUG_CONNECTION_TRACKER
+            known_conn_cnt_before_update_open++;
+            known_conn_cnt_after_update_open++;
+#endif
         }
         else
         {
             // if end_time not set, this is first time we saw that it's closed
-        	// whether because it's missing from conntrack or TIME_WAIT flag set
+            // whether because it's missing from conntrack or TIME_WAIT flag set
             // so need to add to closed_conns list to report to controller
             if(this_known_conn->end_time == 0)
             {
+#ifdef DEBUG_CONNECTION_TRACKER
+                known_conn_cnt_before_update_open++;
+#endif
+
                 this_known_conn->end_time = now;
 
                 log_msg(LOG_DEBUG, "compare_connection_lists() adding previously known conn to closed list");
 
                 if( (rv = duplicate_connection_item(this_known_conn, &this_current_conn))
-                		!= FWKNOPD_SUCCESS)
+                        != FWKNOPD_SUCCESS)
                 {
                     goto cleanup;
                 }
@@ -877,10 +923,16 @@ static int compare_connection_lists(connection_t *known_conns,
                 if( (rv = add_to_connection_list(closed_conns, this_current_conn))
                         != FWKNOPD_SUCCESS)
                 {
-                	destroy_connection_item(this_current_conn);
+                    destroy_connection_item(this_current_conn);
                     goto cleanup;
                 }
             }
+#ifdef DEBUG_CONNECTION_TRACKER
+            else
+            {
+                known_conn_cnt_before_update_closed++;
+            }
+#endif
 
             // if no match was found, connection is truly gone from conntrack so
             // can now remove from known connections
@@ -900,7 +952,23 @@ static int compare_connection_lists(connection_t *known_conns,
                     prev_known_conn->next = next_conn;
                 }
 
+#ifdef DEBUG_CONNECTION_TRACKER
+                known_conns_deleted++;
+                known_conns_deleted_during_comp++;
+                known_conns_del++;
+#endif
+
                 destroy_connection_item(this_known_conn);
+            }
+            else
+            {
+                prev_known_conn = this_known_conn;
+#ifdef DEBUG_CONNECTION_TRACKER
+                if(conn_closed)
+                        known_conn_cnt_after_update_closed++;
+                else
+                        known_conn_cnt_after_update_open++;
+#endif
             }
 
         }  // END if(match)
@@ -909,6 +977,29 @@ static int compare_connection_lists(connection_t *known_conns,
         this_known_conn = next_conn;
 
     }  // END while(this_known_conn != NULL)
+
+#ifdef DEBUG_CONNECTION_TRACKER
+    this_known_conn = *known_conns;
+    while(this_known_conn != NULL)
+    {
+        known_conns_count_post++;
+        this_known_conn = this_known_conn->next;
+    }
+
+    log_msg(LOG_ALERT, " Known conns before:  %6d", known_conns_count_pre);
+    log_msg(LOG_ALERT, " Known conns deleted: %6d", known_conns_del);
+    log_msg(LOG_ALERT, " Known conns after:   %6d", known_conns_count_post);
+    if(known_conns_count_post != (known_conns_count_pre - known_conns_del))
+    {
+        log_msg(LOG_ALERT, "ERROR: CONN COUNT DOES NOT ADD UP!");
+        rv = FWKNOPD_ERROR_MEMORY_ALLOCATION;
+    }
+    else
+    {
+        log_msg(LOG_ALERT, "SUCCESS: CONN COUNT CHECKS OUT");
+    }
+    log_msg(LOG_ALERT, "\n\n");
+#endif
 
     return rv;
 
@@ -936,6 +1027,7 @@ static int traverse_compare_latest_cb(hash_table_node_t *node, void *arg)
     connection_t copy_current_conns = NULL;
     time_t *end_time = (time_t*)arg;
     connection_t closed_conns = NULL;
+    int closed_conn_count = 0;
     connection_t temp_conn = NULL;
     connection_t prev_conn = NULL;
     connection_t next_conn = NULL;
@@ -960,54 +1052,69 @@ static int traverse_compare_latest_cb(hash_table_node_t *node, void *arg)
     // check whether this SDP ID still has any current connections
     if( (current_conns = hash_table_get(latest_connection_hash_tbl, key)) == NULL)
     {
-    	// only report those that haven't been reported yet
+        // only report those that haven't been reported yet
         temp_conn = known_conns;
         while(temp_conn != NULL)
         {
-    		next_conn = temp_conn->next;
+#ifdef DEBUG_CONNECTION_TRACKER
+            known_conns_deleted++;
+#endif
+
+            next_conn = temp_conn->next;
 
             // don't report those already reported
-        	if(temp_conn->end_time != 0)
-        	{
-        		prev_conn = temp_conn;
-        	}
-        	else
-        	{
-        		temp_conn->end_time = *end_time;
+            if(temp_conn->end_time != 0)
+            {
+#ifdef DEBUG_CONNECTION_TRACKER
+                known_conn_cnt_before_update_closed++;
+#endif
+                prev_conn = temp_conn;
+            }
+            else
+            {
+#ifdef DEBUG_CONNECTION_TRACKER
+                known_conn_cnt_before_update_open++;
+#endif
+                temp_conn->end_time = *end_time;
 
-        		if(prev_conn != NULL)
-        			prev_conn->next = temp_conn->next;
-        		else
-        			node->data = (void*)(temp_conn->next);
+                if(prev_conn != NULL)
+                    prev_conn->next = temp_conn->next;
+                else
+                    node->data = (void*)(temp_conn->next);
 
-        		temp_conn->next = NULL;
+                temp_conn->next = NULL;
 
                 // add to closed_conns
+                closed_conn_count++;
                 if( (rv = add_to_connection_list(&closed_conns, temp_conn))
                         != FWKNOPD_SUCCESS)
                 {
                     goto cleanup;
                 }
-        	}
+            }
 
-        	temp_conn = next_conn;
+            temp_conn = next_conn;
         }
 
         if(closed_conns != NULL)
         {
-			log_msg(LOG_WARNING, "All connections closed for SDP ID %"PRIu32":",
-					known_conns->sdp_id);
-			print_connection_list(closed_conns);
+            if(verbosity >= LOG_DEBUG)
+            {
+                log_msg(LOG_WARNING, "All connections closed for SDP ID %"PRIu32":",
+                        known_conns->sdp_id);
+                print_connection_list(closed_conns);
+            }
 
 
-			// add these closed connections to the ctrl message list
-			if( (rv = add_to_connection_list(&msg_conn_list, closed_conns))
-					!= FWKNOPD_SUCCESS)
-			{
-				goto cleanup;
-			}
+            // add these closed connections to the ctrl message list
+            if( (rv = add_to_connection_list(&msg_conn_list, closed_conns))
+                    != FWKNOPD_SUCCESS)
+            {
+                goto cleanup;
+            }
+            msg_conn_list_count += closed_conn_count;
 
-			closed_conns = NULL;
+            closed_conns = NULL;
         }
 
         // set node->data to NULL so the list is not deleted with the node
@@ -1068,14 +1175,25 @@ static int traverse_compare_latest_cb(hash_table_node_t *node, void *arg)
     // add closed conns to the ctrl message list
     if(closed_conns != NULL)
     {
-        log_msg(LOG_WARNING, "Following connections closed for SDP ID %"PRIu32":",
-                closed_conns->sdp_id);
-        print_connection_list(closed_conns);
+        if(verbosity >= LOG_DEBUG)
+        {
+            log_msg(LOG_WARNING, "Following connections closed for SDP ID %"PRIu32":",
+                    closed_conns->sdp_id);
+            print_connection_list(closed_conns);
+        }
 
         if( (rv = add_to_connection_list(&msg_conn_list, closed_conns))
                 != FWKNOPD_SUCCESS)
         {
             goto cleanup;
+        }
+
+        // count them too
+        temp_conn = closed_conns;
+        while(temp_conn != NULL)
+        {
+            msg_conn_list_count++;
+            temp_conn = temp_conn->next;
         }
 
     }
@@ -1107,6 +1225,7 @@ static int validate_node_connections(fko_srv_options_t *opts, hash_table_node_t 
     connection_t prev_conn = NULL;
     connection_t next_conn = NULL;
     connection_t temp_conn = NULL;
+    int closed_conn_count = 0;
     int conn_valid = 0;
     char criteria[CRITERIA_BUF_LEN];
     time_t now = time(NULL);
@@ -1148,6 +1267,7 @@ static int validate_node_connections(fko_srv_options_t *opts, hash_table_node_t 
         {
             temp_conn->end_time = now;
             temp_conn = temp_conn->next;
+            closed_conn_count++;
         }
 
 
@@ -1161,6 +1281,7 @@ static int validate_node_connections(fko_srv_options_t *opts, hash_table_node_t 
         {
             return rv;
         }
+        msg_conn_list_count += closed_conn_count;
 
         // make sure the hash table node no longer points to the
         // connection list
@@ -1236,6 +1357,7 @@ static int traverse_handle_new_conns_cb(hash_table_node_t *node, void *arg)
     bstring key = NULL;
     connection_t temp_conn = NULL;
     connection_t known_conns = NULL;
+    connection_t new_conns = NULL;
 
     log_msg(LOG_DEBUG, "traverse_handle_new_conns_cb() entered");
 
@@ -1256,9 +1378,12 @@ static int traverse_handle_new_conns_cb(hash_table_node_t *node, void *arg)
 //    }
 
     temp_conn = (connection_t)(node->data);
-    log_msg(LOG_WARNING, "New connections from SDP ID %"PRIu32":",
-            temp_conn->sdp_id);
-    print_connection_list(temp_conn);
+    if(verbosity >= LOG_DEBUG)
+    {
+        log_msg(LOG_WARNING, "New connections from SDP ID %"PRIu32":",
+                temp_conn->sdp_id);
+        print_connection_list(temp_conn);
+    }
 
     if( (rv = validate_node_connections(opts, node)) != FWKNOPD_SUCCESS)
     {
@@ -1310,6 +1435,20 @@ static int traverse_handle_new_conns_cb(hash_table_node_t *node, void *arg)
 
     if( (rv = add_to_connection_list(&msg_conn_list, (connection_t)(node->data))) != FWKNOPD_SUCCESS)
         return rv;
+
+    // count conns added to message list
+    new_conns = (connection_t)(node->data);
+    while(new_conns != NULL)
+    {
+#ifdef DEBUG_CONNECTION_TRACKER
+        if(new_conns->end_time)
+                new_unknown_conn_count_closed++;
+        else
+                new_unknown_conn_count_open++;
+#endif
+        msg_conn_list_count++;
+        new_conns = new_conns->next;
+    }
 
     node->data = NULL;
     hash_table_delete(latest_connection_hash_tbl, node->key);
@@ -1567,6 +1706,35 @@ void destroy_connection_tracker(fko_srv_options_t *opts)
     }
 }
 
+#ifdef DEBUG_CONNECTION_TRACKER
+static int traverse_count_conns(hash_table_node_t *node, void *arg)
+{
+    int rv = FWKNOPD_SUCCESS;
+    int *count = (int*)arg;
+    connection_t temp_conn = NULL;
+
+    log_msg(LOG_DEBUG, "traverse_count_conns() entered");
+
+    if(node->data == NULL)
+    {
+        log_msg(LOG_ERR, "traverse_count_conns() node->data is NULL, shouldn't happen\n");
+        hash_table_delete(latest_connection_hash_tbl, node->key);
+        return rv;
+    }
+
+    temp_conn = (connection_t)(node->data);
+
+    while(temp_conn)
+    {
+        (*count)++;
+        temp_conn = temp_conn->next;
+    }
+
+    return rv;
+}
+#endif
+
+
 int update_connections(fko_srv_options_t *opts)
 {
     int res = FWKNOPD_SUCCESS;
@@ -1576,11 +1744,27 @@ int update_connections(fko_srv_options_t *opts)
     // did someone init the conn tracking tables
     if(connection_hash_tbl == NULL)
     {
-		log_msg(LOG_ERR,
-			"[*] Connection tracking was not initialized."
-		);
-		return res;
+        log_msg(LOG_ERR,
+            "[*] Connection tracking was not initialized."
+        );
+        return res;
     }
+
+#ifdef DEBUG_CONNECTION_TRACKER
+    new_unknown_conn_count = 0;
+    new_unknown_conn_count_closed = 0;
+    new_unknown_conn_count_open = 0;
+    new_unknown_conn_count_before_walk = 0;
+    known_conn_cnt_before_update = 0;
+    known_conn_cnt_before_update_closed = 0;
+    known_conn_cnt_before_update_open = 0;
+    known_conn_cnt_after_update = 0;
+    known_conn_cnt_after_update_closed = 0;
+    known_conn_cnt_after_update_open = 0;
+    final_known_cnt = 0;
+    known_conns_deleted_during_comp = 0;
+    known_conns_deleted = 0;
+#endif
 
     // first get list of current connections
     if( (res = check_conntrack(opts, &pres_conn_count)) != FWKNOPD_SUCCESS)
@@ -1599,11 +1783,30 @@ int update_connections(fko_srv_options_t *opts)
 
     now = time(NULL);
 
+#ifdef DEBUG_CONNECTION_TRACKER
+    if( hash_table_traverse(connection_hash_tbl, traverse_count_conns, &known_conn_cnt_before_update)  != FWKNOPD_SUCCESS )
+    {
+        return FWKNOPD_ERROR_CONNTRACK;
+    }
+#endif
+
     // walk list of known connections
     if( hash_table_traverse(connection_hash_tbl, traverse_compare_latest_cb, &now)  != FWKNOPD_SUCCESS )
     {
         return FWKNOPD_ERROR_CONNTRACK;
     }
+
+#ifdef DEBUG_CONNECTION_TRACKER
+    if( hash_table_traverse(connection_hash_tbl, traverse_count_conns, &known_conn_cnt_after_update)  != FWKNOPD_SUCCESS )
+    {
+        return FWKNOPD_ERROR_CONNTRACK;
+    }
+
+    if( hash_table_traverse(latest_connection_hash_tbl, traverse_count_conns, &new_unknown_conn_count_before_walk)  != FWKNOPD_SUCCESS )
+    {
+        return FWKNOPD_ERROR_CONNTRACK;
+    }
+#endif
 
     // what's left in 'latest' conns are new, unknown conns
     // validate and possibly add to known list and to report for ctrl
@@ -1611,6 +1814,28 @@ int update_connections(fko_srv_options_t *opts)
     {
         return FWKNOPD_ERROR_CONNTRACK;
     }
+
+#ifdef DEBUG_CONNECTION_TRACKER
+    if( hash_table_traverse(connection_hash_tbl, traverse_count_conns, &final_known_cnt)  != FWKNOPD_SUCCESS )
+    {
+        return FWKNOPD_ERROR_CONNTRACK;
+    }
+
+    log_msg(LOG_ALERT, "       Known conn count before update: %6d", known_conn_cnt_before_update);
+    log_msg(LOG_ALERT, "  Known conn count before update OPEN: %6d", known_conn_cnt_before_update_open);
+    log_msg(LOG_ALERT, "Known conn count before update CLOSED: %6d", known_conn_cnt_before_update_closed);
+    log_msg(LOG_ALERT, "                  Known conns deleted: %6d", known_conns_deleted);
+    log_msg(LOG_ALERT, "   Known conns deleted during compare: %6d", known_conns_deleted_during_comp);
+    log_msg(LOG_ALERT, "        Known conn count after update: %6d", known_conn_cnt_after_update);
+    log_msg(LOG_ALERT, "   Known conn count after update OPEN: %6d", known_conn_cnt_after_update_open);
+    log_msg(LOG_ALERT, " Known conn count after update CLOSED: %6d", known_conn_cnt_after_update_closed);
+    log_msg(LOG_ALERT, "   New unknown conn count before walk: %6d", new_unknown_conn_count_before_walk);
+    log_msg(LOG_ALERT, "               New unknown conn count: %6d", new_unknown_conn_count);
+    log_msg(LOG_ALERT, "          New unknown conn count OPEN: %6d", new_unknown_conn_count_open);
+    log_msg(LOG_ALERT, "        New unknown conn count CLOSED: %6d", new_unknown_conn_count_closed);
+    log_msg(LOG_ALERT, "                    Final known count: %6d", final_known_cnt);
+    log_msg(LOG_ALERT, "\n\n");
+#endif
 
     if(verbosity >= LOG_DEBUG)
     {
@@ -1664,6 +1889,13 @@ static int send_connection_report(fko_srv_options_t *opts, connection_t msg_list
     json_object *jarray = NULL;
     json_object *jconn = NULL;
     connection_t this_conn = msg_list;
+    int conn_count = 0;
+
+#ifdef DEBUG_CONNECTION_TRACKER
+    const char *json_string = NULL;
+    float avg = 0;
+    int msg_len = 0;
+#endif
 
     if(msg_list == NULL)
         return rv;
@@ -1676,26 +1908,62 @@ static int send_connection_report(fko_srv_options_t *opts, connection_t msg_list
 
     jarray = json_object_new_array();
 
+    // send in blocks of MSG_CONN_LIST_COUNT_THRESHOLD connections max
     while(this_conn != NULL)
     {
+        conn_count++;
         if( (rv = make_json_from_conn_item(this_conn, &jconn)) != FWKNOPD_SUCCESS)
         {
-            goto cleanup;
+            json_object_put(jarray);
+            return rv;
         }
         json_object_array_add(jarray, jconn);
+
+        if(conn_count >= MSG_CONN_LIST_COUNT_THRESHOLD)
+        {
+            log_msg(LOG_WARNING, "Sending connection_update message (%d connections) to controller", conn_count);
+
+#ifdef DEBUG_CONNECTION_TRACKER
+            json_string = json_object_to_json_string(jarray);
+            avg = msg_len/conn_count;
+            log_msg(LOG_ALERT, "\nconnection update...");
+            log_msg(LOG_ALERT, "                      connections: %10d", conn_count);
+            log_msg(LOG_ALERT, "      data string length in bytes: %10d", msg_len);
+            log_msg(LOG_ALERT, "average conn data length in bytes: %10.2f\n", avg);
+#endif
+
+            rv = sdp_ctrl_client_send_message(opts->ctrl_client, "connection_update", jarray);
+
+            json_object_put(jarray);
+
+            if(rv != SDP_SUCCESS)
+                return rv;
+
+            if(this_conn->next != NULL)
+            {
+                jarray = json_object_new_array();
+                conn_count = 0;
+            }
+            else
+                return rv;
+        }
         this_conn = this_conn->next;
     }
 
-    log_msg(LOG_WARNING, "Sending connection_update message to controller");
+    log_msg(LOG_WARNING, "Sending connection_update message (%d connections) to controller", conn_count);
+
+#ifdef DEBUG_CONNECTION_TRACKER
+    json_string = json_object_to_json_string(jarray);
+    avg = msg_len/conn_count;
+    log_msg(LOG_ALERT, "\nconnection update...");
+    log_msg(LOG_ALERT, "                      connections: %10d", conn_count);
+    log_msg(LOG_ALERT, "      data string length in bytes: %10d", msg_len);
+    log_msg(LOG_ALERT, "average conn data length in bytes: %10.2f\n", avg);
+#endif
 
     rv = sdp_ctrl_client_send_message(opts->ctrl_client, "connection_update", jarray);
 
-cleanup:
-    if(jarray != NULL && json_object_get_type(jarray) != json_type_null)
-    {
-        json_object_put(jarray);
-        jarray = NULL;
-    }
+    json_object_put(jarray);
 
     return rv;
 }
@@ -1716,7 +1984,7 @@ int consider_reporting_connections(fko_srv_options_t *opts)
     }
 
     // if it's not time, just return success
-    if(now < next_ctrl_msg_due)
+    if(msg_conn_list_count < MSG_CONN_LIST_COUNT_THRESHOLD && now < next_ctrl_msg_due)
         return rv;
 
     // if nothing new to report, just return success
@@ -1748,14 +2016,14 @@ int consider_reporting_connections(fko_srv_options_t *opts)
         }
         else
         {
-            log_msg(LOG_ERR, "consider_reporting_connections() failed to send a report. Will reconnect and retry.");
-            return FWKNOPD_SUCCESS;
+            log_msg(LOG_ERR, "consider_reporting_connections() failed to send a report. Dropping the message.");
         }
     }
 
     // free message list
     destroy_connection_list(msg_conn_list);
     msg_conn_list = NULL;
+    msg_conn_list_count = 0;
 
     // update next_ctrl_msg_due
     next_ctrl_msg_due = now + interval;
@@ -1788,7 +2056,10 @@ static int traverse_copy_open_conns_cb(hash_table_node_t *node, void *arg)
     }
 
     log_msg(LOG_DEBUG, "traverse_copy_open_conns_cb() node with open connections:");
-    print_connection_list(node->data);
+    if(verbosity >= LOG_DEBUG)
+    {
+        print_connection_list(node->data);
+    }
 
     if((rv = duplicate_connection_list((connection_t)(node->data), &temp_conn)) != FWKNOPD_SUCCESS)
     {
@@ -1797,6 +2068,12 @@ static int traverse_copy_open_conns_cb(hash_table_node_t *node, void *arg)
 
     if( (rv = add_to_connection_list(&msg_conn_list, temp_conn)) != FWKNOPD_SUCCESS)
         destroy_connection_list(temp_conn);
+
+    while(temp_conn != NULL)
+    {
+        msg_conn_list_count++;
+        temp_conn = temp_conn->next;
+    }
 
     if(msg_conn_list)
         log_msg(LOG_DEBUG, "traverse_copy_open_conns_cb() msg_conn_list is not null, which is good");
@@ -1832,6 +2109,7 @@ int report_open_connections(fko_srv_options_t *opts)
         // free message list
         destroy_connection_list(msg_conn_list);
         msg_conn_list = NULL;
+        msg_conn_list_count = 0;
         return rv;
     }
 
@@ -1847,6 +2125,7 @@ int report_open_connections(fko_srv_options_t *opts)
     // free message list
     destroy_connection_list(msg_conn_list);
     msg_conn_list = NULL;
+    msg_conn_list_count = 0;
 
     if(rv == SDP_ERROR_MEMORY_ALLOCATION)
     {

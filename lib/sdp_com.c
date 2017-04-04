@@ -744,10 +744,15 @@ int sdp_com_send_msg(sdp_com_t com, const char *msg)
         return SDP_ERROR_INVALID_MSG;
 
     if((msg_len = strnlen(msg, SDP_MSG_MAX_LEN)) >= SDP_MSG_MAX_LEN)
+    {
+        log_msg(LOG_ERR, "Failed to send message, too long.");
         return SDP_ERROR_INVALID_MSG_LONG;
-
+    }
     else if(msg_len < SDP_MSG_MIN_LEN)
+    {
+        log_msg(LOG_ERR, "Failed to send message, too short.");
         return SDP_ERROR_INVALID_MSG_SHORT;
+    }
 
     log_msg(LOG_DEBUG, "Message to send: ");
     log_msg(LOG_DEBUG, "  %s", msg);

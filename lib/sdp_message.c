@@ -181,7 +181,9 @@ static int sdp_get_message_action(json_object *jmsg, ctrl_action_t *r_action)
 int  sdp_message_make(const char *action, const json_object *data, char **r_out_msg)
 {
     char *out_msg = NULL;
+    const char *json_string;
     json_object *jout_msg = json_object_new_object();
+    int msg_len = 0;
 
     if(jout_msg == NULL)
         return SDP_ERROR_MEMORY_ALLOCATION;
@@ -194,7 +196,15 @@ int  sdp_message_make(const char *action, const json_object *data, char **r_out_
     if(data != NULL)
         json_object_object_add(jout_msg, sdp_key_data, json_object_get((json_object*)data));
 
-    out_msg = strndup(json_object_to_json_string(jout_msg), SDP_MSG_MAX_LEN);
+    json_string = json_object_to_json_string(jout_msg);
+    if((msg_len = strnlen(json_string, SDP_MSG_MAX_LEN)) >= SDP_MSG_MAX_LEN )
+    {
+    	log_msg(LOG_ERR, "sdp_message_make() message exceeds max len %d", SDP_MSG_MAX_LEN);
+    	if(jout_msg != NULL && json_object_get_type(jout_msg) != json_type_null) json_object_put(jout_msg);
+    	return SDP_ERROR_INVALID_MSG_LONG;
+    }
+
+    out_msg = strndup(json_string, msg_len);
 
     if(jout_msg != NULL && json_object_get_type(jout_msg) != json_type_null) json_object_put(jout_msg);
 

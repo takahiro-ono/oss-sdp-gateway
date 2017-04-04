@@ -15,6 +15,8 @@
 //#define CONN_ID_BUF_LEN                 21
 #define CRITERIA_BUF_LEN                CMD_BUFSIZE - 20
 
+#define MSG_CONN_LIST_COUNT_THRESHOLD   100
+
 #define CONNMARK_SEARCH_ARGS "-m %"PRIu32" -p %s -s %s --sport %d -d %s --dport %d --reply-port-src %d"
 
 struct connection{
