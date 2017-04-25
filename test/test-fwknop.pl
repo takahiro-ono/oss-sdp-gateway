@@ -1070,6 +1070,7 @@ my %test_keys = (
     'wait_for_conn_close' => $OPTIONAL,
     'disable_sdp_id' => $OPTIONAL,
     'remove_service_access' => $OPTIONAL,
+    'remove_service_access_first' => $OPTIONAL
 );
 
 &validate_test_hashes();
@@ -3251,6 +3252,9 @@ sub controller_cycle() {
         &sdp_test_cleanup();
         return 0;
     }
+    
+    # if configured, drop service access before attempting service connection
+    &drop_service_access() if $test_hr->{'remove_service_access_first'};
     
     my $client_cycles = 0; ### will only be set if an fwknop command was given
     $client_cycles = 1 if $test_hr->{'cmdline'}; ### default

@@ -1557,6 +1557,8 @@ process_spa_request(const fko_srv_options_t * const opts,
     */
     if(expand_acc_port_list(&port_list, spadat->spa_message_remain) != 1)
     {
+    	log_msg(LOG_WARNING, "Failed to parse port list in SPA message");
+
         /* technically we would already have exited with an error if there were
          * any memory allocation errors (see the add_port_list() function), but
          * for completeness...

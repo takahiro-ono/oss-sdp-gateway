@@ -950,15 +950,31 @@ set_timeout(acc_stanza_t *acc, spa_data_t *spadat)
 
 
 static int
-check_service_access(fko_srv_options_t *opts, spa_data_t *spadat)
+check_service_access(acc_stanza_t *acc, spa_data_t *spadat)
+{
+    if(! acc_check_service_access(acc, spadat->spa_message_remain))
+    {
+        log_msg(LOG_WARNING,
+            "[%s] One or more requested services was denied.",
+            spadat->pkt_source_ip
+        );
+        return 0;
+    }
+    return 1;
+}
+
+
+
+static int
+gather_service_information(fko_srv_options_t *opts, spa_data_t *spadat)
 {
     int rv = FWKNOPD_SUCCESS;
     service_data_list_t *service_data_list = NULL;
 
-    // walk through list of service IDs
+    // walk through list of requested service IDs to gather service data
     if((rv = get_service_data_list(opts, spadat->spa_message_remain, &service_data_list)) != FWKNOPD_SUCCESS)
     {
-        log_msg(LOG_ERR, "Issues with requested services.");
+        log_msg(LOG_ERR, "Failed to gather necessary data for requested services.");
         return 0;
     }
 
@@ -1208,8 +1224,15 @@ process_spa_data(fko_srv_options_t *opts, fko_ctx_t *ctx, acc_stanza_t *acc, spa
     if(msg_type == FKO_SERVICE_ACCESS_MSG ||
        msg_type == FKO_CLIENT_TIMEOUT_SERVICE_ACCESS_MSG)
     {
-        if(! check_service_access(opts, spadat))
+    	log_msg(LOG_DEBUG,
+    			"[%s] --SPA message is a service access request, checking if SDP ID has necessary permissions",
+				spadat->pkt_source_ip
+		);
+        if(! check_service_access(acc, spadat))
             return STOP_SEARCHING;
+
+        if(! gather_service_information(opts, spadat))
+        	return STOP_SEARCHING;
     }
     else if(! check_port_proto(acc, spadat, stanza_num))
     {
