@@ -621,6 +621,9 @@ int sdp_ctrl_client_check_inbox(sdp_ctrl_client_t client, int *r_action, void **
             goto cleanup;
         }
 
+        // got a reasonably valid message, update last contact time
+        client->last_contact = time(NULL);
+
         switch(action)
         {
             case CTRL_ACTION_CREDENTIALS_GOOD:
@@ -741,8 +744,6 @@ cleanup:
 
 void sdp_ctrl_client_process_keep_alive(sdp_ctrl_client_t client)
 {
-    client->last_contact = time(NULL);
-
     if(client->client_state == SDP_CTRL_CLIENT_STATE_KEEP_ALIVE_REQUESTING)
         sdp_ctrl_client_clear_state_vars(client);
 
@@ -909,7 +910,6 @@ int sdp_ctrl_client_process_cred_update(sdp_ctrl_client_t client, void *credenti
         goto cleanup;
     }
 
-    client->last_contact = time(NULL);
     client->last_cred_update = client->last_contact;
 
     if(client->client_state == SDP_CTRL_CLIENT_STATE_CRED_REQUESTING)
