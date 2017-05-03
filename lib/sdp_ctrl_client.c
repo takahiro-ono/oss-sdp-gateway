@@ -710,7 +710,6 @@ int sdp_ctrl_client_request_keep_alive(sdp_ctrl_client_t client)
         return SDP_ERROR_CONN_DOWN;
 
     if(client->client_state != SDP_CTRL_CLIENT_STATE_READY &&
-       client->client_state != SDP_CTRL_CLIENT_STATE_KEEP_ALIVE_UNFULFILLED &&
        client->client_state != SDP_CTRL_CLIENT_STATE_KEEP_ALIVE_REQUESTING)
     {
         log_msg(LOG_DEBUG, "Control Client not in proper state to request keep alive.");
@@ -744,8 +743,7 @@ void sdp_ctrl_client_process_keep_alive(sdp_ctrl_client_t client)
 {
     client->last_contact = time(NULL);
 
-    if(client->client_state == SDP_CTRL_CLIENT_STATE_KEEP_ALIVE_REQUESTING ||
-       client->client_state == SDP_CTRL_CLIENT_STATE_KEEP_ALIVE_UNFULFILLED)
+    if(client->client_state == SDP_CTRL_CLIENT_STATE_KEEP_ALIVE_REQUESTING)
         sdp_ctrl_client_clear_state_vars(client);
 
 }
@@ -766,7 +764,6 @@ int sdp_ctrl_client_request_cred_update(sdp_ctrl_client_t client)
 
     // Is the client in the right state
     if(client->client_state != SDP_CTRL_CLIENT_STATE_READY &&
-       client->client_state != SDP_CTRL_CLIENT_STATE_CRED_UNFULFILLED &&
        client->client_state != SDP_CTRL_CLIENT_STATE_CRED_REQUESTING)
     {
         log_msg(LOG_DEBUG, "Control Client not in proper state to request credential update.");
@@ -813,8 +810,7 @@ int sdp_ctrl_client_request_service_refresh(sdp_ctrl_client_t client)
 
     // Is the client in the right state
     if(client->client_state != SDP_CTRL_CLIENT_STATE_READY &&
-       client->client_state != SDP_CTRL_CLIENT_STATE_SERVICE_REFRESH_REQUESTING &&
-       client->client_state != SDP_CTRL_CLIENT_STATE_SERVICE_REFRESH_UNFULFILLED)
+       client->client_state != SDP_CTRL_CLIENT_STATE_SERVICE_REFRESH_REQUESTING)
     {
         log_msg(LOG_DEBUG, "Control Client not in proper state to request service data refresh.");
         return SDP_ERROR_STATE;
@@ -862,8 +858,7 @@ int sdp_ctrl_client_request_access_refresh(sdp_ctrl_client_t client)
 
     // Is the client in the right state
     if(client->client_state != SDP_CTRL_CLIENT_STATE_READY &&
-       client->client_state != SDP_CTRL_CLIENT_STATE_ACCESS_REFRESH_REQUESTING &&
-       client->client_state != SDP_CTRL_CLIENT_STATE_ACCESS_REFRESH_UNFULFILLED)
+       client->client_state != SDP_CTRL_CLIENT_STATE_ACCESS_REFRESH_REQUESTING)
     {
         log_msg(LOG_DEBUG, "Control Client not in proper state to request access data refresh.");
         return SDP_ERROR_STATE;
@@ -917,8 +912,7 @@ int sdp_ctrl_client_process_cred_update(sdp_ctrl_client_t client, void *credenti
     client->last_contact = time(NULL);
     client->last_cred_update = client->last_contact;
 
-    if(client->client_state == SDP_CTRL_CLIENT_STATE_CRED_REQUESTING ||
-       client->client_state == SDP_CTRL_CLIENT_STATE_CRED_UNFULFILLED)
+    if(client->client_state == SDP_CTRL_CLIENT_STATE_CRED_REQUESTING)
         sdp_ctrl_client_clear_state_vars(client);
 
     // Make the 'Fulfilled' response message
@@ -955,9 +949,7 @@ int  sdp_ctrl_client_send_data_ack(sdp_ctrl_client_t client, int action)
         action_str = sdp_action_access_ack;
 
         if(client->client_state == SDP_CTRL_CLIENT_STATE_ACCESS_REFRESH_REQUESTING ||
-           client->client_state == SDP_CTRL_CLIENT_STATE_ACCESS_REFRESH_UNFULFILLED ||
-           client->client_state == SDP_CTRL_CLIENT_STATE_ACCESS_UPDATE_REQUESTING ||
-           client->client_state == SDP_CTRL_CLIENT_STATE_ACCESS_UPDATE_UNFULFILLED)
+           client->client_state == SDP_CTRL_CLIENT_STATE_ACCESS_UPDATE_REQUESTING)
             sdp_ctrl_client_clear_state_vars(client);
 
     }
@@ -966,9 +958,7 @@ int  sdp_ctrl_client_send_data_ack(sdp_ctrl_client_t client, int action)
         action_str = sdp_action_service_ack;
 
         if(client->client_state == SDP_CTRL_CLIENT_STATE_SERVICE_REFRESH_REQUESTING ||
-           client->client_state == SDP_CTRL_CLIENT_STATE_SERVICE_REFRESH_UNFULFILLED ||
-           client->client_state == SDP_CTRL_CLIENT_STATE_SERVICE_UPDATE_REQUESTING ||
-           client->client_state == SDP_CTRL_CLIENT_STATE_SERVICE_UPDATE_UNFULFILLED)
+           client->client_state == SDP_CTRL_CLIENT_STATE_SERVICE_UPDATE_REQUESTING)
             sdp_ctrl_client_clear_state_vars(client);
 
     }
@@ -1589,8 +1579,7 @@ int sdp_ctrl_client_consider_keep_alive(sdp_ctrl_client_t client)
             return SDP_SUCCESS;
         }
     }
-    else if(client->client_state == SDP_CTRL_CLIENT_STATE_KEEP_ALIVE_REQUESTING ||
-            client->client_state == SDP_CTRL_CLIENT_STATE_KEEP_ALIVE_UNFULFILLED)
+    else if(client->client_state == SDP_CTRL_CLIENT_STATE_KEEP_ALIVE_REQUESTING)
     {
         if( (ts = time(NULL)) >= (client->last_req_time + client->req_retry_interval) )
         {
@@ -1603,7 +1592,6 @@ int sdp_ctrl_client_consider_keep_alive(sdp_ctrl_client_t client)
             }
             else
             {
-                client->client_state = SDP_CTRL_CLIENT_STATE_KEEP_ALIVE_UNFULFILLED;
                 client->req_retry_interval *= 2;
                 if(client->req_retry_interval > SDP_COM_MAX_RETRY_INTERVAL_SECONDS)
                     client->req_retry_interval = SDP_COM_MAX_RETRY_INTERVAL_SECONDS;
@@ -1664,8 +1652,7 @@ int sdp_ctrl_client_consider_cred_update(sdp_ctrl_client_t client)
             return SDP_SUCCESS;
         }
     }
-    else if(client->client_state == SDP_CTRL_CLIENT_STATE_CRED_REQUESTING ||
-            client->client_state == SDP_CTRL_CLIENT_STATE_CRED_UNFULFILLED)
+    else if(client->client_state == SDP_CTRL_CLIENT_STATE_CRED_REQUESTING)
     {
         if( (ts = time(NULL)) >= (client->last_req_time + client->req_retry_interval) )
         {
@@ -1678,7 +1665,6 @@ int sdp_ctrl_client_consider_cred_update(sdp_ctrl_client_t client)
             }
             else
             {
-                client->client_state = SDP_CTRL_CLIENT_STATE_CRED_UNFULFILLED;
                 client->req_retry_interval *= 2;
                 if(client->req_retry_interval > SDP_COM_MAX_RETRY_INTERVAL_SECONDS)
                     client->req_retry_interval = SDP_COM_MAX_RETRY_INTERVAL_SECONDS;
@@ -1739,8 +1725,7 @@ int sdp_ctrl_client_consider_service_refresh(sdp_ctrl_client_t client)
             return SDP_SUCCESS;
         }
     }
-    else if(client->client_state == SDP_CTRL_CLIENT_STATE_SERVICE_REFRESH_REQUESTING ||
-            client->client_state == SDP_CTRL_CLIENT_STATE_SERVICE_REFRESH_UNFULFILLED)
+    else if(client->client_state == SDP_CTRL_CLIENT_STATE_SERVICE_REFRESH_REQUESTING)
     {
         if( (ts = time(NULL)) >= (client->last_req_time + client->req_retry_interval) )
         {
@@ -1753,7 +1738,6 @@ int sdp_ctrl_client_consider_service_refresh(sdp_ctrl_client_t client)
             }
             else
             {
-                client->client_state = SDP_CTRL_CLIENT_STATE_SERVICE_REFRESH_UNFULFILLED;
                 client->req_retry_interval *= 2;
                 if(client->req_retry_interval > SDP_COM_MAX_RETRY_INTERVAL_SECONDS)
                     client->req_retry_interval = SDP_COM_MAX_RETRY_INTERVAL_SECONDS;
@@ -1814,8 +1798,7 @@ int sdp_ctrl_client_consider_access_refresh(sdp_ctrl_client_t client)
             return SDP_SUCCESS;
         }
     }
-    else if(client->client_state == SDP_CTRL_CLIENT_STATE_ACCESS_REFRESH_REQUESTING ||
-            client->client_state == SDP_CTRL_CLIENT_STATE_ACCESS_REFRESH_UNFULFILLED)
+    else if(client->client_state == SDP_CTRL_CLIENT_STATE_ACCESS_REFRESH_REQUESTING)
     {
         if( (ts = time(NULL)) >= (client->last_req_time + client->req_retry_interval) )
         {
@@ -1828,7 +1811,6 @@ int sdp_ctrl_client_consider_access_refresh(sdp_ctrl_client_t client)
             }
             else
             {
-                client->client_state = SDP_CTRL_CLIENT_STATE_ACCESS_REFRESH_UNFULFILLED;
                 client->req_retry_interval *= 2;
                 if(client->req_retry_interval > SDP_COM_MAX_RETRY_INTERVAL_SECONDS)
                     client->req_retry_interval = SDP_COM_MAX_RETRY_INTERVAL_SECONDS;
