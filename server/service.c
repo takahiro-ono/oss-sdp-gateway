@@ -514,6 +514,8 @@ int process_service_msg(fko_srv_options_t *opts, int action, json_object *jdata)
             // destroy the table
             hash_table_destroy(opts->service_hash_tbl);
             opts->service_hash_tbl = NULL;
+            hash_table_destroy(opts->reverse_service_hash_tbl);
+            opts->reverse_service_hash_tbl = NULL;
         }
     }
 
