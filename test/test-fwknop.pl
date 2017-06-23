@@ -100,6 +100,8 @@ our $sql_cleanup_file = './conf/sdp-ctrl-client/sdp_test_cleanup.sql';
 our $sql_destroy_file = './conf/sdp-ctrl-client/sdp_test_destroy.sql';
 our $sql_disable_sdpid_file = './conf/sdp-ctrl-client/disable_sdpid.sql';
 our $sql_drop_service_access_file = './conf/sdp-ctrl-client/drop_service_access.sql';
+our $sql_disable_service_access_file = './conf/sdp-ctrl-client/disable_service_access.sql';
+our $sql_disable_service_file = './conf/sdp-ctrl-client/disable_service.sql';
 
 our $sql_create_cmd = "mysql -u root -p < $sql_create_file";
 our $sql_create_user_cmd = "mysql -u root -p < $sql_create_user_file";
@@ -110,7 +112,8 @@ our $sql_cleanup_cmd = "mysql -u sdp_test < $sql_cleanup_file";
 our $sql_destroy_cmd = "mysql -u root -p < $sql_destroy_file";
 our $sql_disable_sdpid_cmd = "mysql -u sdp_test < $sql_disable_sdpid_file";
 our $sql_drop_service_access_cmd = "mysql -u sdp_test < $sql_drop_service_access_file";
-
+our $sql_disable_service_access_cmd = "mysql -u sdp_test < $sql_disable_service_access_file";
+our $sql_disable_service_cmd = "mysql -u sdp_test < $sql_disable_service_file";
 
 our $tmp_server_rc = "$sdp_tmp_dir/server.fwknoprc";
 our $tmp_server_ctrl_conf = "$sdp_tmp_dir/server_sdp_ctrl_client.conf";
@@ -1070,7 +1073,11 @@ my %test_keys = (
     'wait_for_conn_close' => $OPTIONAL,
     'disable_sdp_id' => $OPTIONAL,
     'remove_service_access' => $OPTIONAL,
-    'remove_service_access_first' => $OPTIONAL
+    'disable_service_access' => $OPTIONAL,
+    'disable_service' => $OPTIONAL,
+    'remove_service_access_first' => $OPTIONAL,
+    'disable_service_access_first' => $OPTIONAL,
+    'disable_service_first' => $OPTIONAL
 );
 
 &validate_test_hashes();
@@ -3214,6 +3221,16 @@ sub drop_service_access() {
   sleep 5;
 }
 
+sub disable_service_access() {
+  &run_cmd($sql_disable_service_access_cmd, $cmd_out_tmp, $curr_test_file);
+  sleep 5;
+}
+
+sub disable_service() {
+  &run_cmd($sql_disable_service_cmd, $cmd_out_tmp, $curr_test_file);
+  sleep 5;
+}
+
 
 sub controller_cycle() {
     my $test_hr = shift;
@@ -3255,6 +3272,12 @@ sub controller_cycle() {
     
     # if configured, drop service access before attempting service connection
     &drop_service_access() if $test_hr->{'remove_service_access_first'};
+    
+    # if configured, disable service access before attempting service connection
+    &disable_service_access() if $test_hr->{'disable_service_access_first'};
+    
+    # if configured, disable service before attempting service connection
+    &disable_service() if $test_hr->{'disable_service_first'};
     
     my $client_cycles = 0; ### will only be set if an fwknop command was given
     $client_cycles = 1 if $test_hr->{'cmdline'}; ### default
@@ -3300,6 +3323,14 @@ sub controller_cycle() {
         ### if configured, remove access to one service
         ### to test connection closing
         &drop_service_access() if $test_hr->{'remove_service_access'};
+
+        ### if configured, disable access to one service
+        ### to test connection closing
+        &disable_service_access() if $test_hr->{'disable_service_access'};
+                
+        ### if configured, disable one service completely
+        ### to test connection closing
+        &disable_service() if $test_hr->{'disable_service'};
                 
     }
 
@@ -6569,7 +6600,7 @@ sub fw_check() {
             elsif ($test_hr->{'fw_rule_removed'} eq $REQUIRE_NO_NEW_REMOVED) {
                 last;
             }
-            sleep 1;
+            sleep 3;
         }
         
         if (&is_fw_rule_active($test_hr)) {

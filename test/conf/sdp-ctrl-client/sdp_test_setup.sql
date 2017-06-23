@@ -171,7 +171,7 @@ INSERT INTO `gateway_controller` (`id`, `gateway_sdpid`, `controller_sdpid`) VAL
 
 CREATE TABLE IF NOT EXISTS `group` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
-  `valid` tinyint(4) NOT NULL DEFAULT '1',
+  `enabled` tinyint(1) NOT NULL DEFAULT '1',
   `name` varchar(1024) COLLATE utf8_bin NOT NULL,
   `Description` varchar(4096) COLLATE utf8_bin NOT NULL,
   PRIMARY KEY (`id`)
@@ -199,6 +199,7 @@ DELIMITER ;
 
 CREATE TABLE IF NOT EXISTS `group_service` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
+  `enabled` tinyint(1) NOT NULL DEFAULT '1',
   `group_id` int(11) NOT NULL,
   `service_id` int(11) NOT NULL,
   PRIMARY KEY (`id`),
@@ -306,7 +307,7 @@ CREATE TABLE IF NOT EXISTS `refresh_trigger` (
 
 CREATE TABLE IF NOT EXISTS `sdpid` (
   `sdpid` int(11) NOT NULL AUTO_INCREMENT,
-  `valid` tinyint(1) NOT NULL DEFAULT '1',
+  `enabled` tinyint(1) NOT NULL DEFAULT '1',
   `type` enum('client','gateway','controller') COLLATE utf8_bin NOT NULL DEFAULT 'client',
   `country` varchar(128) COLLATE utf8_bin NOT NULL,
   `state` varchar(128) COLLATE utf8_bin NOT NULL,
@@ -339,7 +340,7 @@ CREATE TABLE IF NOT EXISTS `sdpid` (
 -- Dumping data for table `sdpid`
 --
 
-INSERT INTO `sdpid` (`sdpid`, `valid`, `type`, `country`, `state`, `locality`, `org`, `org_unit`, `alt_name`, `email`, `encrypt_key`, `hmac_key`, `serial`, `last_cred_update`, `cred_update_due`, `user_id`, `environment_id`) VALUES
+INSERT INTO `sdpid` (`sdpid`, `enabled`, `type`, `country`, `state`, `locality`, `org`, `org_unit`, `alt_name`, `email`, `encrypt_key`, `hmac_key`, `serial`, `last_cred_update`, `cred_update_due`, `user_id`, `environment_id`) VALUES
 (111, 1, 'controller', 'US', 'Virginia', 'Waterford', 'Waverley Labs, LLC', 'R&D', NULL, 'email@email.com', NULL, NULL, '0', '0000-00-00 00:00:00', '0000-00-00 00:00:00', NULL, NULL),
 (333, 1, 'client', 'US', 'Virginia', 'Leesburg', 'Waverley Labs, LLC', 'R&D', NULL, 'email@email.com', 'Xpee90NZMvAyKJ5fxQIRALNdETK8w3pTR60NJBJy5Bw=', 'PRxnFcl+rUFpg2R6sHyuAiCs0imvVP1wn0Qweqokd9XZweOwmRABWtpxehbahY7QuMKhbE690ln5E6VtqQJBAIOEtHE+oqFe5kPL3oUGP+y+YvIFcr/iWYhmRJ+HHBRjiToNQIUO7n2xPehBlOseFYRT27XK0Cyn6BtHBCM21Wc=', '00AF8F8EAC509B9321', '2016-07-14 21:30:08', '2016-08-14 04:00:00', 1, NULL),
 (222, 1, 'gateway', 'US', 'Virginia', 'Waterford', 'Waverley Labs, LLC', 'R&D', NULL, 'email@email.com', 'z8ngq6MaidxxStiUHk0CECm0CBSuYUvyD8zb99oliV4=', '60stItDmZeQNWz8ODvz1fdchhYp3h+finZieSO6vKUdSSUkPyglKVv9heFc23Yh7vbRp+jvX2eIN+rAa8QJBAOJ7GALaqWPbE/DUu+UIzLbJvNzvCPLj+iUe/td+ot6jVNGOMrIitsEt1r9gf66eGq6WZJ6lY60USIndz0NrdMA=', 'AF9F9DBA208EF44F', '2016-07-14 21:44:15', '2016-08-14 04:00:00', NULL, NULL),
@@ -364,7 +365,7 @@ DELIMITER //
 CREATE TRIGGER `sdpid_after_update` AFTER UPDATE ON `sdpid`
  FOR EACH ROW BEGIN
 IF OLD.user_id != NEW.user_id OR
-   OLD.valid != NEW.valid THEN
+   OLD.enabled != NEW.enabled THEN
     INSERT INTO refresh_trigger
     SET table_name = 'sdpid',
         event = 'update';
@@ -381,6 +382,7 @@ DELIMITER ;
 
 CREATE TABLE IF NOT EXISTS `sdpid_service` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
+  `enabled` tinyint(1) NOT NULL DEFAULT '1',
   `sdpid` int(11) NOT NULL,
   `service_id` int(11) NOT NULL,
   PRIMARY KEY (`id`),
@@ -400,13 +402,13 @@ CREATE TABLE IF NOT EXISTS `sdpid_service` (
 -- Dumping data for table `sdpid_service`
 --
 
-INSERT INTO `sdpid_service` (`id`, `sdpid`, `service_id`) VALUES
-(1, 333, 1),
-(2, 333, 3),
-(3, 333, 4),
-(4, 555, 2),
-(5, 555, 1),
-(6, 444, 1);
+INSERT INTO `sdpid_service` (`id`, `enabled`, `sdpid`, `service_id`) VALUES
+(1, 1, 333, 1),
+(2, 1, 333, 3),
+(3, 1, 333, 4),
+(4, 1, 555, 2),
+(5, 1, 555, 1),
+(6, 1, 444, 1);
 
 --
 -- Triggers `sdpid_service`
@@ -487,6 +489,7 @@ DELIMITER ;
 
 CREATE TABLE IF NOT EXISTS `service_gateway` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
+  `enabled` tinyint(1) NOT NULL DEFAULT '1',
   `service_id` int(11) NOT NULL,
   `gateway_sdpid` int(11) NOT NULL,
   `protocol` tinytext COLLATE utf8_bin NOT NULL COMMENT 'TCP, UDP',
@@ -510,11 +513,11 @@ CREATE TABLE IF NOT EXISTS `service_gateway` (
 -- Dumping data for table `service_gateway`
 --
 
-INSERT INTO `service_gateway` (`id`, `service_id`, `gateway_sdpid`, `protocol`, `port`, `nat_ip`, `nat_port`) VALUES
-(1, 1, 222, 'TCP', 5000, '', 0),
-(2, 2, 222, 'TCP', 22, '', 0),
-(3, 3, 222, 'TCP', 25, '192.168.1.250', 54321),
-(4, 4, 222, 'TCP', 80, '', 0);
+INSERT INTO `service_gateway` (`id`, `enabled`, `service_id`, `gateway_sdpid`, `protocol`, `port`, `nat_ip`, `nat_port`) VALUES
+(1, 1, 1, 222, 'TCP', 5000, '', 0),
+(2, 1, 2, 222, 'TCP', 22, '', 0),
+(3, 1, 3, 222, 'TCP', 25, '192.168.1.250', 54321),
+(4, 1, 4, 222, 'TCP', 80, '', 0);
 
 --
 -- Triggers `service_gateway`
@@ -600,6 +603,7 @@ DELIMITER ;
 
 CREATE TABLE IF NOT EXISTS `user_group` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
+  `enabled` tinyint(1) NOT NULL DEFAULT '1',
   `user_id` int(11) NOT NULL,
   `group_id` int(11) NOT NULL,
   PRIMARY KEY (`id`),

@@ -3,4 +3,4 @@
 --
 USE `sdp_test`;
 
-UPDATE `sdp_test`.`sdpid` SET `valid` = '0' WHERE `sdpid`.`sdpid` = 333;
+UPDATE `sdp_test`.`sdpid` SET `enabled` = '0' WHERE `sdpid`.`sdpid` = 333;
