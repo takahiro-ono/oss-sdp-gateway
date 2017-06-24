@@ -99,9 +99,10 @@ our $sql_setup_file = './conf/sdp-ctrl-client/sdp_test_setup.sql';
 our $sql_cleanup_file = './conf/sdp-ctrl-client/sdp_test_cleanup.sql';
 our $sql_destroy_file = './conf/sdp-ctrl-client/sdp_test_destroy.sql';
 our $sql_disable_sdpid_file = './conf/sdp-ctrl-client/disable_sdpid.sql';
-our $sql_drop_service_access_file = './conf/sdp-ctrl-client/drop_service_access.sql';
+our $sql_delete_service_access_file = './conf/sdp-ctrl-client/delete_service_access.sql';
 our $sql_disable_service_access_file = './conf/sdp-ctrl-client/disable_service_access.sql';
 our $sql_disable_service_file = './conf/sdp-ctrl-client/disable_service.sql';
+our $sql_delete_service_file = './conf/sdp-ctrl-client/delete_service.sql';
 
 our $sql_create_cmd = "mysql -u root -p < $sql_create_file";
 our $sql_create_user_cmd = "mysql -u root -p < $sql_create_user_file";
@@ -111,9 +112,10 @@ our $sql_setup_cmd = "mysql -u sdp_test < $sql_setup_file";
 our $sql_cleanup_cmd = "mysql -u sdp_test < $sql_cleanup_file";
 our $sql_destroy_cmd = "mysql -u root -p < $sql_destroy_file";
 our $sql_disable_sdpid_cmd = "mysql -u sdp_test < $sql_disable_sdpid_file";
-our $sql_drop_service_access_cmd = "mysql -u sdp_test < $sql_drop_service_access_file";
+our $sql_delete_service_access_cmd = "mysql -u sdp_test < $sql_delete_service_access_file";
 our $sql_disable_service_access_cmd = "mysql -u sdp_test < $sql_disable_service_access_file";
 our $sql_disable_service_cmd = "mysql -u sdp_test < $sql_disable_service_file";
+our $sql_delete_service_cmd = "mysql -u sdp_test < $sql_delete_service_file";
 
 our $tmp_server_rc = "$sdp_tmp_dir/server.fwknoprc";
 our $tmp_server_ctrl_conf = "$sdp_tmp_dir/server_sdp_ctrl_client.conf";
@@ -1072,10 +1074,11 @@ my %test_keys = (
     'skip_controller' => $OPTIONAL,
     'wait_for_conn_close' => $OPTIONAL,
     'disable_sdp_id' => $OPTIONAL,
-    'remove_service_access' => $OPTIONAL,
+    'delete_service_access' => $OPTIONAL,
     'disable_service_access' => $OPTIONAL,
     'disable_service' => $OPTIONAL,
-    'remove_service_access_first' => $OPTIONAL,
+    'delete_service' => $OPTIONAL,
+    'delete_service_access_first' => $OPTIONAL,
     'disable_service_access_first' => $OPTIONAL,
     'disable_service_first' => $OPTIONAL
 );
@@ -3216,8 +3219,8 @@ sub disable_sdpid() {
   sleep 5;
 }
 
-sub drop_service_access() {
-  &run_cmd($sql_drop_service_access_cmd, $cmd_out_tmp, $curr_test_file);
+sub delete_service_access() {
+  &run_cmd($sql_delete_service_access_cmd, $cmd_out_tmp, $curr_test_file);
   sleep 5;
 }
 
@@ -3228,6 +3231,11 @@ sub disable_service_access() {
 
 sub disable_service() {
   &run_cmd($sql_disable_service_cmd, $cmd_out_tmp, $curr_test_file);
+  sleep 5;
+}
+
+sub delete_service() {
+  &run_cmd($sql_delete_service_cmd, $cmd_out_tmp, $curr_test_file);
   sleep 5;
 }
 
@@ -3270,8 +3278,8 @@ sub controller_cycle() {
         return 0;
     }
     
-    # if configured, drop service access before attempting service connection
-    &drop_service_access() if $test_hr->{'remove_service_access_first'};
+    # if configured, delete service access before attempting service connection
+    &delete_service_access() if $test_hr->{'delete_service_access_first'};
     
     # if configured, disable service access before attempting service connection
     &disable_service_access() if $test_hr->{'disable_service_access_first'};
@@ -3322,7 +3330,7 @@ sub controller_cycle() {
         
         ### if configured, remove access to one service
         ### to test connection closing
-        &drop_service_access() if $test_hr->{'remove_service_access'};
+        &delete_service_access() if $test_hr->{'delete_service_access'};
 
         ### if configured, disable access to one service
         ### to test connection closing
@@ -3331,6 +3339,10 @@ sub controller_cycle() {
         ### if configured, disable one service completely
         ### to test connection closing
         &disable_service() if $test_hr->{'disable_service'};
+                
+        ### if configured, delete one service completely
+        ### to test connection closing
+        &delete_service() if $test_hr->{'delete_service'};
                 
     }
 

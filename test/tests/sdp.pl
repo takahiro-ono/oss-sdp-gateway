@@ -59,7 +59,7 @@
         'fwknopd_cmdline'  => "$fwknopdCmd $default_server_conf_args_sdp $intf_str",
         'fw_rule_created' => $NEW_RULE_REQUIRED,
         'no_ip_check' => 1,
-        'remove_service_access_first' => 1,
+        'delete_service_access_first' => 1,
         'client_positive_output_matches' =>
             [qr/All new credentials stored successfully/],
         'server_positive_output_matches' => 
@@ -236,13 +236,44 @@
     {
         'category' => 'controller',
         'subcategory' => 'all 3 components',
+        'detail'   => 'delete service completely',
+        'function' => \&controller_cycle,
+        'cmdline'  => $default_client_args_sdp,
+        'fwknopd_cmdline'  => "$fwknopdCmd $default_server_conf_args_sdp $intf_str",
+        'fw_rule_created' => $NEW_RULE_REQUIRED,
+        'no_ip_check' => 1,
+        'delete_service' => 1,
+        'client_positive_output_matches' =>
+            [qr/All new credentials stored successfully/],
+        'server_positive_output_matches' => 
+            [qr/Succeeded in retrieving and installing service configuration/,
+             qr/Succeeded in retrieving and installing access configuration/,
+             qr/Succeeded in modifying access data/,
+             qr/ACCEPT.*?tcp dpt:80 \/\* _exp_\d{10} \*\//,
+             qr/ACCEPT.*?tcp dpt:5000 \/\* _exp_\d{10} \*\//,
+             qr/CONNMARK.*?tcp dpt:80 \/\* _exp_\d{10} \*\/ CONNMARK set 0x/,
+             qr/CONNMARK.*?tcp dpt:5000 \/\* _exp_\d{10} \*\/ CONNMARK set 0x/,
+             qr/New connections from SDP ID/,
+             qr/Gateway closed the following invalid connection from SDP ID/],
+        'ctrl_positive_output_matches' => 
+            [qr/New credentials successfully created/,
+             qr/Successfully stored new keys/,
+             qr/Received service data acknowledgement/,
+             qr/Received access data acknowledgement/,
+             qr/Successfully stored.*?connection data/,
+             qr/Found and removed SDP ID/,
+             qr/Sending access refresh to all connected gateways/],
+    },
+    {
+        'category' => 'controller',
+        'subcategory' => 'all 3 components',
         'detail'   => 'remove service access',
         'function' => \&controller_cycle,
         'cmdline'  => $default_client_args_sdp,
         'fwknopd_cmdline'  => "$fwknopdCmd $default_server_conf_args_sdp $intf_str",
         'fw_rule_created' => $NEW_RULE_REQUIRED,
         'no_ip_check' => 1,
-        'remove_service_access' => 1,
+        'delete_service_access' => 1,
         'client_positive_output_matches' =>
             [qr/All new credentials stored successfully/],
         'server_positive_output_matches' => 
