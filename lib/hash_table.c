@@ -8,7 +8,7 @@
  */
 
 #include "hash_table.h"
-#include "bstrlib.h"
+#include "bstr_lib.h"
 #include "dbg.h"
 
 /*
@@ -21,7 +21,7 @@
  */
 static int default_compare(void *a, void *b)
 {
-    return bstrcmp((bstring)a, (bstring)b);
+    return bstr_cmp((bstring)a, (bstring)b);
 }
 
 /**
@@ -33,8 +33,8 @@ static int default_compare(void *a, void *b)
  */
 static uint32_t default_hash(void *a)
 {
-    size_t len = blength((bstring)a);
-    char *key = bdata((bstring)a);
+    size_t len = bstr_length((bstring)a);
+    char *key = bstr_data((bstring)a);
     uint32_t hash = 0;
     uint32_t i = 0;
 
@@ -147,7 +147,7 @@ void hash_table_destroy(hash_table_t *tbl)
                 // deleting all nodes
                 while(node != NULL)
                 {
-                    debug("HASH_TABLE_DESTROY: KEY: %s", bdata((bstring)node->key));
+                    debug("HASH_TABLE_DESTROY: KEY: %s", bstr_data((bstring)node->key));
                     if(node->next != NULL)
                         debug("HASH_TABLE_DESTROY: Next node is not null.");
                     else

@@ -41,7 +41,7 @@
 #include "utils.h"
 #include "log_msg.h"
 #include "cmd_cycle.h"
-#include "bstrlib.h"
+#include "bstr_lib.h"
 #include <json-c/json.h>
 #include "fwknopd_errors.h"
 #include "sdp_ctrl_client.h"
@@ -1218,7 +1218,7 @@ free_acc_stanzas(fko_srv_options_t *opts)
 static void
 destroy_hash_node_cb(hash_table_node_t *node)
 {
-  if(node->key != NULL) bdestroy((bstring)(node->key));
+  if(node->key != NULL) bstr_destroy((bstring)(node->key));
   if(node->data != NULL)
   {
       free_acc_stanza_data((acc_stanza_t*)(node->data));
@@ -1420,14 +1420,14 @@ acc_stanza_add(fko_srv_options_t *opts, char *val)
             clean_exit(opts, NO_FW_CLEANUP, EXIT_FAILURE);
         }
 
-        key = bfromcstr(val);
+        key = bstr_from_cstr(val);
 
         if( hash_table_set(opts->acc_stanza_hash_tbl, key, new_acc) != FKO_SUCCESS )
         {
             log_msg(LOG_ERR,
                 "[*] Fatal error creating access stanza hash table node"
             );
-            bdestroy(key);
+            bstr_destroy(key);
             free_acc_stanza_data(new_acc);
             free(new_acc);
             clean_exit(opts, NO_FW_CLEANUP, EXIT_FAILURE);
@@ -2230,7 +2230,7 @@ remove_access_stanzas(hash_table_t *acc_table, int access_array_len, json_object
 
         // convert the sdp id integer to a bstring
         snprintf(id, SDP_MAX_CLIENT_ID_STR_LEN, "%d", sdp_id);
-        key = bfromcstr(id);
+        key = bstr_from_cstr(id);
 
         if( hash_table_delete(acc_table, key) != FKO_SUCCESS )
         {
@@ -2241,7 +2241,7 @@ remove_access_stanzas(hash_table_t *acc_table, int access_array_len, json_object
             log_msg(LOG_NOTICE, "Removed access stanza for SDP ID %d from access list.", sdp_id);
         }
 
-        bdestroy(key);
+        bstr_destroy(key);
     }
 }
 
@@ -2277,14 +2277,14 @@ modify_access_table(fko_srv_options_t *opts, int access_array_len, json_object *
 
         // convert the sdp id integer to a bstring
         snprintf(id, SDP_MAX_CLIENT_ID_STR_LEN, "%d", new_acc->sdp_id);
-        key = bfromcstr(id);
+        key = bstr_from_cstr(id);
 
         if( hash_table_set(opts->acc_stanza_hash_tbl, key, new_acc) != FKO_SUCCESS )
         {
             log_msg(LOG_ERR,
                 "Fatal error creating access stanza hash table node"
             );
-            bdestroy(key);
+            bstr_destroy(key);
             free_acc_stanza_data(new_acc);
             free(new_acc);
             return FKO_ERROR_MEMORY_ALLOCATION;

@@ -45,7 +45,7 @@
 #include "fw_util.h"
 #include "fwknopd_errors.h"
 #include "replay_cache.h"
-#include "bstrlib.h"
+#include "bstr_lib.h"
 
 #define CTX_DUMP_BUFSIZE            4096                /*!< Maximum size allocated to a FKO context dump */
 #define KEEP_SEARCHING 1
@@ -406,7 +406,7 @@ sdp_id_check(fko_srv_options_t *opts, spa_pkt_info_t *spa_pkt, acc_stanza_t **ac
         return 0;
     }
 
-    sdp_id = bfromcstr(spa_pkt->sdp_id_str);
+    sdp_id = bstr_from_cstr(spa_pkt->sdp_id_str);
     if(sdp_id == NULL)
     {
         log_msg(LOG_ERR, "Failed to convert sdp_id_str to bstring. Value: %s", spa_pkt->sdp_id_str);
@@ -423,7 +423,7 @@ sdp_id_check(fko_srv_options_t *opts, spa_pkt_info_t *spa_pkt, acc_stanza_t **ac
     *acc = hash_table_get(opts->acc_stanza_hash_tbl, sdp_id);
     pthread_mutex_unlock(&(opts->acc_hash_tbl_mutex));
 
-    bdestroy(sdp_id);
+    bstr_destroy(sdp_id);
     if(*acc)
         return 1;  //found what we were looking for
 

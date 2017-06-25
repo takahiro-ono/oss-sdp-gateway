@@ -11,7 +11,7 @@
 #include "hash_table.h"
 #include "fwknopd_errors.h"
 #include "sdp_ctrl_client.h"
-#include "bstrlib.h"
+#include "bstr_lib.h"
 #include "service.h"
 
 
@@ -26,7 +26,7 @@
 
 static void destroy_service_hash_node_cb(hash_table_node_t *node)
 {
-    if(node->key != NULL) bdestroy((bstring)(node->key));
+    if(node->key != NULL) bstr_destroy((bstring)(node->key));
     if(node->data != NULL)
     {
         //free_service_data((service_data_t*)(node->data));
@@ -37,7 +37,7 @@ static void destroy_service_hash_node_cb(hash_table_node_t *node)
 
 static void destroy_reverse_service_hash_node_cb(hash_table_node_t *node)
 {
-    if(node->key != NULL) bdestroy((bstring)(node->key));
+    if(node->key != NULL) bstr_destroy((bstring)(node->key));
     if(node->data != NULL)
     {
         free(node->data);
@@ -171,7 +171,7 @@ static bstring make_reverse_lookup_key(char *protocol, unsigned int port, char *
 
     log_msg(LOG_DEBUG, "Created reverse service lookup key: %s", key);
 
-    return bfromcstr(key);
+    return bstr_from_cstr(key);
 }
 
 static int modify_reverse_service_table(fko_srv_options_t *opts, int delete, service_data_t *service_data)
@@ -202,7 +202,7 @@ static int modify_reverse_service_table(fko_srv_options_t *opts, int delete, ser
     if(delete)
     {
         hash_table_delete(opts->reverse_service_hash_tbl, key);
-        bdestroy(key);
+        bstr_destroy(key);
         return FWKNOPD_SUCCESS;
     }
 
@@ -211,7 +211,7 @@ static int modify_reverse_service_table(fko_srv_options_t *opts, int delete, ser
         log_msg(LOG_ERR,
             "Fatal memory error creating reverse lookup data"
         );
-        bdestroy(key);
+        bstr_destroy(key);
         return FWKNOPD_ERROR_MEMORY_ALLOCATION;
     }
 
@@ -223,7 +223,7 @@ static int modify_reverse_service_table(fko_srv_options_t *opts, int delete, ser
         log_msg(LOG_ERR,
             "Fatal error creating reverse service lookup hash table node"
         );
-        bdestroy(key);
+        bstr_destroy(key);
         free(service_id);
         return FWKNOPD_ERROR_MEMORY_ALLOCATION;
     }
@@ -232,7 +232,7 @@ static int modify_reverse_service_table(fko_srv_options_t *opts, int delete, ser
             "Created reverse service lookup node: \n"
             "\tKEY: %s \n"
             "\tSERVICE ID: %"PRIu32,
-            bdata(key), *service_id);
+            bstr_data(key), *service_id);
 
     return FWKNOPD_SUCCESS;
 }
@@ -375,14 +375,14 @@ static int modify_service_table(fko_srv_options_t *opts, int service_array_len, 
 
         // convert the service id integer to a bstring
         snprintf(id, SDP_MAX_SERVICE_ID_STR_LEN, "%"PRIu32, new_service->service_id);
-        key = bfromcstr(id);
+        key = bstr_from_cstr(id);
 
         if( hash_table_set(opts->service_hash_tbl, key, new_service) != FKO_SUCCESS )
         {
             log_msg(LOG_ERR,
                 "Fatal error creating service hash table node"
             );
-            bdestroy(key);
+            bstr_destroy(key);
             free(new_service);
             return FWKNOPD_ERROR_MEMORY_ALLOCATION;
         }
@@ -431,7 +431,7 @@ static void remove_service_data_nodes(fko_srv_options_t *opts, int service_array
 
         // convert the service id integer to a bstring
         snprintf(id, SDP_MAX_SERVICE_ID_STR_LEN, "%d", service_id);
-        key = bfromcstr(id);
+        key = bstr_from_cstr(id);
 
         // first get the data in order to find and delete the reverse lookup node
         if((service_data = hash_table_get(opts->service_hash_tbl, key)) == NULL)
@@ -453,7 +453,7 @@ static void remove_service_data_nodes(fko_srv_options_t *opts, int service_array
             log_msg(LOG_NOTICE, "Removed access stanza for service ID %d from service list.", service_id);
         }
 
-        bdestroy(key);
+        bstr_destroy(key);
     }
 }
 
@@ -555,13 +555,13 @@ int get_service_data(fko_srv_options_t *opts, uint32_t service_id, service_data_
 
     // convert the service id integer to a bstring
     snprintf(id, SDP_MAX_SERVICE_ID_STR_LEN, "%"PRIu32, service_id);
-    key = bfromcstr(id);
+    key = bstr_from_cstr(id);
 
     // lock the hash table mutex
     if(pthread_mutex_lock(&(opts->service_hash_tbl_mutex)))
     {
         log_msg(LOG_ERR, "Service table mutex lock error.");
-        bdestroy(key);
+        bstr_destroy(key);
         *r_service_data = NULL;
         return FWKNOPD_ERROR_BAD_SERVICE_DATA;
     }
@@ -569,7 +569,7 @@ int get_service_data(fko_srv_options_t *opts, uint32_t service_id, service_data_
     service_data = hash_table_get(opts->service_hash_tbl, key);
 
     pthread_mutex_unlock(&(opts->service_hash_tbl_mutex));
-    bdestroy(key);
+    bstr_destroy(key);
 
     if( service_data == NULL )
     {
@@ -780,11 +780,11 @@ int get_service_id_by_details(fko_srv_options_t *opts, char *protocol, int port,
     pthread_mutex_unlock(&(opts->service_hash_tbl_mutex));
 
     *r_id = *id;
-    bdestroy(key);
+    bstr_destroy(key);
     return rv;
 
 cleanup:
-    bdestroy(key);
+    bstr_destroy(key);
     *r_id = 0;
     return rv;
 }

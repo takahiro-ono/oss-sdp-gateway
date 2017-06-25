@@ -11,7 +11,8 @@ libfko_source_files = \
     gpgme_funcs.c gpgme_funcs.h dbg.h sdp_com.c sdp_com.h \
     sdp_ctrl_client_config.c sdp_ctrl_client_config.h sdp_ctrl_client.c \
     sdp_ctrl_client.h sdp_errors.h sdp_message.c sdp_message.h \
-    sdp_util.c sdp_util.h sdp_log_msg.c sdp_log_msg.h
+    sdp_util.c sdp_util.h sdp_log_msg.c sdp_log_msg.h \
+    bstr_lib.c bstr_lib.h hash_table.c hash_table.h 
 
 
 if WANT_C_UNIT_TESTS
@@ -22,15 +23,15 @@ fko_utests_CPPFLAGS = -I $(top_builddir)/lib -I $(top_builddir)/common $(GPGME_C
 fko_utests_LDADD    = $(top_builddir)/lib/libfko.la $(top_builddir)/common/libfko_util.a
 fko_utests_LDFLAGS  = -lcunit $(GPGME_LIBS)
 libfko_la_LDFLAGS   = -version-info 2:3:0 $(GPGME_LIBS) \
-                      -export-symbols-regex '^(fko|sdp)_'
+                      -export-symbols-regex '^(fko|sdp|hash_table|bstr)_'
 else
 if APPLE_PLATFORM
 libfko_la_LDFLAGS   = -version-info 2:3:0 $(GPGME_LIBS)  \
-                      -export-symbols-regex '^(fko|sdp)_' \
+                      -export-symbols-regex '^(fko|sdp|hash_table|bstr)_' \
                       -L/usr/local/lib/openssl
 else
 libfko_la_LDFLAGS   = -version-info 2:3:0 $(GPGME_LIBS)  \
-                      -export-symbols-regex '^(fko|sdp)_' \
+                      -export-symbols-regex '^(fko|sdp|hash_table|bstr)_' \
                       -Wl,--whole-archive,$(top_builddir)/common/libfko_util.a,--no-whole-archive
 endif
 endif

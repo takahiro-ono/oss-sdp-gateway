@@ -14,7 +14,7 @@
 #include "log_msg.h"
 #include "extcmd.h"
 #include "access.h"
-#include "bstrlib.h"
+#include "bstr_lib.h"
 #include "hash_table.h"
 #include "sdp_ctrl_client.h"
 #include <json-c/json.h>
@@ -697,7 +697,7 @@ static int store_in_connection_hash_tbl(hash_table_t *tbl, connection_t this_con
 
     // convert the sdp id integer to a bstring
     snprintf(id_str, SDP_MAX_CLIENT_ID_STR_LEN, "%"PRIu32, this_conn->sdp_id);
-    key = bfromcstr(id_str);
+    key = bstr_from_cstr(id_str);
     // key is not freed if hash_table_set is called,
     // because the hash table keeps it
 
@@ -713,7 +713,7 @@ static int store_in_connection_hash_tbl(hash_table_t *tbl, connection_t this_con
             log_msg(LOG_ERR,
                 "[*] Fatal memory allocation error updating 'latest' connection tracking hash table"
             );
-            bdestroy(key);
+            bstr_destroy(key);
         }
     }
     else
@@ -722,7 +722,7 @@ static int store_in_connection_hash_tbl(hash_table_t *tbl, connection_t this_con
                 " already exists in table. \n", this_conn->sdp_id);
 
         // key is no longer needed in this case, didn't create a new hash node
-        bdestroy(key);
+        bstr_destroy(key);
 
         // this one should be impossible to fail, but we will still return the res
         res = add_to_connection_list(&present_conns, this_conn);
@@ -783,7 +783,7 @@ static int check_conntrack(fko_srv_options_t *opts, int *conn_count_r)
 
 static void destroy_hash_node_cb(hash_table_node_t *node)
 {
-  if(node->key != NULL) bdestroy((bstring)(node->key));
+  if(node->key != NULL) bstr_destroy((bstring)(node->key));
   if(node->data != NULL)
   {
       // this function takes care of all connection nodes (NOT hash table nodes)
@@ -1040,7 +1040,7 @@ static int traverse_compare_latest_cb(hash_table_node_t *node, void *arg)
         return rv;
     }
 
-    if((key = bstrcpy((bstring)(node->key))) == NULL)
+    if((key = bstr_cpy((bstring)(node->key))) == NULL)
     {
         log_msg(LOG_ERR, "traverse_compare_latest_cb() Failed to duplicate key");
         return FWKNOPD_ERROR_MEMORY_ALLOCATION;
@@ -1203,13 +1203,13 @@ static int traverse_compare_latest_cb(hash_table_node_t *node, void *arg)
     // then the pointer was set to NULL so that we don't destroy it
     // if there were no new conns to store, need to destroy it
     if(key != NULL)
-        bdestroy(key);
+        bstr_destroy(key);
 
     return rv;
 
 cleanup:
     if(key != NULL)
-        bdestroy(key);
+        bstr_destroy(key);
     destroy_connection_list(copy_current_conns);
     destroy_connection_list(closed_conns);
     return rv;
@@ -1416,7 +1416,7 @@ static int traverse_handle_new_conns_cb(hash_table_node_t *node, void *arg)
     {
         // need to create new hash table entry in known conns
         // make a duplicate key to store in the hash table
-        if((key = bstrcpy((bstring)(node->key))) == NULL)
+        if((key = bstr_cpy((bstring)(node->key))) == NULL)
         {
             log_msg(LOG_ERR, "traverse_handle_new_conns_cb() Failed to duplicate key");
             rv = FWKNOPD_ERROR_MEMORY_ALLOCATION;
@@ -1426,7 +1426,7 @@ static int traverse_handle_new_conns_cb(hash_table_node_t *node, void *arg)
         // copy all new conns to known conns hash table
         if( (rv = hash_table_set(connection_hash_tbl, key, temp_conn)) != FWKNOPD_SUCCESS)
         {
-            bdestroy(key);
+            bstr_destroy(key);
             goto cleanup;
         }
     }
