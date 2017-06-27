@@ -45,6 +45,7 @@
 #include "dbg.h"
 #include "connection_tracker.h"
 #include "control_client.h"
+#include "server_tunnel_manager.h"
 #include "service.h"
 #include <pthread.h>
 
@@ -220,6 +221,13 @@ main(int argc, char **argv)
 
         if(strncasecmp(opts.config[CONF_DISABLE_SDP_CTRL_CLIENT], "N", 1) == 0)
         {
+            // start the tunnel manager
+            if(start_tunnel_manager(&opts) != FKO_SUCCESS)
+            {
+                log_msg(LOG_ERR, "Failed to start Tunnel Manager Thread. Aborting.");
+                clean_exit(&opts, FW_CLEANUP, EXIT_FAILURE);
+            }
+
             // arriving here means the server received access data
             // from the controller, they are still connected so go
             // ahead and start the thread to continue listening

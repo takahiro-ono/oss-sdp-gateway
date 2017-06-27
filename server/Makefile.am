@@ -16,7 +16,8 @@ BASE_SOURCE_FILES   = fwknopd.h config_init.c config_init.h \
                       dbg.h  \
                       connection_tracker.c connection_tracker.h \
                       control_client.c control_client.h \
-                      service.c service.h
+                      service.c service.h \
+                      server_tunnel_manager.c server_tunnel_manager.h
 
 fwknopd_SOURCES   = fwknopd.c $(BASE_SOURCE_FILES)
 fwknopd_LDADD     = $(top_builddir)/lib/libfko.la $(top_builddir)/common/libfko_util.a

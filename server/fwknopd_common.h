@@ -34,6 +34,7 @@
 #include "common.h"
 #include "hash_table.h"
 #include "sdp_ctrl_client.h"
+#include "tunnel_manager.h"
 #include <pthread.h>
 
 #if PLATFORM_OPENBSD
@@ -742,6 +743,9 @@ typedef struct fko_srv_options
     hash_table_t   *service_hash_tbl;
     pthread_mutex_t service_hash_tbl_mutex;
     hash_table_t   *reverse_service_hash_tbl;
+
+    tunnel_manager_t tunnel_mgr;
+    pthread_t tunnel_mgr_thread;
 
     /* The SDP Control Client
      */

@@ -33,6 +33,7 @@
 #include "fw_util.h"
 #include "cmd_cycle.h"
 #include "connection_tracker.h"
+#include "server_tunnel_manager.h"
 
 #include <stdarg.h>
 
@@ -381,6 +382,8 @@ clean_exit(fko_srv_options_t *opts, unsigned int fw_cleanup_flag, unsigned int e
 #if USE_FILE_CACHE
     free_replay_list(opts);
 #endif
+
+    destroy_tunnel_manager(opts);
 
     if(opts->ctrl_client != NULL)
     {
