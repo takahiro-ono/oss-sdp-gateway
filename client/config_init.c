@@ -2387,7 +2387,7 @@ config_init(fko_cli_options_t *options, int argc, char **argv)
                 add_var_to_bitmask(FWKNOP_CLI_ARG_RESOLVE_URL, &var_bitmask);
                 break;
             case SDP_ID:
-                options->sdp_id = (uint32_t)strtol_wrapper(optarg, 0,
+                options->sdp_id = strtoul_wrapper(optarg, 0,
                         UINT32_MAX, EXIT_UPON_ERR, &is_err);
                 add_var_to_bitmask(FWKNOP_CLI_ARG_SDP_ID, &var_bitmask);
                 break;

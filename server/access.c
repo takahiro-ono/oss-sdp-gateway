@@ -2585,7 +2585,7 @@ parse_access_file(fko_srv_options_t *opts)
             /* Start new stanza.
             */
             curr_acc = acc_stanza_add(opts, val);
-            curr_acc->sdp_id = (uint32_t)strtol_wrapper(val, 0,
+            curr_acc->sdp_id = strtoul_wrapper(val, 0,
                                         UINT32_MAX, NO_EXIT_UPON_ERR, &is_err);
             if(is_err != FKO_SUCCESS)
             {

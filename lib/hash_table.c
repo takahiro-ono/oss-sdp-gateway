@@ -27,16 +27,19 @@ static int default_compare(void *a, void *b)
 /**
  * Func: default_hash
  * Args: void *a - the key to be hashed
+ *
+ *       uint32_t *r_hash - pointer to the resultant hash value
+ *
  * Expl: This is the default hash method used by this hash table. This is the simple Bob
  *       Jenkins's hash algorithm taken from the wikipedia description. It will cast the
  *       key argument to a bstring and then generate the hash value of that key.
  */
-static uint32_t default_hash(void *a)
+static int default_hash(void *a, uint32_t *r_hash)
 {
     size_t len = bstr_length((bstring)a);
     char *key = bstr_data((bstring)a);
     uint32_t hash = 0;
-    uint32_t i = 0;
+    int i = 0;
 
     if(key == NULL)
         return -1;
@@ -52,7 +55,8 @@ static uint32_t default_hash(void *a)
     hash ^= (hash >> 11);
     hash += (hash << 15);
 
-    return hash;
+    *r_hash = hash;
+    return 0;
 }
 
 
@@ -74,10 +78,10 @@ static uint32_t default_hash(void *a)
  * Expl: Function for creating hash table. It's important to note that this implementation
  *       allows for keys and data of any type.
  */
-hash_table_t *hash_table_create(const uint32_t length, hash_table_compare compare, hash_table_hash_func hash_func, hash_table_delete_cb delete_cb)
+hash_table_t *hash_table_create(const int length, hash_table_compare compare, hash_table_hash_func hash_func, hash_table_delete_cb delete_cb)
 {
     hash_table_t *tbl = NULL;
-    uint32_t i;
+    int i;
 
     // Check that the desired table length is valid
     check( ((length >= 0) && (length < MAX_NUMBER_OF_BUCKETS)), "Table length must be between 0 and %i, inclusive.", MAX_NUMBER_OF_BUCKETS);
@@ -87,7 +91,7 @@ hash_table_t *hash_table_create(const uint32_t length, hash_table_compare compar
 
     // If the user chose length 0, use DEFAULT_NUMBER_OF_BUCKETS
     // Otherwise, use their desired value
-    uint32_t final_length = length == 0 ? DEFAULT_NUMBER_OF_BUCKETS : length;
+    int final_length = length == 0 ? DEFAULT_NUMBER_OF_BUCKETS : length;
 
     // Allocate memory for the table and verify the allocation was successful
     tbl = calloc(1, sizeof(hash_table_t));
@@ -266,6 +270,7 @@ static inline hash_table_node_t * hash_table_node_get(hash_table_t *tbl, void *k
         uint32_t *hash, int *bucket_num, hash_table_node_t **prev)
 {
     int i = 0;
+    int rv = 0;
     *prev = NULL;
 
     // ensure the table's length is nonzero
@@ -274,7 +279,7 @@ static inline hash_table_node_t * hash_table_node_get(hash_table_t *tbl, void *k
     debug("Returned from table length check.");
 
     // calculate the hash value from the key
-    if((*hash = tbl->hash_func(key)) < 0)
+    if((rv = tbl->hash_func(key, hash)) < 0)
         goto error;
     debug("Got hash.");
 

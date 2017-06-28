@@ -22,7 +22,7 @@
 #define MAX_NUMBER_OF_BUCKETS 100000
 
 typedef int (*hash_table_compare)(void *a, void *b);
-typedef uint32_t (*hash_table_hash_func)(void *key);
+typedef int (*hash_table_hash_func)(void *key, uint32_t *r_hash);
 
 typedef struct hash_table_node {
     void *key;
@@ -35,7 +35,7 @@ typedef void (*hash_table_delete_cb)(hash_table_node_t *node);
 
 typedef struct hash_table {
 	hash_table_node_t **buckets;
-    uint32_t length;
+    int length;
     hash_table_compare compare;
     hash_table_hash_func hash_func;
     hash_table_delete_cb delete_cb;
@@ -44,7 +44,7 @@ typedef struct hash_table {
 
 typedef int (*hash_table_traverse_cb)(hash_table_node_t *node, void *cb_arg);
 
-hash_table_t *hash_table_create(const uint32_t length, hash_table_compare compare, hash_table_hash_func hash_func, hash_table_delete_cb delete_cb);
+hash_table_t *hash_table_create(const int length, hash_table_compare compare, hash_table_hash_func hash_func, hash_table_delete_cb delete_cb);
 void hash_table_destroy(hash_table_t *tbl);
 
 int hash_table_set(hash_table_t *tbl, void *key, void *data);

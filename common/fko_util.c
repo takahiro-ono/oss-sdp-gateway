@@ -528,10 +528,7 @@ strtoul_wrapper(const char * const str, const uint32_t min,
         }
     }
 
-    /* allow max == -1 to be an exception where we don't care about the
-     * maximum - note that the ERANGE check is still in place above
-    */
-    if((max >= 0) && (val > max))
+    if(val > max)
     {
         *err = FKO_ERROR_INVALID_DATA_UTIL_STRTOUL_GT_MAX;
         if(exit_upon_err == EXIT_UPON_ERR)
@@ -588,10 +585,7 @@ strtoull_wrapper(const char * const str, const uint64_t min,
         }
     }
 
-    /* allow max == -1 to be an exception where we don't care about the
-     * maximum - note that the ERANGE check is still in place above
-    */
-    if((max >= 0) && (val > max))
+    if(val > max)
     {
         *err = FKO_ERROR_INVALID_DATA_UTIL_STRTOULL_GT_MAX;
         if(exit_upon_err == EXIT_UPON_ERR)
