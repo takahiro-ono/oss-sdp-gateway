@@ -51,8 +51,8 @@
 
 /* My Name and Version
 */
-#define MY_NAME     "fwknopd"
-#define MY_DESC     "Single Packet Authorization server"
+#define MY_NAME     "sdp_gateway"
+#define MY_DESC     "Software Defined Perimeter Gateway"
 
 /* Get our program version from VERSION (defined in config.h).
 */

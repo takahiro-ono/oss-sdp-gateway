@@ -30,6 +30,7 @@
 */
 #include "spa_comm.h"
 #include "utils.h"
+#include "log_msg.h"
 
 static void
 dump_transmit_options(const fko_cli_options_t *options)
@@ -38,16 +39,16 @@ dump_transmit_options(const fko_cli_options_t *options)
 
     proto_inttostr(options->spa_proto, proto_str, sizeof(proto_str));
 
-    log_msg(LOG_VERBOSITY_INFO, "Generating SPA packet:");
-    log_msg(LOG_VERBOSITY_INFO, "            protocol: %s", proto_str);
+    log_msg(LOG_INFO, "Generating SPA packet:");
+    log_msg(LOG_INFO, "            protocol: %s", proto_str);
 
     if (options->spa_src_port)
-        log_msg(LOG_VERBOSITY_INFO, "         source port: %d", options->spa_src_port);
+        log_msg(LOG_INFO, "         source port: %d", options->spa_src_port);
     else
-        log_msg(LOG_VERBOSITY_INFO, "         source port: <OS assigned>");
+        log_msg(LOG_INFO, "         source port: <OS assigned>");
 
-    log_msg(LOG_VERBOSITY_INFO, "    destination port: %d", options->spa_dst_port);
-    log_msg(LOG_VERBOSITY_INFO, "             IP/host: %s", options->spa_server_str);
+    log_msg(LOG_INFO, "    destination port: %d", options->spa_dst_port);
+    log_msg(LOG_INFO, "             IP/host: %s", options->spa_server_str);
 
     return;
 }
@@ -92,7 +93,7 @@ send_spa_packet_tcp_or_udp(const char *spa_data, const int sd_len,
 
     if (options->test)
     {
-        log_msg(LOG_VERBOSITY_NORMAL,
+        log_msg(LOG_INFO,
             "test mode enabled, SPA packet not actually sent.");
         return res;
     }
@@ -122,7 +123,7 @@ send_spa_packet_tcp_or_udp(const char *spa_data, const int sd_len,
 #if AFL_FUZZING
     /* Make sure to never send SPA packets under AFL fuzzing cycles
     */
-    log_msg(LOG_VERBOSITY_NORMAL,
+    log_msg(LOG_INFO,
         "AFL fuzzing enabled, SPA packet not actually sent.");
     return res;
 #endif
@@ -131,7 +132,7 @@ send_spa_packet_tcp_or_udp(const char *spa_data, const int sd_len,
 
     if (error != 0)
     {
-        log_msg(LOG_VERBOSITY_ERROR, "error in getaddrinfo: %s", gai_strerror(error));
+        log_msg(LOG_ERR, "error in getaddrinfo: %s", gai_strerror(error));
         return -1;
     }
 
@@ -142,7 +143,7 @@ send_spa_packet_tcp_or_udp(const char *spa_data, const int sd_len,
         {
             if(rp->ai_family != AF_INET)
             {
-                log_msg(LOG_VERBOSITY_DEBUG, "Non-IPv4 resolution");
+                log_msg(LOG_DEBUG, "Non-IPv4 resolution");
                 continue;
             }
         }
@@ -170,7 +171,7 @@ send_spa_packet_tcp_or_udp(const char *spa_data, const int sd_len,
         freeaddrinfo(result);
 
     if (! sock_success) {
-        log_msg(LOG_VERBOSITY_ERROR,
+        log_msg(LOG_ERR,
                 "send_spa_packet_tcp_or_udp: Could not create socket: ",
                 strerror(errno));
         return -1;
@@ -180,11 +181,11 @@ send_spa_packet_tcp_or_udp(const char *spa_data, const int sd_len,
 
     if(res < 0)
     {
-        log_msg(LOG_VERBOSITY_ERROR, "send_spa_packet_tcp_or_udp: write error: ", strerror(errno));
+        log_msg(LOG_ERR, "send_spa_packet_tcp_or_udp: write error: ", strerror(errno));
     }
     else if(res != sd_len)
     {
-        log_msg(LOG_VERBOSITY_WARNING,
+        log_msg(LOG_WARNING,
             "[#] Warning: bytes sent (%i) not spa data length (%i).",
             res, sd_len
         );
@@ -207,7 +208,7 @@ send_spa_packet_tcp_raw(const char *spa_data, const int sd_len,
     const fko_cli_options_t *options)
 {
 #ifdef WIN32
-    log_msg(LOG_VERBOSITY_ERROR,
+    log_msg(LOG_ERR,
         "send_spa_packet_tcp_raw: raw packets are not yet supported.");
     return(-1);
 #else
@@ -226,7 +227,7 @@ send_spa_packet_tcp_raw(const char *spa_data, const int sd_len,
 
     if (options->test)
     {
-        log_msg(LOG_VERBOSITY_NORMAL,
+        log_msg(LOG_INFO,
             "test mode enabled, SPA packet not actually sent.");
         return res;
     }
@@ -234,7 +235,7 @@ send_spa_packet_tcp_raw(const char *spa_data, const int sd_len,
     sock = socket (PF_INET, SOCK_RAW, IPPROTO_RAW);
     if (sock < 0)
     {
-        log_msg(LOG_VERBOSITY_ERROR, "send_spa_packet_tcp_raw: create socket: ", strerror(errno));
+        log_msg(LOG_ERR, "send_spa_packet_tcp_raw: create socket: ", strerror(errno));
         return(sock);
     }
 
@@ -288,18 +289,18 @@ send_spa_packet_tcp_raw(const char *spa_data, const int sd_len,
      * doesn't try to insert its own header into the packet.
     */
     if (setsockopt (sock, IPPROTO_IP, IP_HDRINCL, so_val, sizeof(one)) < 0)
-        log_msg(LOG_VERBOSITY_ERROR, "send_spa_packet_tcp_raw: setsockopt HDRINCL: ", strerror(errno));
+        log_msg(LOG_ERR, "send_spa_packet_tcp_raw: setsockopt HDRINCL: ", strerror(errno));
 
     res = sendto (sock, pkt_data, iph->tot_len, 0,
         (struct sockaddr *)daddr, sizeof(*daddr));
 
     if(res < 0)
     {
-        log_msg(LOG_VERBOSITY_ERROR, "send_spa_packet_tcp_raw: sendto error: ", strerror(errno));
+        log_msg(LOG_ERR, "send_spa_packet_tcp_raw: sendto error: ", strerror(errno));
     }
     else if(res != sd_len + hdrlen) /* account for the header ?*/
     {
-        log_msg(LOG_VERBOSITY_WARNING,
+        log_msg(LOG_WARNING,
             "[#] Warning: bytes sent (%i) not spa data length (%i).",
             res, sd_len
         );
@@ -320,7 +321,7 @@ send_spa_packet_udp_raw(const char *spa_data, const int sd_len,
     const fko_cli_options_t *options)
 {
 #ifdef WIN32
-    log_msg(LOG_VERBOSITY_ERROR,
+    log_msg(LOG_ERR,
         "send_spa_packet_udp_raw: raw packets are not yet supported.");
     return(-1);
 #else
@@ -339,7 +340,7 @@ send_spa_packet_udp_raw(const char *spa_data, const int sd_len,
 
     if (options->test)
     {
-        log_msg(LOG_VERBOSITY_NORMAL,
+        log_msg(LOG_INFO,
             "test mode enabled, SPA packet not actually sent.");
         return res;
     }
@@ -347,7 +348,7 @@ send_spa_packet_udp_raw(const char *spa_data, const int sd_len,
     sock = socket (PF_INET, SOCK_RAW, IPPROTO_RAW);
     if (sock < 0)
     {
-        log_msg(LOG_VERBOSITY_ERROR, "send_spa_packet_udp_raw: create socket: ", strerror(errno));
+        log_msg(LOG_ERR, "send_spa_packet_udp_raw: create socket: ", strerror(errno));
         return(sock);
     }
 
@@ -387,18 +388,18 @@ send_spa_packet_udp_raw(const char *spa_data, const int sd_len,
      * doesn't try to insert its own header into the packet.
     */
     if (setsockopt (sock, IPPROTO_IP, IP_HDRINCL, so_val, sizeof(one)) < 0)
-        log_msg(LOG_VERBOSITY_ERROR, "send_spa_packet_udp_raw: setsockopt HDRINCL: ", strerror(errno));
+        log_msg(LOG_ERR, "send_spa_packet_udp_raw: setsockopt HDRINCL: ", strerror(errno));
 
     res = sendto (sock, pkt_data, iph->tot_len, 0,
         (struct sockaddr *)daddr, sizeof(*daddr));
 
     if(res < 0)
     {
-        log_msg(LOG_VERBOSITY_ERROR, "send_spa_packet_udp_raw: sendto error: ", strerror(errno));
+        log_msg(LOG_ERR, "send_spa_packet_udp_raw: sendto error: ", strerror(errno));
     }
     else if(res != sd_len + hdrlen) /* account for the header ?*/
     {
-        log_msg(LOG_VERBOSITY_WARNING,
+        log_msg(LOG_WARNING,
             "[#] Warning: bytes sent (%i) not spa data length (%i).",
             res, sd_len
         );
@@ -419,7 +420,7 @@ send_spa_packet_icmp(const char *spa_data, const int sd_len,
     const fko_cli_options_t *options)
 {
 #ifdef WIN32
-    log_msg(LOG_VERBOSITY_ERROR, "send_spa_packet_icmp: raw packets are not yet supported.");
+    log_msg(LOG_ERR, "send_spa_packet_icmp: raw packets are not yet supported.");
     return(-1);
 #else
     int res = 0, sock;
@@ -437,7 +438,7 @@ send_spa_packet_icmp(const char *spa_data, const int sd_len,
 
     if (options->test)
     {
-        log_msg(LOG_VERBOSITY_NORMAL,
+        log_msg(LOG_INFO,
             "test mode enabled, SPA packet not actually sent.");
         return res;
     }
@@ -446,7 +447,7 @@ send_spa_packet_icmp(const char *spa_data, const int sd_len,
 
     if (sock < 0)
     {
-        log_msg(LOG_VERBOSITY_ERROR, "send_spa_packet_icmp: create socket: ", strerror(errno));
+        log_msg(LOG_ERR, "send_spa_packet_icmp: create socket: ", strerror(errno));
         return(sock);
     }
 
@@ -492,18 +493,18 @@ send_spa_packet_icmp(const char *spa_data, const int sd_len,
      * doesn't try to insert its own header into the packet.
     */
     if (setsockopt (sock, IPPROTO_IP, IP_HDRINCL, so_val, sizeof(one)) < 0)
-        log_msg(LOG_VERBOSITY_ERROR, "send_spa_packet_icmp: setsockopt HDRINCL: ", strerror(errno));
+        log_msg(LOG_ERR, "send_spa_packet_icmp: setsockopt HDRINCL: ", strerror(errno));
 
     res = sendto (sock, pkt_data, iph->tot_len, 0,
         (struct sockaddr *)daddr, sizeof(*daddr));
 
     if(res < 0)
     {
-        log_msg(LOG_VERBOSITY_ERROR, "send_spa_packet_icmp: sendto error: ", strerror(errno));
+        log_msg(LOG_ERR, "send_spa_packet_icmp: sendto error: ", strerror(errno));
     }
     else if(res != sd_len + hdrlen) /* account for icmp header */
     {
-        log_msg(LOG_VERBOSITY_WARNING, "[#] Warning: bytes sent (%i) not spa data length (%i).",
+        log_msg(LOG_WARNING, "[#] Warning: bytes sent (%i) not spa data length (%i).",
             res, sd_len);
     }
 
@@ -527,7 +528,7 @@ send_spa_packet_http(const char *spa_data, const int sd_len,
     spa_data_copy = malloc(sd_len+1);
     if (spa_data_copy == NULL)
     {
-        log_msg(LOG_VERBOSITY_ERROR, "[*] Fatal, could not allocate memory.");
+        log_msg(LOG_ERR, "[*] Fatal, could not allocate memory.");
         return -1;
     }
     memcpy(spa_data_copy, spa_data, sd_len+1);
@@ -574,7 +575,7 @@ send_spa_packet_http(const char *spa_data, const int sd_len,
             proxy_port = strtol_wrapper(ndx+1, 1, MAX_PORT, NO_EXIT_UPON_ERR, &is_err);
             if(is_err != FKO_SUCCESS)
             {
-                log_msg(LOG_VERBOSITY_ERROR,
+                log_msg(LOG_ERR,
                     "[-] proxy port value is invalid, must be in [%d-%d]",
                     1, MAX_PORT);
                 free(spa_data_copy);
@@ -602,9 +603,9 @@ send_spa_packet_http(const char *spa_data, const int sd_len,
 
     if (options->test)
     {
-        log_msg(LOG_VERBOSITY_INFO, "%s", http_buf);
+        log_msg(LOG_INFO, "%s", http_buf);
 
-        log_msg(LOG_VERBOSITY_NORMAL,
+        log_msg(LOG_INFO,
             "Test mode enabled, SPA packet not actually sent.");
         return 0;
     }
@@ -638,7 +639,7 @@ send_spa_packet(fko_ctx_t ctx, fko_cli_options_t *options)
 
     if(res != FKO_SUCCESS)
     {
-        log_msg(LOG_VERBOSITY_ERROR,
+        log_msg(LOG_ERR,
             "send_spa_packet: Error #%i from fko_get_spa_data: %s",
             res, fko_errstr(res)
         );
@@ -653,7 +654,7 @@ send_spa_packet(fko_ctx_t ctx, fko_cli_options_t *options)
     res = WSAStartup( MAKEWORD(1,1), &wsa_data );
     if( res != 0 )
     {
-        log_msg(LOG_VERBOSITY_ERROR, "Winsock initialization error %d", res );
+        log_msg(LOG_ERR, "Winsock initialization error %d", res );
         return(-1);
     }
 #endif
@@ -694,7 +695,7 @@ send_spa_packet(fko_ctx_t ctx, fko_cli_options_t *options)
 
         if (saddr.sin_addr.s_addr == -1)
         {
-            log_msg(LOG_VERBOSITY_ERROR, "Could not set source IP.");
+            log_msg(LOG_ERR, "Could not set source IP.");
             return -1;
         }
 
@@ -709,7 +710,7 @@ send_spa_packet(fko_ctx_t ctx, fko_cli_options_t *options)
 #if AFL_FUZZING
         /* Make sure to never send SPA packets under AFL fuzzing cycles
         */
-        log_msg(LOG_VERBOSITY_NORMAL,
+        log_msg(LOG_INFO,
             "AFL fuzzing enabled, SPA packet not actually sent.");
         return res;
 #endif
@@ -717,7 +718,7 @@ send_spa_packet(fko_ctx_t ctx, fko_cli_options_t *options)
         if (resolve_dst_addr(options->spa_server_str,
                     &hints, ip_str, sizeof(ip_str), options) != 0)
         {
-            log_msg(LOG_VERBOSITY_ERROR, "[*] Unable to resolve %s as an ip address",
+            log_msg(LOG_ERR, "[*] Unable to resolve %s as an ip address",
                     options->spa_server_str);
             return -1;
         }
@@ -741,7 +742,7 @@ send_spa_packet(fko_ctx_t ctx, fko_cli_options_t *options)
     else
     {
         /* --DSS XXX: What to we really want to do here? */
-        log_msg(LOG_VERBOSITY_ERROR, "%i is not a valid or supported protocol.",
+        log_msg(LOG_ERR, "%i is not a valid or supported protocol.",
             options->spa_proto);
         res = -1;
     }
@@ -761,7 +762,7 @@ int write_spa_packet_data(fko_ctx_t ctx, const fko_cli_options_t *options)
 
     if(res != FKO_SUCCESS)
     {
-        log_msg(LOG_VERBOSITY_ERROR,
+        log_msg(LOG_ERR,
             "write_spa_packet_data: Error #%i from fko_get_spa_data: %s",
             res, fko_errstr(res)
         );
@@ -781,7 +782,7 @@ int write_spa_packet_data(fko_ctx_t ctx, const fko_cli_options_t *options)
 
     if(fp == NULL)
     {
-        log_msg(LOG_VERBOSITY_ERROR, "write_spa_packet_data: ", strerror(errno));
+        log_msg(LOG_ERR, "write_spa_packet_data: ", strerror(errno));
         return(-1);
     }
 

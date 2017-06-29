@@ -32,12 +32,14 @@
 #define FWKNOP_COMMON_H
 
 #include "common.h"
-#include "log_msg.h"
+#include "sdp_ctrl_client.h"
+#include <pthread.h>
+
 
 /* My Name and Version
 */
-#define MY_NAME     "fwknop"
-#define MY_DESC     "Single Packet Authorization client"
+#define MY_NAME     "sdp_client"
+#define MY_DESC     "Software Defined Perimeter Client"
 
 /* Get our program version from VERSION (defined in config.h).
 */
@@ -172,12 +174,18 @@ typedef struct fko_cli_options
 
     uint16_t        disable_sdp_mode;
     uint16_t        disable_sdp_ctrl_client;
+    sdp_ctrl_client_t ctrl_client;
+    pthread_t ctrl_client_thread;
+
+    unsigned char   foreground;         /* Run in foreground flag */
+    unsigned char   syslog_enable;      /* include syslog despite running in foreground */
+    unsigned char   kill;               /* flag to initiate kill of sdp_client */
+    unsigned char   restart;            /* Restart sdp_client flag */
+    unsigned char   status;             /* Get sdp_client status flag */
 
     //char            config_file[MAX_PATH_LEN];
 
 } fko_cli_options_t;
-
-void free_configs(fko_cli_options_t *opts);
 
 #endif /* FWKNOP_COMMON_H */
 

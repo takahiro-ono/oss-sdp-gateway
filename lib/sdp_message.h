@@ -23,6 +23,10 @@ typedef enum {
 	CTRL_ACTION_SERVICE_UPDATE,
 	CTRL_ACTION_SERVICE_REMOVE,
 	CTRL_ACTION_SERVICE_ACK,
+    CTRL_ACTION_CLIENT_SERVICE_REFRESH,
+    CTRL_ACTION_CLIENT_SERVICE_UPDATE,
+    CTRL_ACTION_CLIENT_SERVICE_REMOVE,
+    CTRL_ACTION_CLIENT_SERVICE_ACK,
     CTRL_ACTION_BAD_MESSAGE
 } ctrl_action_t;
 
@@ -68,6 +72,11 @@ extern const char *sdp_action_service_refresh_request;
 extern const char *sdp_action_service_update;
 extern const char *sdp_action_service_remove;
 extern const char *sdp_action_service_ack;
+extern const char *sdp_action_client_service_refresh;
+extern const char *sdp_action_client_service_refresh_request;
+extern const char *sdp_action_client_service_update;
+extern const char *sdp_action_client_service_remove;
+extern const char *sdp_action_client_service_ack;
 extern const char *sdp_action_bad_message;
 extern const char *sdp_action_connection_update;
 

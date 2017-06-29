@@ -40,6 +40,7 @@
 #include "fwknop_common.h"
 #include "getpasswd.h"
 #include "utils.h"
+#include "log_msg.h"
 
 #define PW_BUFSIZE              128                 /*!< Maximum number of chars an encryption key or a password can contain */
 
@@ -148,7 +149,7 @@ getpasswd(const char *prompt, int fd)
         fp = fdopen(fd, "r");
         if (fp == NULL)
         {
-            log_msg(LOG_VERBOSITY_ERROR, "getpasswd() - "
+            log_msg(LOG_ERR, "getpasswd() - "
                 "Unable to create a stream from the file descriptor : %s",
                 strerror(errno));
             return(NULL);
@@ -229,7 +230,7 @@ get_key_file(char *key, int *key_len, const char *key_file,
 
     if ((pwfile_ptr = fopen(key_file, "r")) == NULL)
     {
-        log_msg(LOG_VERBOSITY_ERROR, "Could not open config file: %s", key_file);
+        log_msg(LOG_ERR, "Could not open config file: %s", key_file);
         return 0;
     }
 
@@ -283,7 +284,7 @@ get_key_file(char *key, int *key_len, const char *key_file,
     fclose(pwfile_ptr);
 
     if (key[0] == '\0') {
-        log_msg(LOG_VERBOSITY_ERROR, "Could not get key for IP: %s from: %s",
+        log_msg(LOG_ERR, "Could not get key for IP: %s from: %s",
             options->spa_server_str, key_file);
         return 0;
     }

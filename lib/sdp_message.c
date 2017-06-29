@@ -28,6 +28,11 @@ const char *sdp_action_access_refresh_request = "access_refresh_request";
 const char *sdp_action_access_update          = "access_update";
 const char *sdp_action_access_remove          = "access_remove";
 const char *sdp_action_access_ack             = "access_ack";
+const char *sdp_action_client_service_refresh         = "client_service_refresh";
+const char *sdp_action_client_service_refresh_request = "client_service_refresh_request";
+const char *sdp_action_client_service_update          = "client_service_update";
+const char *sdp_action_client_service_remove          = "client_service_remove";
+const char *sdp_action_client_service_ack             = "client_service_ack";
 const char *sdp_action_service_refresh         = "service_refresh";
 const char *sdp_action_service_refresh_request = "service_refresh_request";
 const char *sdp_action_service_update          = "service_update";
@@ -146,6 +151,15 @@ static int sdp_get_message_action(json_object *jmsg, ctrl_action_t *r_action)
 
     else if(strncmp(action_str, sdp_action_cred_update, strlen(sdp_action_cred_update)) == 0)
         action = CTRL_ACTION_CREDENTIAL_UPDATE;
+
+    else if(strncmp(action_str, sdp_action_client_service_refresh, strlen(sdp_action_client_service_refresh)) == 0)
+        action = CTRL_ACTION_CLIENT_SERVICE_REFRESH;
+
+    else if(strncmp(action_str, sdp_action_client_service_update, strlen(sdp_action_client_service_update)) == 0)
+        action = CTRL_ACTION_CLIENT_SERVICE_UPDATE;
+
+    else if(strncmp(action_str, sdp_action_client_service_remove, strlen(sdp_action_client_service_remove)) == 0)
+        action = CTRL_ACTION_CLIENT_SERVICE_REMOVE;
 
     else if(strncmp(action_str, sdp_action_service_refresh, strlen(sdp_action_service_refresh)) == 0)
         action = CTRL_ACTION_SERVICE_REFRESH;

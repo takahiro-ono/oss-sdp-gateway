@@ -3,7 +3,7 @@ bin_PROGRAMS        = fwknop
 BASE_SOURCE_FILES   = fwknop.h config_init.c config_init.h \
                       fwknop_common.h spa_comm.c spa_comm.h utils.c utils.h \
                       http_resolve_host.c getpasswd.c getpasswd.h cmd_opts.h \
-                      log_msg.c log_msg.h
+                      log_msg.c log_msg.h control_client.c control_client.h
 
 fwknop_SOURCES      = fwknop.c $(BASE_SOURCE_FILES)
 

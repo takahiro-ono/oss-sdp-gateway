@@ -1,8 +1,10 @@
-/**
- * @file    log_msg.c
+/*
+ *****************************************************************************
  *
- * @brief   General logging routine that can write to stderr
- *          and can take variable number of args.
+ * File:    log_msg.c
+ *
+ * Purpose: General logging routine that can write to syslog and/or stderr
+ *          and can take varibale number of args.
  *
  *  Fwknop is developed primarily by the people listed in the file 'AUTHORS'.
  *  Copyright (C) 2009-2014 fwknop developers and contributors. For a full
@@ -24,93 +26,178 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307
  *  USA
- */
-
-#include "fwknop_common.h"
+ *
+ *****************************************************************************
+*/
+#include "utils.h"
 #include "log_msg.h"
-#include <stdarg.h>
 
-#define LOG_STREAM_STDERR   stderr                  /*!< Error and warning messages are redirected to stderr */
-#define LOG_STREAM_STDOUT   stdout                  /*!< Normal, info and debug messages are redirected to stdout */
+/* The default log facility (can be overridden via config file directive).
+*/
+static int  syslog_fac      = LOG_DAEMON;
 
-typedef struct
-{
-    int verbosity;                                  /*!< Verbosity level (LOG_VERBOSITY_DEBUG...*/
-} log_ctx_t;
+/* This value is or'ed with the log level on all logging calls. This allows
+ * for force log to stderr instead of syslog simply be setting this to the
+ * appropriate value (which is done at init_logging().
+*/
+static int  static_log_flag = LOG_STDERR_ONLY;
 
-static log_ctx_t log_ctx;                           /*!< Structure to store the context of the module */
+/* The name to use for ID in log messages.  This defaults to fwknop.
+*/
+static char *log_name = NULL;
 
-/**
- * Set up the context for the log module.
- *
- * This function only initialize the verbosity level
- */
+/* The value of the default verbosity used by the log module */
+static int verbosity = LOG_DEFAULT_VERBOSITY;
+
+/* Free resources allocated for logging.
+*/
 void
-log_new(void)
+free_logging(void)
 {
-    log_ctx.verbosity = LOG_DEFAULT_VERBOSITY;
+    if(log_name != NULL)
+        free(log_name);
 }
 
-/**
- * Destroy the context for the log module.
- *
- * This function is not used at the moment since the module does not open file
- * which would require to be closed;
-void
-log_free(void)
-{
+/* Initialize logging sets the name used for syslog.
+*/
+int
+init_logging(fko_cli_options_t *opts) {
+    char       *my_name = NULL;
+
+    /* In case this is a re-init.
+    */
+    free_logging();
+
+    /* Allocate memory for the log_name and set the my_name to point to the
+     * appropriate name. 
+    */
+    my_name  = (char*)&MY_NAME;
+    log_name = calloc(1, strlen(MY_NAME)+1);
+
+    if(log_name == NULL)
+    {
+        fprintf(stderr, "Memory allocation error setting log_name!\n");
+        return (FKO_ERROR_MEMORY_ALLOCATION);
+    }
+
+    /* Set our name.
+    */
+    strlcpy(log_name, my_name, strlen(MY_NAME)+1);
+
+    static_log_flag = LOG_SYSLOG_ONLY;
+
+    /* If we are running in the foreground or performing firewall operations,
+     * all logging will go to stderr.
+    */
+    if(opts->foreground != 0)
+        static_log_flag = LOG_STDERR_ONLY;
+
+    /* If the user forces syslog using --syslog-enable, we remove the
+     * LOG_WITHOUT_SYSLOG flag. It means all messages will go through syslog */
+    if (opts->syslog_enable != 0)
+        static_log_flag &= ~LOG_WITHOUT_SYSLOG;
+
+    /* Parse the log facility as specified in the config struct. If, for some
+     * reason, it is not, fac will already be set to LOG_DAEMON.
+    */
+    /*
+    if(opts->config[CONF_SYSLOG_FACILITY] != NULL
+      && opts->config[CONF_SYSLOG_FACILITY][0] != '\0')
+    {
+        if(!strcasecmp(opts->config[CONF_SYSLOG_FACILITY], "LOG_DAEMON"))
+            syslog_fac = LOG_DAEMON;
+        else if(!strcasecmp(opts->config[CONF_SYSLOG_FACILITY], "LOG_LOCAL0"))
+            syslog_fac = LOG_LOCAL0;
+        else if(!strcasecmp(opts->config[CONF_SYSLOG_FACILITY], "LOG_LOCAL1"))
+            syslog_fac = LOG_LOCAL1;
+        else if(!strcasecmp(opts->config[CONF_SYSLOG_FACILITY], "LOG_LOCAL2"))
+            syslog_fac = LOG_LOCAL2;
+        else if(!strcasecmp(opts->config[CONF_SYSLOG_FACILITY], "LOG_LOCAL3"))
+            syslog_fac = LOG_LOCAL3;
+        else if(!strcasecmp(opts->config[CONF_SYSLOG_FACILITY], "LOG_LOCAL4"))
+            syslog_fac = LOG_LOCAL4;
+        else if(!strcasecmp(opts->config[CONF_SYSLOG_FACILITY], "LOG_LOCAL5"))
+            syslog_fac = LOG_LOCAL5;
+        else if(!strcasecmp(opts->config[CONF_SYSLOG_FACILITY], "LOG_LOCAL6"))
+            syslog_fac = LOG_LOCAL6;
+        else if(!strcasecmp(opts->config[CONF_SYSLOG_FACILITY], "LOG_LOCAL7"))
+            syslog_fac = LOG_LOCAL7;
+        else
+        {
+            fprintf(stderr, "Invalid SYSLOG_FACILITY setting '%s'\n",
+                    opts->config[CONF_SYSLOG_FACILITY]);
+            clean_exit(opts, NO_FW_CLEANUP, EXIT_FAILURE);
+        }
+    }
+    */
+
+    verbosity = LOG_DEFAULT_VERBOSITY + opts->verbose;
+
+    return (FKO_SUCCESS);
 }
- */
+
+/* Syslog message function.  It uses default set at intialization, and also
+ * takes variable args to accomodate printf-like formatting and expansion.
+*/
+void
+log_msg(int level, char* msg, ...)
+{
+    va_list ap, apse;
+
+    /* Make sure the level is in the right range */
+    if ((level & LOG_VERBOSITY_MASK) > verbosity)
+        return;
+
+    va_start(ap, msg);
+
+    level |= static_log_flag;
+
+    /* Print msg to stderr if the level was or'ed with LOG_STDERR
+    */
+    if(LOG_STDERR & level)
+    {
+        /* Need to make a copy of our va_list so we don't screw
+         * up the message going to syslog after we print it to stderr.
+        */
+        va_copy(apse, ap);
+
+        vfprintf(stderr, msg, apse);
+        fprintf(stderr, "\n");
+        fflush(stderr);
+
+        va_end(apse);
+    }
+
+    /* If the message has not to be printed to the syslog, we return */
+    if (LOG_WITHOUT_SYSLOG & level)
+    {
+        va_end(ap);
+        return;
+    }
+
+    /* Remove the static log flags from the level */
+    level &= LOG_VERBOSITY_MASK;
+
+    /* Send the message to syslog.
+    */
+    openlog(log_name, LOG_PID, syslog_fac);
+
+    vsyslog(level, msg, ap);
+
+    va_end(ap);
+}
 
 /**
  * Set the verbosity level for the current context of the log module.
- * 
- * @param level verbosity level to set
+ *
+ * The verbosity levels used by the module are defined by the syslog module.
+ *
+ * @param level verbosity level to set (LOG_INFO, LOG_NOTICE ...)
  */
 void
 log_set_verbosity(int level)
 {
-    log_ctx.verbosity = level;
-}
-
-/**
- * Log a message
- *
- * This function sends a message to the stream dedicated to the priority
- * set. If the verbosity for the context is higher than the one used for
- * the message, then the message is discarded.
- * 
- * @param level Verbosity level to used for the message.
- * @param msg   Message to print
- */
-void
-log_msg(int level, char* msg, ...)
-{
-    va_list ap;
-
-    if (level <= log_ctx.verbosity)
-    {
-        va_start(ap, msg);
-        
-        switch (level)
-        {
-            case LOG_VERBOSITY_ERROR:
-            case LOG_VERBOSITY_WARNING:
-                vfprintf(LOG_STREAM_STDERR, msg, ap);
-                fprintf(LOG_STREAM_STDERR, "\n");
-                break;
-            case LOG_VERBOSITY_NORMAL:
-            case LOG_VERBOSITY_INFO:
-            case LOG_VERBOSITY_DEBUG:
-            default : 
-                vfprintf(LOG_STREAM_STDOUT, msg, ap);
-                fprintf(LOG_STREAM_STDOUT, "\n");
-                break;
-        }
-
-        va_end(ap);
-    }
-    else;
+    verbosity = level;
 }
 
 /***EOF***/

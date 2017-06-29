@@ -82,8 +82,8 @@ our $sdp_client_id      = 777777;
 our $alt_sdp_client_id  = 666666;
 our $sdp_disabled       = 0;
 our $sdp_ctrl_client_disabled = 1;
-our $client_sdp_options = "--sdp-id $sdp_client_id --disable-ctrl-client";
-our $alt_client_sdp_options = "--sdp-id $alt_sdp_client_id --disable-ctrl-client";
+our $client_sdp_options = "--sdp-id $sdp_client_id --disable-ctrl-client --foreground";
+our $alt_client_sdp_options = "--sdp-id $alt_sdp_client_id --disable-ctrl-client --foreground";
 our $srv_sdp_options    = "--disable-ctrl-client --allow-legacy-spa";
 our $controllerCmd      = '';
 our $controller_path    = '';
@@ -739,7 +739,7 @@ our $default_client_args = "$lib_view_str $valgrind_str " .
 
 our $default_client_args_sdp = "$lib_view_str $valgrind_str " .
     "$fwknopCmd --rc-file $tmp_client_rc -n service_gate " .
-    "--no-save-args $verbose_str";
+    "--no-save-args $verbose_str --foreground";
 
 our $default_client_args_long_key = "$lib_view_str $valgrind_str " .
     "$fwknopCmd $client_sdp_options -A tcp/22 -a $fake_ip -D $loopback_ip --get-key " .

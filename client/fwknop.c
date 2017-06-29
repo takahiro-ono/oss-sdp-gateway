@@ -30,7 +30,8 @@
 #include "spa_comm.h"
 #include "utils.h"
 #include "getpasswd.h"
-#include "sdp_ctrl_client.h"
+#include "control_client.h"
+#include "log_msg.h"
 
 
 #include <sys/stat.h>
@@ -56,11 +57,7 @@ static int set_access_buf(fko_ctx_t ctx, fko_cli_options_t *options,
 static int get_rand_port(fko_ctx_t ctx);
 int resolve_ip_https(fko_cli_options_t *options);
 int resolve_ip_http(fko_cli_options_t *options);
-static pid_t run_sdp_ctrl_client(fko_cli_options_t *options);
-static void clean_exit(fko_ctx_t ctx, fko_cli_options_t *opts,
-    char *key, int *key_len, char *hmac_key, int *hmac_key_len,
-    unsigned int exit_status);
-static void zero_buf_wrapper(char *buf, int len);
+//static pid_t run_sdp_ctrl_client(fko_cli_options_t *options);
 static int is_hostname_str_with_port(const char *str,
         char *hostname, size_t hostname_bufsize, int *port);
 #if HAVE_LIBFIU
@@ -173,14 +170,19 @@ main(int argc, char **argv)
 
     memset(&options, 0x0, sizeof(fko_cli_options_t));
 
-    /* Initialize the log module */
-    log_new();
-
     /* Handle command line
     */
     config_init(&options, argc, argv);
 
-    log_msg(LOG_VERBOSITY_DEBUG, "fwknop main() : completed config_init");
+    /* Initialize the log module */
+    if(init_logging(&options) != FKO_SUCCESS)
+    {
+        printf("Fatal: failed to init logging");
+        clean_exit(ctx, &options, key, &key_len, hmac_key,
+                &hmac_key_len, EXIT_FAILURE);
+    }
+
+    log_msg(LOG_DEBUG, "fwknop main() : completed config_init");
 
 #if HAVE_LIBFIU
         /* Set any fault injection points early
@@ -313,7 +315,7 @@ main(int argc, char **argv)
                     hmac_key, &hmac_key_len, EXIT_FAILURE);
     }
 
-    log_msg(LOG_VERBOSITY_DEBUG, "fwknop main() : calling fko_set_spa_message...");
+    log_msg(LOG_DEBUG, "fwknop main() : calling fko_set_spa_message...");
     res = fko_set_spa_message(ctx, access_buf);
     if(res != FKO_SUCCESS)
     {
@@ -321,14 +323,14 @@ main(int argc, char **argv)
         clean_exit(ctx, &options, key, &key_len,
             hmac_key, &hmac_key_len, EXIT_FAILURE);
     }
-    log_msg(LOG_VERBOSITY_DEBUG, "fwknop main() : returned from fko_set_spa_message");
+    log_msg(LOG_DEBUG, "fwknop main() : returned from fko_set_spa_message");
 
     /* Set NAT access string if service IDs were not requested
     */
     if (options.service_ids_str[0] == 0x0 &&
        (options.nat_local || options.nat_access_str[0] != 0x0))
     {
-        log_msg(LOG_VERBOSITY_DEBUG, "fwknop main() : calling set_nat_access...");
+        log_msg(LOG_DEBUG, "fwknop main() : calling set_nat_access...");
         res = set_nat_access(ctx, &options, access_buf);
         if(res != FKO_SUCCESS)
         {
@@ -336,7 +338,7 @@ main(int argc, char **argv)
             clean_exit(ctx, &options, key, &key_len,
                     hmac_key, &hmac_key_len, EXIT_FAILURE);
         }
-        log_msg(LOG_VERBOSITY_DEBUG, "fwknop main() : returned from set_nat_access");
+        log_msg(LOG_DEBUG, "fwknop main() : returned from set_nat_access");
     }
 
     /* Set username
@@ -354,10 +356,10 @@ main(int argc, char **argv)
 
     /* Set SDP mode on or off
      */
-    log_msg(LOG_VERBOSITY_DEBUG, "fwknop main() : checking option disable_sdp_mode...");
+    log_msg(LOG_DEBUG, "fwknop main() : checking option disable_sdp_mode...");
     if(options.disable_sdp_mode)
     {
-        log_msg(LOG_VERBOSITY_DEBUG, "fwknop main() : calling fko_set_disable_sdp_mode...");
+        log_msg(LOG_DEBUG, "fwknop main() : calling fko_set_disable_sdp_mode...");
         res = fko_set_disable_sdp_mode(ctx, options.disable_sdp_mode);
         if(res != FKO_SUCCESS)
         {
@@ -365,7 +367,7 @@ main(int argc, char **argv)
             clean_exit(ctx, &options, key, &key_len,
                     hmac_key, &hmac_key_len, EXIT_FAILURE);
         }
-        log_msg(LOG_VERBOSITY_DEBUG, "fwknop main() : returned from fko_set_disable_sdp_mode");
+        log_msg(LOG_DEBUG, "fwknop main() : returned from fko_set_disable_sdp_mode");
     }
     else
     {
@@ -377,7 +379,7 @@ main(int argc, char **argv)
                     hmac_key, &hmac_key_len, EXIT_FAILURE);
         }
     }
-    log_msg(LOG_VERBOSITY_DEBUG, "fwknop main() : finished checking option disable_sdp_mode");
+    log_msg(LOG_DEBUG, "fwknop main() : finished checking option disable_sdp_mode");
 
     /* Set up for using GPG if specified.
     */
@@ -433,7 +435,7 @@ main(int argc, char **argv)
             errmsg("fko_set_gpg_recipient", res);
 
             if(IS_GPG_ERROR(res))
-                log_msg(LOG_VERBOSITY_ERROR, "GPG ERR: %s", fko_gpg_errstr(ctx));
+                log_msg(LOG_ERR, "GPG ERR: %s", fko_gpg_errstr(ctx));
             clean_exit(ctx, &options, key, &key_len,
                     hmac_key, &hmac_key_len, EXIT_FAILURE);
         }
@@ -446,7 +448,7 @@ main(int argc, char **argv)
                 errmsg("fko_set_gpg_signer", res);
 
                 if(IS_GPG_ERROR(res))
-                    log_msg(LOG_VERBOSITY_ERROR, "GPG ERR: %s", fko_gpg_errstr(ctx));
+                    log_msg(LOG_ERR, "GPG ERR: %s", fko_gpg_errstr(ctx));
                 clean_exit(ctx, &options, key, &key_len,
                         hmac_key, &hmac_key_len, EXIT_FAILURE);
             }
@@ -496,29 +498,29 @@ main(int argc, char **argv)
     if(options.encryption_mode == FKO_ENC_MODE_CBC_LEGACY_IV
             && key_len > 16)
     {
-        log_msg(LOG_VERBOSITY_ERROR,
+        log_msg(LOG_ERR,
                 "WARNING: Encryption key in '-M legacy' mode must be <= 16 bytes");
-        log_msg(LOG_VERBOSITY_ERROR,
+        log_msg(LOG_ERR,
                 "long - truncating before sending SPA packet. Upgrading remote");
-        log_msg(LOG_VERBOSITY_ERROR,
+        log_msg(LOG_ERR,
                 "fwknopd is recommended.");
         key_len = 16;
     }
 
     /* Finalize the context data (encrypt and encode the SPA data)
     */
-    log_msg(LOG_VERBOSITY_DEBUG, "fwknop main() : calling fko_spa_data_final...");
+    log_msg(LOG_DEBUG, "fwknop main() : calling fko_spa_data_final...");
     res = fko_spa_data_final(ctx, key, key_len, hmac_key, hmac_key_len);
     if(res != FKO_SUCCESS)
     {
         errmsg("fko_spa_data_final", res);
 
         if(IS_GPG_ERROR(res))
-            log_msg(LOG_VERBOSITY_ERROR, "GPG ERR: %s", fko_gpg_errstr(ctx));
+            log_msg(LOG_ERR, "GPG ERR: %s", fko_gpg_errstr(ctx));
         clean_exit(ctx, &options, key, &orig_key_len,
                 hmac_key, &hmac_key_len, EXIT_FAILURE);
     }
-    log_msg(LOG_VERBOSITY_DEBUG, "fwknop main() : returned from fko_spa_data_final");
+    log_msg(LOG_DEBUG, "fwknop main() : returned from fko_spa_data_final");
 
     /* Display the context data.
     */
@@ -526,9 +528,9 @@ main(int argc, char **argv)
     {
         res = dump_ctx_to_buffer(ctx, dump_buf, sizeof(dump_buf));
         if (res == FKO_SUCCESS)
-            log_msg(LOG_VERBOSITY_NORMAL, "%s", dump_buf);
+            log_msg(LOG_INFO, "%s", dump_buf);
         else
-            log_msg(LOG_VERBOSITY_WARNING, "Unable to dump FKO context: %s",
+            log_msg(LOG_WARNING, "Unable to dump FKO context: %s",
                     fko_errstr(res));
     }
 
@@ -569,26 +571,25 @@ main(int argc, char **argv)
     // before checking result of the packet send, start the SDP control
     // client if configured to do so
     if( !options.disable_sdp_ctrl_client
-            //&& options.sdp_ctrl_client_config_file != NULL
-            && options.sdp_ctrl_client_config_file[0] != '\0')
+        && options.sdp_ctrl_client_config_file[0] != '\0')
     {
-        if(run_sdp_ctrl_client(&options) == 0)
+        if(get_updated_credentials_from_controller(&options) != SDP_SUCCESS)
         {
-            // this is the child process, stop here
-            clean_exit(ctx, &options, key, &orig_key_len,
-                    hmac_key, &hmac_key_len, EXIT_SUCCESS);
+            // failed to run control client, stop here
+            //clean_exit(ctx, &options, key, &orig_key_len, hmac_key, &hmac_key_len, EXIT_SUCCESS);
+            log_msg(LOG_ERR, "Failed to start control client");
         }
     }
 
     if(res < 0)
     {
-        log_msg(LOG_VERBOSITY_ERROR, "send_spa_packet: packet not sent.");
+        log_msg(LOG_ERR, "send_spa_packet: packet not sent.");
         clean_exit(ctx, &options, key, &orig_key_len,
                 hmac_key, &hmac_key_len, EXIT_FAILURE);
     }
     else
     {
-        log_msg(LOG_VERBOSITY_INFO, "send_spa_packet: bytes sent: %i", res);
+        log_msg(LOG_INFO, "send_spa_packet: bytes sent: %i", res);
     }
 
     /* Run through a decode cycle in test mode (--DSS XXX: This test/decode
@@ -615,7 +616,7 @@ main(int argc, char **argv)
         {
             errmsg("fko_get_spa_encryption_mode", res);
             if(fko_destroy(ctx) == FKO_ERROR_ZERO_OUT_DATA)
-                log_msg(LOG_VERBOSITY_ERROR,
+                log_msg(LOG_ERR,
                         "[*] Could not zero out sensitive data buffer.");
             ctx = NULL;
             clean_exit(ctx, &options, key, &orig_key_len,
@@ -638,7 +639,7 @@ main(int argc, char **argv)
         {
             errmsg("fko_get_sdp_id", res);
             if(fko_destroy(ctx2) == FKO_ERROR_ZERO_OUT_DATA)
-                log_msg(LOG_VERBOSITY_ERROR,
+                log_msg(LOG_ERR,
                         "[*] Could not zero out sensitive data buffer.");
             ctx2 = NULL;
             clean_exit(ctx, &options, key, &orig_key_len,
@@ -651,7 +652,7 @@ main(int argc, char **argv)
         {
             errmsg("fko_new_with_data", res);
             if(fko_destroy(ctx2) == FKO_ERROR_ZERO_OUT_DATA)
-                log_msg(LOG_VERBOSITY_ERROR,
+                log_msg(LOG_ERR,
                         "[*] Could not zero out sensitive data buffer.");
             ctx2 = NULL;
             clean_exit(ctx, &options, key, &orig_key_len,
@@ -663,7 +664,7 @@ main(int argc, char **argv)
         {
             errmsg("fko_set_spa_encryption_mode", res);
             if(fko_destroy(ctx2) == FKO_ERROR_ZERO_OUT_DATA)
-                log_msg(LOG_VERBOSITY_ERROR,
+                log_msg(LOG_ERR,
                         "[*] Could not zero out sensitive data buffer.");
             ctx2 = NULL;
             clean_exit(ctx, &options, key, &orig_key_len,
@@ -681,7 +682,7 @@ main(int argc, char **argv)
                 {
                     errmsg("fko_set_gpg_home_dir", res);
                     if(fko_destroy(ctx2) == FKO_ERROR_ZERO_OUT_DATA)
-                        log_msg(LOG_VERBOSITY_ERROR,
+                        log_msg(LOG_ERR,
                                 "[*] Could not zero out sensitive data buffer.");
                     ctx2 = NULL;
                     clean_exit(ctx, &options, key, &orig_key_len,
@@ -709,11 +710,11 @@ main(int argc, char **argv)
                  * tests that use a single key pair for encryption and
                  * authentication, so decryption become possible for these
                  * tests. */
-                log_msg(LOG_VERBOSITY_ERROR, "GPG ERR: %s\n%s", fko_gpg_errstr(ctx2),
+                log_msg(LOG_ERR, "GPG ERR: %s\n%s", fko_gpg_errstr(ctx2),
                     "No access to recipient private key?");
             }
             if(fko_destroy(ctx2) == FKO_ERROR_ZERO_OUT_DATA)
-                log_msg(LOG_VERBOSITY_ERROR,
+                log_msg(LOG_ERR,
                         "[*] Could not zero out sensitive data buffer.");
             ctx2 = NULL;
             clean_exit(ctx, &options, key, &orig_key_len,
@@ -722,12 +723,12 @@ main(int argc, char **argv)
 
         res = dump_ctx_to_buffer(ctx2, dump_buf, sizeof(dump_buf));
         if (res == FKO_SUCCESS)
-            log_msg(LOG_VERBOSITY_NORMAL, "\nDump of the Decoded Data\n%s", dump_buf);
+            log_msg(LOG_INFO, "\nDump of the Decoded Data\n%s", dump_buf);
         else
-            log_msg(LOG_VERBOSITY_WARNING, "Unable to dump FKO context: %s", fko_errstr(res));
+            log_msg(LOG_WARNING, "Unable to dump FKO context: %s", fko_errstr(res));
 
         if(fko_destroy(ctx2) == FKO_ERROR_ZERO_OUT_DATA)
-            log_msg(LOG_VERBOSITY_ERROR,
+            log_msg(LOG_ERR,
                     "[*] Could not zero out sensitive data buffer.");
         ctx2 = NULL;
     }
@@ -735,26 +736,9 @@ main(int argc, char **argv)
     clean_exit(ctx, &options, key, &orig_key_len,
             hmac_key, &hmac_key_len, EXIT_SUCCESS);
 
-    log_msg(LOG_VERBOSITY_DEBUG, "fwknop main() : Supposedly exiting successfully, code is: %d", EXIT_SUCCESS);
+    log_msg(LOG_DEBUG, "fwknop main() : Supposedly exiting successfully, code is: %d", EXIT_SUCCESS);
 
     return EXIT_SUCCESS;  /* quiet down a gcc warning */
-}
-
-void
-free_configs(fko_cli_options_t *opts)
-{
-    if (opts->resolve_url != NULL)
-        free(opts->resolve_url);
-    if (opts->wget_bin != NULL)
-        free(opts->wget_bin);
-    zero_buf_wrapper(opts->key, MAX_KEY_LEN+1);
-    zero_buf_wrapper(opts->key_base64, MAX_B64_KEY_LEN+1);
-    zero_buf_wrapper(opts->hmac_key, MAX_KEY_LEN+1);
-    zero_buf_wrapper(opts->hmac_key_base64, MAX_B64_KEY_LEN+1);
-    zero_buf_wrapper(opts->gpg_recipient_key, MAX_GPG_KEY_ID);
-    zero_buf_wrapper(opts->gpg_signer_key, MAX_GPG_KEY_ID);
-    zero_buf_wrapper(opts->gpg_home_dir, MAX_PATH_LEN);
-    zero_buf_wrapper(opts->server_command, MAX_LINE_LEN);
 }
 
 static int
@@ -778,7 +762,7 @@ get_rand_port(fko_ctx_t ctx)
     tmpint = strtol_wrapper(port_str, 0, -1, NO_EXIT_UPON_ERR, &is_err);
     if(is_err != FKO_SUCCESS)
     {
-        log_msg(LOG_VERBOSITY_ERROR,
+        log_msg(LOG_ERR,
             "[*] get_rand_port(), could not convert rand_val str '%s', to integer",
             rand_val);
         return -1;
@@ -867,7 +851,7 @@ set_access_buf(fko_ctx_t ctx, fko_cli_options_t *options, char *access_buf)
             ndx = strchr(options->access_str, '/');
             if(ndx == NULL)
             {
-                log_msg(LOG_VERBOSITY_ERROR, "[*] Expecting <proto>/<port> for -A arg.");
+                log_msg(LOG_ERR, "[*] Expecting <proto>/<port> for -A arg.");
                 return 0;
             }
             snprintf(access_buf, MAX_LINE_LEN, "%s%s",
@@ -880,7 +864,7 @@ set_access_buf(fko_ctx_t ctx, fko_cli_options_t *options, char *access_buf)
 
             if (strchr(ndx+1, '/') != NULL)
             {
-                log_msg(LOG_VERBOSITY_ERROR,
+                log_msg(LOG_ERR,
                         "[*] NAT for multiple ports/protocols not yet supported.");
                 return 0;
             }
@@ -923,7 +907,7 @@ set_nat_access(fko_ctx_t ctx, fko_cli_options_t *options, const char * const acc
     ndx = strchr(options->access_str, '/');
     if(ndx == NULL)
     {
-        log_msg(LOG_VERBOSITY_ERROR, "[*] Expecting <proto>/<port> for -A arg.");
+        log_msg(LOG_ERR, "[*] Expecting <proto>/<port> for -A arg.");
         return FKO_ERROR_INVALID_DATA;
     }
     ndx++;
@@ -940,7 +924,7 @@ set_nat_access(fko_ctx_t ctx, fko_cli_options_t *options, const char * const acc
             MAX_PORT, NO_EXIT_UPON_ERR, &is_err);
     if(is_err != FKO_SUCCESS)
     {
-        log_msg(LOG_VERBOSITY_ERROR, "[*] Invalid port value '%d' for -A arg.",
+        log_msg(LOG_ERR, "[*] Invalid port value '%d' for -A arg.",
                 access_port);
         return FKO_ERROR_INVALID_DATA;
     }
@@ -977,7 +961,7 @@ set_nat_access(fko_ctx_t ctx, fko_cli_options_t *options, const char * const acc
         if (resolve_dst_addr(hostname, &hints,
                     dst_ip_str, sizeof(dst_ip_str), options) != 0)
         {
-            log_msg(LOG_VERBOSITY_ERROR, "[*] Unable to resolve %s as an ip address",
+            log_msg(LOG_ERR, "[*] Unable to resolve %s as an ip address",
                     hostname);
             return FKO_ERROR_INVALID_DATA;
         }
@@ -995,7 +979,7 @@ set_nat_access(fko_ctx_t ctx, fko_cli_options_t *options, const char * const acc
          * if not then the user will not which port will be
          * opened/NAT'd on the fwknopd side
         */
-        log_msg(LOG_VERBOSITY_NORMAL,
+        log_msg(LOG_INFO,
                 "[+] Randomly assigned port '%d' on: '%s' will grant access to: '%s'",
                 options->nat_port, access_buf, nat_access_buf);
     }
@@ -1017,7 +1001,7 @@ prev_exec(fko_cli_options_t *options, int argc, char **argv)
     {
         if (get_save_file(args_save_file) != 1)
         {
-            log_msg(LOG_VERBOSITY_ERROR, "Unable to determine args save file");
+            log_msg(LOG_ERR, "Unable to determine args save file");
             return 0;
         }
     }
@@ -1044,16 +1028,16 @@ show_last_command(const char * const args_save_file)
         return 0;
 
     if ((args_file_ptr = fopen(args_save_file, "r")) == NULL) {
-        log_msg(LOG_VERBOSITY_ERROR, "Could not open args file: %s",
+        log_msg(LOG_ERR, "Could not open args file: %s",
             args_save_file);
         return 0;
     }
 
     if ((fgets(args_str, MAX_LINE_LEN, args_file_ptr)) != NULL) {
-        log_msg(LOG_VERBOSITY_NORMAL,
+        log_msg(LOG_INFO,
                 "Last fwknop client command line: %s", args_str);
     } else {
-        log_msg(LOG_VERBOSITY_NORMAL,
+        log_msg(LOG_INFO,
                 "Could not read line from file: %s", args_save_file);
         fclose(args_file_ptr);
         return 0;
@@ -1080,7 +1064,7 @@ run_last_args(fko_cli_options_t *options, const char * const args_save_file)
 
     if ((args_file_ptr = fopen(args_save_file, "r")) == NULL)
     {
-        log_msg(LOG_VERBOSITY_ERROR, "Could not open args file: %s",
+        log_msg(LOG_ERR, "Could not open args file: %s",
                 args_save_file);
         return 0;
     }
@@ -1088,7 +1072,7 @@ run_last_args(fko_cli_options_t *options, const char * const args_save_file)
     {
         args_str[MAX_LINE_LEN-1] = '\0';
         if (options->verbose)
-            log_msg(LOG_VERBOSITY_NORMAL, "Executing: %s", args_str);
+            log_msg(LOG_INFO, "Executing: %s", args_str);
         if(strtoargv(args_str, argv_new, &argc_new, options) != 1)
         {
             args_broken = 1;
@@ -1142,7 +1126,7 @@ save_args(int argc, char **argv, const char * const args_save_file)
 
     args_file_fd = open(args_save_file, O_WRONLY|O_CREAT|O_TRUNC, S_IRUSR|S_IWUSR);
     if (args_file_fd == -1) {
-        log_msg(LOG_VERBOSITY_ERROR, "Could not open args file: %s",
+        log_msg(LOG_ERR, "Could not open args file: %s",
             args_save_file);
         return 0;
     }
@@ -1150,7 +1134,7 @@ save_args(int argc, char **argv, const char * const args_save_file)
         for (i=0; i < argc; i++) {
             args_str_len += strlen(argv[i]);
             if (args_str_len >= MAX_PATH_LEN) {
-                log_msg(LOG_VERBOSITY_ERROR, "argument string too long, exiting.");
+                log_msg(LOG_ERR, "argument string too long, exiting.");
                 close(args_file_fd);
                 return 0;
             }
@@ -1160,7 +1144,7 @@ save_args(int argc, char **argv, const char * const args_save_file)
         strlcat(args_str, "\n", sizeof(args_str));
         if(write(args_file_fd, args_str, strlen(args_str))
                 != strlen(args_str)) {
-            log_msg(LOG_VERBOSITY_WARNING,
+            log_msg(LOG_WARNING,
                 "warning, did not write expected number of bytes to args save file");
         }
         close(args_file_fd);
@@ -1177,10 +1161,10 @@ set_message_type(fko_ctx_t ctx, fko_cli_options_t *options)
 
     if(options->service_ids_str[0] != 0x0)
     {
-    	if (options->fw_timeout >= 0)
-    		message_type = FKO_CLIENT_TIMEOUT_SERVICE_ACCESS_MSG;
-    	else
-    		message_type = FKO_SERVICE_ACCESS_MSG;
+        if (options->fw_timeout >= 0)
+            message_type = FKO_CLIENT_TIMEOUT_SERVICE_ACCESS_MSG;
+        else
+            message_type = FKO_SERVICE_ACCESS_MSG;
     }
     else if(options->server_command[0] != 0x0)
     {
@@ -1240,7 +1224,7 @@ get_keys(fko_ctx_t ctx, fko_cli_options_t *options,
         }
         else
         {
-            log_msg(LOG_VERBOSITY_ERROR, "[*] Invalid key length: '%d', must be in [1,%d]",
+            log_msg(LOG_ERR, "[*] Invalid key length: '%d', must be in [1,%d]",
                     *key_len, MAX_KEY_LEN);
             return 0;
         }
@@ -1259,10 +1243,10 @@ get_keys(fko_ctx_t ctx, fko_cli_options_t *options,
         else if(options->use_gpg)
         {
             if(options->use_gpg_agent)
-                log_msg(LOG_VERBOSITY_NORMAL,
+                log_msg(LOG_INFO,
                     "[+] GPG mode set, signing passphrase acquired via gpg-agent");
             else if(options->gpg_no_signing_pw)
-                log_msg(LOG_VERBOSITY_NORMAL,
+                log_msg(LOG_INFO,
                     "[+] GPG mode set, signing passphrase not required");
             else if(strlen(options->gpg_signer_key))
             {
@@ -1272,7 +1256,7 @@ get_keys(fko_ctx_t ctx, fko_cli_options_t *options,
                 key_tmp = getpasswd("Enter passphrase for signing: ", options->input_fd);
                 if(key_tmp == NULL)
                 {
-                    log_msg(LOG_VERBOSITY_ERROR, "[*] getpasswd() key error.");
+                    log_msg(LOG_ERR, "[*] getpasswd() key error.");
                     return 0;
                 }
                 strlcpy(key, key_tmp, MAX_KEY_LEN+1);
@@ -1288,7 +1272,7 @@ get_keys(fko_ctx_t ctx, fko_cli_options_t *options,
             key_tmp = getpasswd("Enter encryption key: ", options->input_fd);
             if(key_tmp == NULL)
             {
-                log_msg(LOG_VERBOSITY_ERROR, "[*] getpasswd() key error.");
+                log_msg(LOG_ERR, "[*] getpasswd() key error.");
                 return 0;
             }
             strlcpy(key, key_tmp, MAX_KEY_LEN+1);
@@ -1309,7 +1293,7 @@ get_keys(fko_ctx_t ctx, fko_cli_options_t *options,
             (unsigned char *) options->hmac_key);
         if(*hmac_key_len > MAX_KEY_LEN || *hmac_key_len < 0)
         {
-            log_msg(LOG_VERBOSITY_ERROR,
+            log_msg(LOG_ERR,
                     "[*] Invalid decoded key length: '%d', must be in [0,%d]",
                     *hmac_key_len, MAX_KEY_LEN);
             return 0;
@@ -1338,7 +1322,7 @@ get_keys(fko_ctx_t ctx, fko_cli_options_t *options,
             hmac_key_tmp = getpasswd("Enter HMAC key: ", options->input_fd);
             if(hmac_key_tmp == NULL)
             {
-                log_msg(LOG_VERBOSITY_ERROR, "[*] getpasswd() key error.");
+                log_msg(LOG_ERR, "[*] getpasswd() key error.");
                 return 0;
             }
             strlcpy(hmac_key, hmac_key_tmp, MAX_KEY_LEN+1);
@@ -1352,7 +1336,7 @@ get_keys(fko_ctx_t ctx, fko_cli_options_t *options,
     {
         if(*hmac_key_len < 0 || *hmac_key_len > MAX_KEY_LEN)
         {
-            log_msg(LOG_VERBOSITY_ERROR, "[*] Invalid HMAC key length: '%d', must be in [0,%d]",
+            log_msg(LOG_ERR, "[*] Invalid HMAC key length: '%d', must be in [0,%d]",
                     *hmac_key_len, MAX_KEY_LEN);
             return 0;
         }
@@ -1363,7 +1347,7 @@ get_keys(fko_ctx_t ctx, fko_cli_options_t *options,
         {
             if(memcmp(hmac_key, key, *key_len) == 0)
             {
-                log_msg(LOG_VERBOSITY_ERROR,
+                log_msg(LOG_ERR,
                     "[*] The encryption passphrase and HMAC key should not be identical, no SPA packet sent. Exiting.");
                 return 0;
             }
@@ -1384,22 +1368,8 @@ get_keys(fko_ctx_t ctx, fko_cli_options_t *options,
 */
 void
 errmsg(const char *msg, const int err) {
-    log_msg(LOG_VERBOSITY_ERROR, "%s: %s: Error %i - %s",
+    log_msg(LOG_ERR, "%s: %s: Error %i - %s",
         MY_NAME, msg, err, fko_errstr(err));
-}
-
-static void
-zero_buf_wrapper(char *buf, int len)
-{
-
-    if(buf == NULL || len == 0)
-        return;
-
-    if(zero_buf(buf, len) == FKO_ERROR_ZERO_OUT_DATA)
-        log_msg(LOG_VERBOSITY_ERROR,
-                "[*] Could not zero out sensitive data buffer.");
-
-    return;
 }
 
 #if HAVE_LIBFIU
@@ -1410,17 +1380,17 @@ enable_fault_injections(fko_cli_options_t * const opts)
     if(opts->fault_injection_tag[0] != 0x0)
     {
         if(opts->verbose)
-            log_msg(LOG_VERBOSITY_NORMAL, "[+] Enable fault injection tag: %s",
+            log_msg(LOG_INFO, "[+] Enable fault injection tag: %s",
                     opts->fault_injection_tag);
         if(fiu_init(0) != 0)
         {
-            log_msg(LOG_VERBOSITY_WARNING, "[*] Unable to set fault injection tag: %s",
+            log_msg(LOG_WARNING, "[*] Unable to set fault injection tag: %s",
                     opts->fault_injection_tag);
             rv = 0;
         }
         if(fiu_enable(opts->fault_injection_tag, 1, NULL, 0) != 0)
         {
-            log_msg(LOG_VERBOSITY_WARNING, "[*] Unable to set fault injection tag: %s",
+            log_msg(LOG_WARNING, "[*] Unable to set fault injection tag: %s",
                     opts->fault_injection_tag);
             rv = 0;
         }
@@ -1431,6 +1401,7 @@ enable_fault_injections(fko_cli_options_t * const opts)
 
 /* Run the SDP Control Client
  */
+/*
 static pid_t
 run_sdp_ctrl_client(fko_cli_options_t *options)
 {
@@ -1438,11 +1409,11 @@ run_sdp_ctrl_client(fko_cli_options_t *options)
     sdp_ctrl_client_t client = NULL;
 
     int rv = sdp_ctrl_client_new(options->sdp_ctrl_client_config_file,
-                options->rc_file, 1, &client);
+                options->rc_file, options->foreground, &client);
 
     if(rv != SDP_SUCCESS)
     {
-        log_msg(LOG_VERBOSITY_ERROR, "sdp_ctrl_client_new failed, returned error code: %d\n", rv);
+        log_msg(LOG_ERR, "sdp_ctrl_client_new failed, returned error code: %d\n", rv);
         return child_pid;
     }
 
@@ -1453,9 +1424,9 @@ run_sdp_ctrl_client(fko_cli_options_t *options)
     if(client->foreground)
     {
         if(rv != SDP_SUCCESS)
-            log_msg(LOG_VERBOSITY_ERROR, "SDP ctrl client returned error code: %d", rv);
+            log_msg(LOG_ERR, "SDP ctrl client returned error code: %d", rv);
         else
-            log_msg(LOG_VERBOSITY_INFO, "SDP ctrl client ran successfully");
+            log_msg(LOG_INFO, "SDP ctrl client ran successfully");
 
         sdp_ctrl_client_destroy(client);
 
@@ -1472,20 +1443,20 @@ run_sdp_ctrl_client(fko_cli_options_t *options)
             // If I've returned, I've exited my action loop
             // Don't execute any further
 
-            log_msg(LOG_VERBOSITY_INFO, "SDP ctrl client child process loop has returned.");
-            log_msg(LOG_VERBOSITY_INFO, "SDP ctrl client child process return value: %d", rv);
+            log_msg(LOG_INFO, "SDP ctrl client child process loop has returned.");
+            log_msg(LOG_INFO, "SDP ctrl client child process return value: %d", rv);
         }
         else
         {
             // I'm the parent
-            log_msg(LOG_VERBOSITY_INFO, "Parent process returned from sdp_ctrl_client_start. \n");
-            log_msg(LOG_VERBOSITY_INFO, "SDP ctrl client return value: %d\n", rv);
+            log_msg(LOG_INFO, "Parent process returned from sdp_ctrl_client_start. \n");
+            log_msg(LOG_INFO, "SDP ctrl client return value: %d\n", rv);
         }
     }
     else
     {
         // fork failed
-        log_msg(LOG_VERBOSITY_ERROR, "sdp_ctrl_client_start did not fork, returned error: %d", rv);
+        log_msg(LOG_ERR, "sdp_ctrl_client_start did not fork, returned error: %d", rv);
     }
 
     // parent or child, always free the context
@@ -1493,30 +1464,6 @@ run_sdp_ctrl_client(fko_cli_options_t *options)
 
     return child_pid;
 }
-
-/* free up memory and exit
 */
-static void
-clean_exit(fko_ctx_t ctx, fko_cli_options_t *opts,
-        char *key, int *key_len, char *hmac_key, int *hmac_key_len,
-        unsigned int exit_status)
-{
-#if HAVE_LIBFIU
-    if(opts->fault_injection_tag[0] != 0x0)
-        fiu_disable(opts->fault_injection_tag);
-#endif
-
-    if(fko_destroy(ctx) == FKO_ERROR_ZERO_OUT_DATA)
-        log_msg(LOG_VERBOSITY_ERROR,
-                "[*] Could not zero out sensitive data buffer.");
-    ctx = NULL;
-    free_configs(opts);
-    zero_buf_wrapper(key, *key_len);
-    zero_buf_wrapper(hmac_key, *hmac_key_len);
-    *key_len = 0;
-    *hmac_key_len = 0;
-    log_msg(LOG_VERBOSITY_DEBUG, "fwknop clean_exit() : Supposedly exiting successfully, code is: %d", exit_status);
-    exit(exit_status);
-}
 
 /***EOF***/

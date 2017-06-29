@@ -46,6 +46,9 @@
   #include <netdb.h>
 #endif
 
+#include "fwknop_common.h"
+#include "fko.h"
+
 #define PROTOCOL_BUFSIZE    16      /*!< Maximum number of chars for a protocol string (TCP for example) */
 
 #define FD_INVALID          -1
@@ -53,6 +56,11 @@
 
 /* Prototypes
 */
+void    clean_exit(fko_ctx_t ctx, fko_cli_options_t *opts,
+        char *key, int *key_len, char *hmac_key, int *hmac_key_len,
+        unsigned int exit_status);
+void    free_configs(fko_cli_options_t *opts);
+void    zero_buf_wrapper(char *buf, int len);
 void    hex_dump(const unsigned char *data, const int size);
 int     set_file_perms(const char *file);
 int     verify_file_perms_ownership(const char *file);

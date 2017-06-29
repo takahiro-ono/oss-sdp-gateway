@@ -31,6 +31,7 @@
 */
 #include "fwknop_common.h"
 #include "utils.h"
+#include "log_msg.h"
 
 #include <errno.h>
 
@@ -75,7 +76,7 @@ try_url(struct url *url, fko_cli_options_t *options)
     res = WSAStartup( MAKEWORD(1,1), &wsa_data );
     if( res != 0 )
     {
-        log_msg(LOG_VERBOSITY_ERROR, "Winsock initialization error %d", res );
+        log_msg(LOG_ERR, "Winsock initialization error %d", res );
         return(-1);
     }
 #endif
@@ -105,7 +106,7 @@ try_url(struct url *url, fko_cli_options_t *options)
     */
     strlcpy(options->allow_ip_str, AFL_SET_RESOLVE_HOST,
             sizeof(options->allow_ip_str));
-    log_msg(LOG_VERBOSITY_INFO,
+    log_msg(LOG_INFO,
                 "\n[+] AFL fuzzing cycle, force IP resolution to: %s",
                 options->allow_ip_str);
 
@@ -115,7 +116,7 @@ try_url(struct url *url, fko_cli_options_t *options)
     error = getaddrinfo(url->host, url->port, &hints, &result);
     if (error != 0)
     {
-        log_msg(LOG_VERBOSITY_ERROR, "error in getaddrinfo: %s", gai_strerror(error));
+        log_msg(LOG_ERR, "error in getaddrinfo: %s", gai_strerror(error));
         return(-1);
     }
 
@@ -145,21 +146,21 @@ try_url(struct url *url, fko_cli_options_t *options)
 
     if (! sock_success)
     {
-        log_msg(LOG_VERBOSITY_ERROR, "resolve_ip_http: Could not create socket: ", strerror(errno));
+        log_msg(LOG_ERR, "resolve_ip_http: Could not create socket: ", strerror(errno));
         return(-1);
     }
 
-    log_msg(LOG_VERBOSITY_DEBUG, "\nHTTP request: %s", http_buf);
+    log_msg(LOG_DEBUG, "\nHTTP request: %s", http_buf);
 
     res = send(sock, http_buf, http_buf_len, 0);
 
     if(res < 0)
     {
-        log_msg(LOG_VERBOSITY_ERROR, "resolve_ip_http: write error: ", strerror(errno));
+        log_msg(LOG_ERR, "resolve_ip_http: write error: ", strerror(errno));
     }
     else if(res != http_buf_len)
     {
-        log_msg(LOG_VERBOSITY_WARNING,
+        log_msg(LOG_WARNING,
             "[#] Warning: bytes sent (%i) not spa data length (%i).",
             res, http_buf_len
         );
@@ -186,14 +187,14 @@ try_url(struct url *url, fko_cli_options_t *options)
     close(sock);
 #endif
 
-    log_msg(LOG_VERBOSITY_DEBUG, "\nHTTP response: %s", http_response);
+    log_msg(LOG_DEBUG, "\nHTTP response: %s", http_response);
 
     /* Move to the end of the HTTP header and to the start of the content.
     */
     ndx = strstr(http_response, "\r\n\r\n");
     if(ndx == NULL)
     {
-        log_msg(LOG_VERBOSITY_ERROR, "Did not find the end of HTTP header.");
+        log_msg(LOG_ERR, "Did not find the end of HTTP header.");
         return(-1);
     }
     ndx += 4;
@@ -222,7 +223,7 @@ try_url(struct url *url, fko_cli_options_t *options)
     {
         strlcpy(options->allow_ip_str, ndx, sizeof(options->allow_ip_str));
 
-        log_msg(LOG_VERBOSITY_INFO,
+        log_msg(LOG_INFO,
                     "\n[+] Resolved external IP (via http://%s%s) as: %s",
                     url->host,
                     url->path,
@@ -232,7 +233,7 @@ try_url(struct url *url, fko_cli_options_t *options)
     }
     else
     {
-        log_msg(LOG_VERBOSITY_ERROR,
+        log_msg(LOG_ERR,
             "[-] From http://%s%s\n    Invalid IP (%s) in HTTP response:\n\n%s",
             url->host, url->path, ndx, http_response);
         return(-1);
@@ -262,7 +263,7 @@ parse_url(char *res_url, struct url* url)
         port = strtol_wrapper(e_ndx+1, 1, MAX_PORT, NO_EXIT_UPON_ERR, &is_err);
         if(is_err != FKO_SUCCESS)
         {
-            log_msg(LOG_VERBOSITY_ERROR,
+            log_msg(LOG_ERR,
                 "[*] resolve-url port value is invalid, must be in [%d-%d]",
                 1, MAX_PORT);
             return(-1);
@@ -296,7 +297,7 @@ parse_url(char *res_url, struct url* url)
 
     if(tlen > MAX_URL_HOST_LEN)
     {
-        log_msg(LOG_VERBOSITY_ERROR, "resolve-url hostname portion is too large.");
+        log_msg(LOG_ERR, "resolve-url hostname portion is too large.");
         return(-1);
     }
     strlcpy(url->host, s_ndx, tlen);
@@ -305,7 +306,7 @@ parse_url(char *res_url, struct url* url)
     {
         if(strlen(e_ndx) > MAX_URL_PATH_LEN)
         {
-            log_msg(LOG_VERBOSITY_ERROR, "resolve-url path portion is too large.");
+            log_msg(LOG_ERR, "resolve-url path portion is too large.");
             return(-1);
         }
 
@@ -354,7 +355,7 @@ resolve_ip_https(fko_cli_options_t *options)
 #ifdef WGET_EXE
         strlcpy(wget_ssl_cmd, WGET_EXE, sizeof(wget_ssl_cmd));
 #else
-        log_msg(LOG_VERBOSITY_ERROR,
+        log_msg(LOG_ERR,
                 "[*] Use --wget-cmd <path> to specify path to the wget command.");
         return(-1);
 #endif
@@ -377,14 +378,14 @@ resolve_ip_https(fko_cli_options_t *options)
     {
         if(strncasecmp(options->resolve_url, "https", 5) != 0)
         {
-            log_msg(LOG_VERBOSITY_ERROR,
+            log_msg(LOG_ERR,
                     "[-] Warning: IP resolution URL '%s' should begin with 'https://' in -R mode.",
                     options->resolve_url);
         }
 
         if(parse_url(options->resolve_url, &url) < 0)
         {
-            log_msg(LOG_VERBOSITY_ERROR, "Error parsing resolve-url");
+            log_msg(LOG_ERR, "Error parsing resolve-url");
             return(-1);
         }
         /* tack on the original URL to the wget command
@@ -404,7 +405,7 @@ resolve_ip_https(fko_cli_options_t *options)
     */
     strlcpy(options->allow_ip_str, AFL_SET_RESOLVE_HOST,
             sizeof(options->allow_ip_str));
-    log_msg(LOG_VERBOSITY_INFO,
+    log_msg(LOG_INFO,
                 "\n[+] AFL fuzzing cycle, force IP resolution to: %s",
                 options->allow_ip_str);
 
@@ -414,7 +415,7 @@ resolve_ip_https(fko_cli_options_t *options)
 #if HAVE_EXECVPE
     if(strtoargv(wget_ssl_cmd, wget_argv, &wget_argc, options) != 1)
     {
-        log_msg(LOG_VERBOSITY_ERROR, "Error converting wget cmd str to argv");
+        log_msg(LOG_ERR, "Error converting wget cmd str to argv");
         return(-1);
     }
 
@@ -424,7 +425,7 @@ resolve_ip_https(fko_cli_options_t *options)
     */
     if(pipe(pipe_fd) < 0)
     {
-        log_msg(LOG_VERBOSITY_ERROR, "[*] pipe() error");
+        log_msg(LOG_ERR, "[*] pipe() error");
         free_argv(wget_argv, &wget_argc);
         return -1;
     }
@@ -439,7 +440,7 @@ resolve_ip_https(fko_cli_options_t *options)
     }
     else if(pid == -1)
     {
-        log_msg(LOG_VERBOSITY_INFO, "[*] Could not fork() for wget.");
+        log_msg(LOG_INFO, "[*] Could not fork() for wget.");
         free_argv(wget_argv, &wget_argc);
         return -1;
     }
@@ -457,7 +458,7 @@ resolve_ip_https(fko_cli_options_t *options)
     }
     else
     {
-        log_msg(LOG_VERBOSITY_INFO,
+        log_msg(LOG_INFO,
                 "[*] Could not fdopen() pipe output file descriptor.");
         free_argv(wget_argv, &wget_argc);
         return -1;
@@ -471,7 +472,7 @@ resolve_ip_https(fko_cli_options_t *options)
     wget = popen(wget_ssl_cmd, "r");
     if(wget == NULL)
     {
-        log_msg(LOG_VERBOSITY_ERROR, "[*] Could not run cmd: %s",
+        log_msg(LOG_ERR, "[*] Could not run cmd: %s",
                 wget_ssl_cmd);
         return -1;
     }
@@ -501,13 +502,13 @@ resolve_ip_https(fko_cli_options_t *options)
         {
             strlcpy(options->allow_ip_str, ndx, sizeof(options->allow_ip_str));
 
-            log_msg(LOG_VERBOSITY_INFO,
+            log_msg(LOG_INFO,
                         "\n[+] Resolved external IP (via '%s') as: %s",
                         wget_ssl_cmd, options->allow_ip_str);
             return 1;
         }
     }
-    log_msg(LOG_VERBOSITY_ERROR,
+    log_msg(LOG_ERR,
         "[-] Could not resolve IP via: '%s'", wget_ssl_cmd);
     return -1;
 }
@@ -527,14 +528,14 @@ resolve_ip_http(fko_cli_options_t *options)
         */
         if(strncasecmp(options->resolve_url, "https", 5) == 0)
         {
-            log_msg(LOG_VERBOSITY_ERROR,
+            log_msg(LOG_ERR,
                     "[*] https is not supported for --resolve-http-only.");
             return(-1);
         }
 
         if(parse_url(options->resolve_url, &url) < 0)
         {
-            log_msg(LOG_VERBOSITY_ERROR, "Error parsing resolve-url");
+            log_msg(LOG_ERR, "Error parsing resolve-url");
             return(-1);
         }
 

@@ -34,6 +34,7 @@
 #include "config_init.h"
 #include "cmd_opts.h"
 #include "utils.h"
+#include "log_msg.h"
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <inttypes.h>
@@ -140,6 +141,8 @@ enum
     FWKNOP_CLI_ARG_SERVICE_IDS,
     FWKNOP_CLI_ARG_DISABLE_SDP_CTRL_CLIENT,
     FWKNOP_CLI_ARG_SDP_CTRL_CLIENT_CONF,
+    FWKNOP_CLI_ARG_FOREGROUND,
+    FWKNOP_CLI_ARG_SYSLOG_ENABLE,
     FWKNOP_CLI_LAST_ARG
 } fwknop_cli_arg_t;
 
@@ -193,7 +196,9 @@ static fko_var_t fko_var_array[FWKNOP_CLI_LAST_ARG] =
     { "SDP_ID",            FWKNOP_CLI_ARG_SDP_ID         },
     { "SERVICE_IDS",            FWKNOP_CLI_ARG_SERVICE_IDS           },
     { "DISABLE_CTRL_CLIENT",   FWKNOP_CLI_ARG_DISABLE_SDP_CTRL_CLIENT},
-    { "SDP_CTRL_CLIENT_CONF",  FWKNOP_CLI_ARG_SDP_CTRL_CLIENT_CONF  }
+    { "SDP_CTRL_CLIENT_CONF",  FWKNOP_CLI_ARG_SDP_CTRL_CLIENT_CONF  },
+    { "FOREGROUND",            FWKNOP_CLI_ARG_FOREGROUND            },
+    { "SYSLOG_ENABLE",         FWKNOP_CLI_ARG_SYSLOG_ENABLE         }
 
 };
 
@@ -237,7 +242,7 @@ generate_keys(fko_cli_options_t *options)
         /* Exit upon key generation failure*/
         if(res != FKO_SUCCESS)
         {
-            log_msg(LOG_VERBOSITY_ERROR, "%s: fko_key_gen: Error %i - %s",
+            log_msg(LOG_ERR, "%s: fko_key_gen: Error %i - %s",
                 MY_NAME, res, fko_errstr(res));
             exit(EXIT_FAILURE);
         }
@@ -303,7 +308,7 @@ add_var_to_bitmask(short var_pos, fko_var_bitmask_t *bm)
 
     /* The index on the uint32_t bitmask is invalid */
     else
-        log_msg(LOG_VERBOSITY_WARNING,
+        log_msg(LOG_WARNING,
                 "add_var_to_bitmask() : Bad variable position %u", var_pos);
 }
 
@@ -330,7 +335,7 @@ remove_var_from_bitmask(short var_pos, fko_var_bitmask_t *bm)
 
     /* The index on the uint32_t bitmask is invalid */
     else
-        log_msg(LOG_VERBOSITY_WARNING,
+        log_msg(LOG_WARNING,
                 "remove_from_bitmask() : Bad variable position %u", var_pos);
 }
 
@@ -362,7 +367,7 @@ bitmask_has_var(short var_pos, fko_var_bitmask_t *bm)
 
     /* The index on the uint32_t bitmask is invalid */
     else
-        log_msg(LOG_VERBOSITY_WARNING, "bitmask_has_var_ndx() : Bad variable position %u", var_pos);
+        log_msg(LOG_WARNING, "bitmask_has_var_ndx() : Bad variable position %u", var_pos);
 
     return var_found;
 }
@@ -386,7 +391,7 @@ ask_overwrite_var(const char *var, const char *stanza)
     int     c;
     int     first_char = 1;;
 
-    log_msg(LOG_VERBOSITY_NORMAL,
+    log_msg(LOG_INFO,
             "Variable '%s' found in stanza '%s'. Overwrite [N/y] ? ",
             var, stanza);
 
@@ -573,7 +578,7 @@ is_rc_param(const char *line, rc_file_param_t *param)
     /* Fetch the variable and its value */
     if(sscanf(line, "%s %[^ ;\t\n\r#]", var, val) != 2)
     {
-        log_msg(LOG_VERBOSITY_WARNING,
+        log_msg(LOG_WARNING,
             "*Invalid entry in '%s'", line);
         return 0;
     }
@@ -614,13 +619,13 @@ dump_configured_stanzas_from_rcfile(const char* rcfile)
     /* Open the rcfile in read mode */
     if ((rc = fopen(rcfile, "r")) == NULL)
     {
-        log_msg(LOG_VERBOSITY_WARNING, "Unable to open rc file: %s: %s",
+        log_msg(LOG_WARNING, "Unable to open rc file: %s: %s",
             rcfile, strerror(errno));
 
         return EXIT_FAILURE;
     }
 
-    log_msg(LOG_VERBOSITY_NORMAL, "The following stanzas are configured in %s :", rcfile);
+    log_msg(LOG_INFO, "The following stanzas are configured in %s :", rcfile);
 
     /* Parse the rcfile line by line to find stanza */
     while ((fgets(line, MAX_LINE_LEN, rc)) != NULL)
@@ -637,7 +642,7 @@ dump_configured_stanzas_from_rcfile(const char* rcfile)
         {
             /* Print the stanza and continue - we exclude the default stanza */
             if (strcasecmp(curr_stanza, RC_SECTION_DEFAULT) != 0)
-                log_msg(LOG_VERBOSITY_NORMAL, " - %s", curr_stanza);
+                log_msg(LOG_INFO, " - %s", curr_stanza);
             continue;
         }
 
@@ -670,7 +675,7 @@ set_rc_file(char *rcfile, fko_cli_options_t *options)
 
         if(homedir == NULL)
         {
-            log_msg(LOG_VERBOSITY_ERROR, "Warning: Unable to determine HOME directory.\n"
+            log_msg(LOG_ERR, "Warning: Unable to determine HOME directory.\n"
                 " No .fwknoprc file processed.");
             exit(EXIT_FAILURE);
         }
@@ -685,7 +690,7 @@ set_rc_file(char *rcfile, fko_cli_options_t *options)
          */
         if(rcf_offset > (MAX_PATH_LEN - 11))
         {
-            log_msg(LOG_VERBOSITY_ERROR, "Warning: Path to .fwknoprc file is too long.\n"
+            log_msg(LOG_ERR, "Warning: Path to .fwknoprc file is too long.\n"
                 " No .fwknoprc file processed.");
             exit(EXIT_FAILURE);
         }
@@ -724,14 +729,14 @@ keys_status(fko_cli_options_t *options)
         {
             if ((key_gen_file_ptr = fopen(options->key_gen_file, "w")) == NULL)
             {
-                log_msg(LOG_VERBOSITY_ERROR, "Unable to create key gen file: %s: %s",
+                log_msg(LOG_ERR, "Unable to create key gen file: %s: %s",
                     options->key_gen_file, strerror(errno));
                 exit(EXIT_FAILURE);
             }
             fprintf(key_gen_file_ptr, "KEY_BASE64: %s\nHMAC_KEY_BASE64: %s\n",
                 options->key_base64, options->hmac_key_base64);
             fclose(key_gen_file_ptr);
-            log_msg(LOG_VERBOSITY_NORMAL,
+            log_msg(LOG_INFO,
                     "[+] Wrote Rijndael and HMAC keys to: %s",
                 options->key_gen_file);
         }
@@ -740,11 +745,11 @@ keys_status(fko_cli_options_t *options)
             if(options->save_rc_stanza == 1)
             {
                 set_rc_file(rcfile, options);
-                log_msg(LOG_VERBOSITY_NORMAL,
+                log_msg(LOG_INFO,
                     "[+] Wrote Rijndael and HMAC keys to rc file: %s", rcfile);
             }
             else
-                log_msg(LOG_VERBOSITY_NORMAL,
+                log_msg(LOG_INFO,
                         "KEY_BASE64: %s\nHMAC_KEY_BASE64: %s",
                         options->key_base64, options->hmac_key_base64);
         }
@@ -811,7 +816,7 @@ create_fwknoprc(const char *rcfile)
     FILE *rc = NULL;
     int   rcfile_fd = -1;
 
-    log_msg(LOG_VERBOSITY_NORMAL, "[*] Creating initial rc file: %s.", rcfile);
+    log_msg(LOG_INFO, "[*] Creating initial rc file: %s.", rcfile);
 
     /* Try to create the initial rcfile with user read/write rights only.
      * If the rcfile already exists, an error is returned */
@@ -819,7 +824,7 @@ create_fwknoprc(const char *rcfile)
 
     // If an error occured ...
     if (rcfile_fd == -1) {
-            log_msg(LOG_VERBOSITY_WARNING, "Unable to create initial rc file: %s: %s",
+            log_msg(LOG_WARNING, "Unable to create initial rc file: %s: %s",
                 rcfile, strerror(errno));
             return(-1);
     }
@@ -829,7 +834,7 @@ create_fwknoprc(const char *rcfile)
 
     if ((rc = fopen(rcfile, "w")) == NULL)
     {
-        log_msg(LOG_VERBOSITY_WARNING, "Unable to write default setup to rcfile: %s: %s",
+        log_msg(LOG_WARNING, "Unable to write default setup to rcfile: %s: %s",
             rcfile, strerror(errno));
         return(-1);
     }
@@ -933,7 +938,7 @@ parse_rc_param(fko_cli_options_t *options, const char *var_name, char * val)
     int         parse_error = 0;    /* 0 if the variable has been successfully processed, < 0 otherwise */
     fko_var_t  *var;                /* Pointer on an fwknop variable structure */
 
-    log_msg(LOG_VERBOSITY_DEBUG, "parse_rc_param() : Parsing variable %s...", var_name);
+    log_msg(LOG_DEBUG, "parse_rc_param() : Parsing variable %s...", var_name);
 
     /* Lookup the variable according to its name. */
     var = lookup_var_by_name(var_name);
@@ -1021,7 +1026,7 @@ parse_rc_param(fko_cli_options_t *options, const char *var_name, char * val)
                 parse_error = -1;
 
         if(parse_error == -1)
-            log_msg(LOG_VERBOSITY_WARNING,
+            log_msg(LOG_WARNING,
                     "TIME_OFFSET argument '%s' invalid.", val);
     }
     /* symmetric encryption mode */
@@ -1112,7 +1117,7 @@ parse_rc_param(fko_cli_options_t *options, const char *var_name, char * val)
     {
         if (! is_base64((unsigned char *) val, strlen(val)))
         {
-            log_msg(LOG_VERBOSITY_WARNING,
+            log_msg(LOG_WARNING,
                 "KEY_BASE64 argument '%s' doesn't look like base64-encoded data.",
                 val);
             parse_error = -1;
@@ -1131,7 +1136,7 @@ parse_rc_param(fko_cli_options_t *options, const char *var_name, char * val)
     {
         if (! is_base64((unsigned char *) val, strlen(val)))
         {
-            log_msg(LOG_VERBOSITY_WARNING,
+            log_msg(LOG_WARNING,
                 "GPG_SIGNING_KEY_BASE64 argument '%s' doesn't look like base64-encoded data.",
                 val);
             parse_error = -1;
@@ -1145,7 +1150,7 @@ parse_rc_param(fko_cli_options_t *options, const char *var_name, char * val)
         tmpint = hmac_digest_strtoint(val);
         if(tmpint < 0)
         {
-            log_msg(LOG_VERBOSITY_WARNING,
+            log_msg(LOG_WARNING,
                     "HMAC_DIGEST_TYPE argument '%s' must be one of {md5,sha1,sha256,sha384,sha512}",
                     val);
             parse_error = -1;
@@ -1160,7 +1165,7 @@ parse_rc_param(fko_cli_options_t *options, const char *var_name, char * val)
     {
         if (! is_base64((unsigned char *) val, strlen(val)))
         {
-            log_msg(LOG_VERBOSITY_WARNING,
+            log_msg(LOG_WARNING,
                 "HMAC_KEY_BASE64 argument '%s' doesn't look like base64-encoded data.",
                 val);
             parse_error = -1;
@@ -1220,7 +1225,7 @@ parse_rc_param(fko_cli_options_t *options, const char *var_name, char * val)
         options->resolve_url = calloc(1, tmpint);
         if(options->resolve_url == NULL)
         {
-            log_msg(LOG_VERBOSITY_ERROR,"Memory allocation error for resolve URL.");
+            log_msg(LOG_ERR,"Memory allocation error for resolve URL.");
             exit(EXIT_FAILURE);
         }
         strlcpy(options->resolve_url, val, tmpint);
@@ -1242,7 +1247,7 @@ parse_rc_param(fko_cli_options_t *options, const char *var_name, char * val)
         options->wget_bin = calloc(1, tmpint);
         if(options->wget_bin == NULL)
         {
-            log_msg(LOG_VERBOSITY_ERROR,"Memory allocation error for wget command path.");
+            log_msg(LOG_ERR,"Memory allocation error for wget command path.");
             exit(EXIT_FAILURE);
         }
         strlcpy(options->wget_bin, val, tmpint);
@@ -1277,7 +1282,7 @@ parse_rc_param(fko_cli_options_t *options, const char *var_name, char * val)
             options->verbose = 1;
         else
         {
-            tmpint = strtol_wrapper(val, 0, LOG_LAST_VERBOSITY - 1, NO_EXIT_UPON_ERR, &is_err);
+            tmpint = strtol_wrapper(val, LOG_EMERG, LOG_DEBUG, NO_EXIT_UPON_ERR, &is_err);
             if(is_err == FKO_SUCCESS)
                 options->verbose = tmpint;
             else
@@ -1355,6 +1360,20 @@ parse_rc_param(fko_cli_options_t *options, const char *var_name, char * val)
             options->disable_sdp_ctrl_client = 1;
         else
             options->disable_sdp_ctrl_client = 0;
+    }
+    else if (var->pos == FWKNOP_CLI_ARG_FOREGROUND)
+    {
+        if (is_yes_str(val))
+            options->foreground = 1;
+        else
+            options->foreground = 0;
+    }
+    else if (var->pos == FWKNOP_CLI_ARG_SYSLOG_ENABLE)
+    {
+        if (is_yes_str(val))
+            options->syslog_enable = 1;
+        else
+            options->syslog_enable = 0;
     }
 
     /* The variable is not a configuration variable */
@@ -1540,14 +1559,21 @@ add_single_var_to_rc(FILE* fhandle, short var_pos, fko_cli_options_t *options)
         case FWKNOP_CLI_ARG_SDP_CTRL_CLIENT_CONF:
             strlcpy(val, options->sdp_ctrl_client_config_file, sizeof(val));
             break;
+        case FWKNOP_CLI_ARG_FOREGROUND:
+            bool_to_yesno( (int)(options->foreground), val, sizeof(val));
+            break;
+        case FWKNOP_CLI_ARG_SYSLOG_ENABLE:
+            bool_to_yesno( (int)(options->syslog_enable), val, sizeof(val));
+            break;
+
         default:
-            log_msg(LOG_VERBOSITY_WARNING,
+            log_msg(LOG_WARNING,
                     "Warning from add_single_var_to_rc() : Bad variable position %u",
                     var->pos);
             return;
     }
 
-    log_msg(LOG_VERBOSITY_DEBUG,
+    log_msg(LOG_DEBUG,
             "add_single_var_to_rc() : Updating param (%u) %s to %s",
             var->pos, var->name, val);
 
@@ -1615,13 +1641,13 @@ process_rc_section(char *section_name, fko_cli_options_t *options)
                 return -1;
         }
         else
-            log_msg(LOG_VERBOSITY_WARNING, "Unable to open rc file: %s: %s",
+            log_msg(LOG_WARNING, "Unable to open rc file: %s: %s",
                 rcfile, strerror(errno));
 
         return -1;
     }
 
-    log_msg(LOG_VERBOSITY_DEBUG, "process_rc_section() : Parsing section '%s' ...",
+    log_msg(LOG_DEBUG, "process_rc_section() : Parsing section '%s' ...",
                 section_name);
 
     while ((fgets(line, MAX_LINE_LEN, rc)) != NULL)
@@ -1662,7 +1688,7 @@ process_rc_section(char *section_name, fko_cli_options_t *options)
         {
            if(parse_rc_param(options, param.name, param.val) < 0)
             {
-                log_msg(LOG_VERBOSITY_WARNING,
+                log_msg(LOG_WARNING,
                     "Parameter error in %s, line %i: var=%s, val=%s",
                     rcfile, line_num, param.name, param.val);
                 do_exit = 1;
@@ -1713,7 +1739,7 @@ update_rc(fko_cli_options_t *options, fko_var_bitmask_t *bitmask)
     rcfile_fd = open(rcfile_update, FWKNOPRC_OFLAGS, FWKNOPRC_MODE);
     if (rcfile_fd == -1)
     {
-        log_msg(LOG_VERBOSITY_WARNING,
+        log_msg(LOG_WARNING,
                 "update_rc() : Unable to create temporary rc file: %s: %s",
                 rcfile_update, strerror(errno));
         return;
@@ -1724,7 +1750,7 @@ update_rc(fko_cli_options_t *options, fko_var_bitmask_t *bitmask)
      * write mode */
     if ((rc = fopen(rcfile, "r")) == NULL)
     {
-        log_msg(LOG_VERBOSITY_WARNING,
+        log_msg(LOG_WARNING,
                 "update_rc() : Unable to open rc file: %s: %s",
                 rcfile, strerror(errno));
         return;
@@ -1732,7 +1758,7 @@ update_rc(fko_cli_options_t *options, fko_var_bitmask_t *bitmask)
 
     if ((rc_update = fopen(rcfile_update, "w")) == NULL)
     {
-        log_msg(LOG_VERBOSITY_WARNING,
+        log_msg(LOG_WARNING,
                 "update_rc() : Unable to open rc file: %s: %s",
                 rcfile_update, strerror(errno));
         fclose(rc);
@@ -1762,7 +1788,7 @@ update_rc(fko_cli_options_t *options, fko_var_bitmask_t *bitmask)
              * can update our parameters */
             if (stanza_found)
             {
-                log_msg(LOG_VERBOSITY_DEBUG, "update_rc() : Updating %s stanza", options->use_rc_stanza);
+                log_msg(LOG_DEBUG, "update_rc() : Updating %s stanza", options->use_rc_stanza);
                 add_multiple_vars_to_rc(rc_update, options, bitmask);
                 fprintf(rc_update, "\n");
                 stanza_found   = 0;
@@ -1826,14 +1852,14 @@ update_rc(fko_cli_options_t *options, fko_var_bitmask_t *bitmask)
     {
         /* but the stanza has been found, We update it now. */
         if (stanza_found == 1)
-            log_msg(LOG_VERBOSITY_DEBUG, "update_rc() : Updating %s stanza",
+            log_msg(LOG_DEBUG, "update_rc() : Updating %s stanza",
                     options->use_rc_stanza);
 
         /* otherwise we append the new settings to the file */
         else
         {
             fprintf(rc_update, "\n");
-            log_msg(LOG_VERBOSITY_DEBUG, "update_rc() : Inserting new %s stanza",
+            log_msg(LOG_DEBUG, "update_rc() : Inserting new %s stanza",
                     options->use_rc_stanza);
             fprintf(rc_update, RC_SECTION_TEMPLATE, options->use_rc_stanza);
         }
@@ -1851,14 +1877,14 @@ update_rc(fko_cli_options_t *options, fko_var_bitmask_t *bitmask)
     /* Renamed the temporary file as the new rc file */
     if (remove(rcfile) != 0)
     {
-        log_msg(LOG_VERBOSITY_WARNING,
+        log_msg(LOG_WARNING,
                 "update_rc() : Unable to remove %s to %s : %s",
                 rcfile_update, rcfile, strerror(errno));
     }
 
     if (rename(rcfile_update, rcfile) != 0)
     {
-        log_msg(LOG_VERBOSITY_WARNING,
+        log_msg(LOG_WARNING,
                 "update_rc() : Unable to rename %s to %s",
                 rcfile_update, rcfile);
     }
@@ -1874,7 +1900,7 @@ validate_options(fko_cli_options_t *options)
         && (options->got_named_stanza == 0)
         && (options->save_rc_stanza == 0) )
     {
-        log_msg(LOG_VERBOSITY_ERROR,
+        log_msg(LOG_ERR,
                 "Named configuration stanza: [%s] was not found.",
                 options->use_rc_stanza);
 
@@ -1887,7 +1913,7 @@ validate_options(fko_cli_options_t *options)
         */
         if (options->spa_server_str[0] == 0x0)
         {
-            log_msg(LOG_VERBOSITY_ERROR,
+            log_msg(LOG_ERR,
                 "Must use --destination unless --test mode is used");
             exit(EXIT_FAILURE);
         }
@@ -1902,11 +1928,14 @@ validate_options(fko_cli_options_t *options)
         && !options->key_gen
         && !options->version
         && !options->show_last_command
-        && !options->run_last_command)
+        && !options->run_last_command
+        && !options->kill
+        && !options->restart
+        && !options->status)
     {
         if (options->spa_server_str[0] == 0x0)
         {
-            log_msg(LOG_VERBOSITY_ERROR,
+            log_msg(LOG_ERR,
                 "Must use --destination unless --test mode is used");
             exit(EXIT_FAILURE);
         }
@@ -1918,14 +1947,14 @@ validate_options(fko_cli_options_t *options)
         {
             if(options->allow_ip_str[0] == 0x0)
             {
-                log_msg(LOG_VERBOSITY_ERROR,
+                log_msg(LOG_ERR,
                     "Must use one of [-s|-R|-a] to specify IP for SPA access.");
                 exit(EXIT_FAILURE);
             }
             else if(options->verbose
                     && strncmp(options->allow_ip_str, "0.0.0.0", strlen("0.0.0.0")) == 0)
             {
-                log_msg(LOG_VERBOSITY_WARNING,
+                log_msg(LOG_WARNING,
                     "[-] WARNING: Should use -a or -R to harden SPA against potential MITM attacks");
             }
         }
@@ -1936,7 +1965,7 @@ validate_options(fko_cli_options_t *options)
         {
             if(options->sdp_id == FKO_DEFAULT_SDP_ID)
             {
-                log_msg(LOG_VERBOSITY_ERROR,
+                log_msg(LOG_ERR,
                     "SDP_ID must be specified when SDP mode is enabled");
                 exit(EXIT_FAILURE);
             }
@@ -1952,7 +1981,7 @@ validate_options(fko_cli_options_t *options)
 
         if(! is_valid_ipv4_addr(options->allow_ip_str))
         {
-            log_msg(LOG_VERBOSITY_ERROR,
+            log_msg(LOG_ERR,
                 "Invalid allow IP specified for SPA access");
             exit(EXIT_FAILURE);
         }
@@ -1962,14 +1991,14 @@ validate_options(fko_cli_options_t *options)
     {
         if(! is_valid_ipv4_addr(options->spoof_ip_src_str))
         {
-            log_msg(LOG_VERBOSITY_ERROR, "Invalid spoof IP");
+            log_msg(LOG_ERR, "Invalid spoof IP");
             exit(EXIT_FAILURE);
         }
         if(options->spa_proto != FKO_PROTO_TCP_RAW
                 && options->spa_proto != FKO_PROTO_UDP_RAW
                 && options->spa_proto != FKO_PROTO_ICMP)
         {
-            log_msg(LOG_VERBOSITY_ERROR,
+            log_msg(LOG_ERR,
                     "Must set -P <udpraw|tcpraw|icmp> with a spoofed source IP");
             exit(EXIT_FAILURE);
         }
@@ -1982,7 +2011,7 @@ validate_options(fko_cli_options_t *options)
 
     if(options->http_proxy[0] != 0x0 && options->spa_proto != FKO_PROTO_HTTP)
     {
-        log_msg(LOG_VERBOSITY_ERROR,
+        log_msg(LOG_ERR,
             "Cannot set --http-proxy with a non-HTTP protocol.");
         exit(EXIT_FAILURE);
     }
@@ -1993,7 +2022,7 @@ validate_options(fko_cli_options_t *options)
     {
         if(strlen(options->gpg_recipient_key) == 0)
         {
-            log_msg(LOG_VERBOSITY_ERROR,
+            log_msg(LOG_ERR,
                 "Must specify --gpg-recipient-key when GPG is used.");
             exit(EXIT_FAILURE);
         }
@@ -2002,7 +2031,7 @@ validate_options(fko_cli_options_t *options)
     if(options->encryption_mode == FKO_ENC_MODE_ASYMMETRIC
             && ! options->use_gpg)
     {
-        log_msg(LOG_VERBOSITY_ERROR,
+        log_msg(LOG_ERR,
             "Must specify GPG recipient/signing keys when Asymmetric encryption mode is used.");
         exit(EXIT_FAILURE);
     }
@@ -2010,7 +2039,7 @@ validate_options(fko_cli_options_t *options)
     if(options->encryption_mode == FKO_ENC_MODE_CBC_LEGACY_IV
             && options->use_hmac)
     {
-        log_msg(LOG_VERBOSITY_ERROR,
+        log_msg(LOG_ERR,
             "Legacy encryption mode is incompatible with HMAC usage.");
         exit(EXIT_FAILURE);
     }
@@ -2101,6 +2130,22 @@ config_init(fko_cli_options_t *options, int argc, char **argv)
                 options->verbose++;
                 add_var_to_bitmask(FWKNOP_CLI_ARG_VERBOSE, &var_bitmask);
                 break;
+            case FOREGROUND:
+                options->foreground = 1;
+                break;
+            case SYSLOG_ENABLE:
+                options->syslog_enable = 1;
+                break;
+            case KILL:
+                options->kill = 1;
+                break;
+            case RESTART:
+                options->restart = 1;
+                break;
+            case STATUS:
+                options->status = 1;
+                break;
+
         }
     }
 
@@ -2165,7 +2210,7 @@ config_init(fko_cli_options_t *options, int argc, char **argv)
                         (2 << 16), NO_EXIT_UPON_ERR, &is_err);
                 if(is_err != FKO_SUCCESS)
                 {
-                    log_msg(LOG_VERBOSITY_ERROR, "--fw-timeout must be within [%d-%d]",
+                    log_msg(LOG_ERR, "--fw-timeout must be within [%d-%d]",
                             0, (2 << 16));
                     exit(EXIT_FAILURE);
                 }
@@ -2175,7 +2220,7 @@ config_init(fko_cli_options_t *options, int argc, char **argv)
 #if HAVE_LIBFIU
                 strlcpy(options->fault_injection_tag, optarg, sizeof(options->fault_injection_tag));
 #else
-                log_msg(LOG_VERBOSITY_ERROR,
+                log_msg(LOG_ERR,
                     "fwknop not compiled with fault injection support.", optarg);
                 exit(EXIT_FAILURE);
 #endif
@@ -2214,7 +2259,7 @@ config_init(fko_cli_options_t *options, int argc, char **argv)
             case KEY_RIJNDAEL_BASE64:
                 if (! is_base64((unsigned char *) optarg, strlen(optarg)))
                 {
-                    log_msg(LOG_VERBOSITY_ERROR,
+                    log_msg(LOG_ERR,
                         "Base64 encoded Rijndael argument '%s' doesn't look like base64-encoded data.",
                         optarg);
                     exit(EXIT_FAILURE);
@@ -2226,7 +2271,7 @@ config_init(fko_cli_options_t *options, int argc, char **argv)
             case KEY_HMAC_BASE64:
                 if (! is_base64((unsigned char *) optarg, strlen(optarg)))
                 {
-                    log_msg(LOG_VERBOSITY_ERROR,
+                    log_msg(LOG_ERR,
                         "Base64 encoded HMAC argument '%s' doesn't look like base64-encoded data.",
                         optarg);
                     exit(EXIT_FAILURE);
@@ -2249,7 +2294,7 @@ config_init(fko_cli_options_t *options, int argc, char **argv)
                         MAX_KEY_LEN, NO_EXIT_UPON_ERR, &is_err);
                 if(is_err != FKO_SUCCESS)
                 {
-                    log_msg(LOG_VERBOSITY_ERROR,
+                    log_msg(LOG_ERR,
                             "Invalid key length '%s', must be in [%d-%d]",
                             optarg, 1, MAX_KEY_LEN);
                     exit(EXIT_FAILURE);
@@ -2258,7 +2303,7 @@ config_init(fko_cli_options_t *options, int argc, char **argv)
             case HMAC_DIGEST_TYPE:
                 if((options->hmac_type = hmac_digest_strtoint(optarg)) < 0)
                 {
-                    log_msg(LOG_VERBOSITY_ERROR,
+                    log_msg(LOG_ERR,
                         "* Invalid hmac digest type: %s, use {md5,sha1,sha256,sha384,sha512}",
                         optarg);
                     exit(EXIT_FAILURE);
@@ -2272,7 +2317,7 @@ config_init(fko_cli_options_t *options, int argc, char **argv)
                         MAX_KEY_LEN, NO_EXIT_UPON_ERR, &is_err);
                 if(is_err != FKO_SUCCESS)
                 {
-                    log_msg(LOG_VERBOSITY_ERROR,
+                    log_msg(LOG_ERR,
                             "Invalid hmac key length '%s', must be in [%d-%d]",
                             optarg, 1, MAX_KEY_LEN);
                     exit(EXIT_FAILURE);
@@ -2285,7 +2330,7 @@ config_init(fko_cli_options_t *options, int argc, char **argv)
                         MAX_ICMP_TYPE, NO_EXIT_UPON_ERR, &is_err);
                 if(is_err != FKO_SUCCESS)
                 {
-                    log_msg(LOG_VERBOSITY_ERROR,
+                    log_msg(LOG_ERR,
                             "Invalid icmp type '%s', must be in [%d-%d]",
                             optarg, 0, MAX_ICMP_TYPE);
                     exit(EXIT_FAILURE);
@@ -2296,7 +2341,7 @@ config_init(fko_cli_options_t *options, int argc, char **argv)
                         MAX_ICMP_CODE, NO_EXIT_UPON_ERR, &is_err);
                 if(is_err != FKO_SUCCESS)
                 {
-                    log_msg(LOG_VERBOSITY_ERROR,
+                    log_msg(LOG_ERR,
                             "Invalid icmp code '%s', must be in [%d-%d]",
                             optarg, 0, MAX_ICMP_CODE);
                     exit(EXIT_FAILURE);
@@ -2309,7 +2354,7 @@ config_init(fko_cli_options_t *options, int argc, char **argv)
             case FKO_DIGEST_NAME:
                 if((options->digest_type = digest_strtoint(optarg)) < 0)
                 {
-                    log_msg(LOG_VERBOSITY_ERROR,
+                    log_msg(LOG_ERR,
                         "* Invalid digest type: %s, use {md5,sha1,sha256,sha384,sha512}",
                     optarg);
                     exit(EXIT_FAILURE);
@@ -2320,7 +2365,7 @@ config_init(fko_cli_options_t *options, int argc, char **argv)
             case ENCRYPTION_MODE:
                 if((options->encryption_mode = enc_mode_strtoint(optarg)) < 0)
                 {
-                    log_msg(LOG_VERBOSITY_ERROR,
+                    log_msg(LOG_ERR,
                         "* Invalid encryption mode: %s, use {CBC,CTR,legacy,Asymmetric}",
                     optarg);
                     exit(EXIT_FAILURE);
@@ -2347,7 +2392,7 @@ config_init(fko_cli_options_t *options, int argc, char **argv)
             case 'P':
                 if((options->spa_proto = proto_strtoint(optarg)) < 0)
                 {
-                    log_msg(LOG_VERBOSITY_ERROR, "Unrecognized protocol: %s", optarg);
+                    log_msg(LOG_ERR, "Unrecognized protocol: %s", optarg);
                     exit(EXIT_FAILURE);
                 }
                 add_var_to_bitmask(FWKNOP_CLI_ARG_SPA_SERVER_PROTO, &var_bitmask);
@@ -2380,7 +2425,7 @@ config_init(fko_cli_options_t *options, int argc, char **argv)
                 options->resolve_url = calloc(1, rlen);
                 if(options->resolve_url == NULL)
                 {
-                    log_msg(LOG_VERBOSITY_ERROR, "Memory allocation error for resolve URL.");
+                    log_msg(LOG_ERR, "Memory allocation error for resolve URL.");
                     exit(EXIT_FAILURE);
                 }
                 strlcpy(options->resolve_url, optarg, rlen);
@@ -2405,7 +2450,7 @@ config_init(fko_cli_options_t *options, int argc, char **argv)
                 options->wget_bin = calloc(1, rlen);
                 if(options->wget_bin == NULL)
                 {
-                    log_msg(LOG_VERBOSITY_ERROR, "Memory allocation error for resolve URL.");
+                    log_msg(LOG_ERR, "Memory allocation error for resolve URL.");
                     exit(EXIT_FAILURE);
                 }
                 strlcpy(options->wget_bin, optarg, rlen);
@@ -2496,7 +2541,7 @@ config_init(fko_cli_options_t *options, int argc, char **argv)
             case TIME_OFFSET_PLUS:
                 if (! parse_time_offset(optarg, &options->time_offset_plus))
                 {
-                    log_msg(LOG_VERBOSITY_WARNING,
+                    log_msg(LOG_WARNING,
                         "Invalid time offset: '%s'", optarg);
                     exit(EXIT_FAILURE);
                 }
@@ -2505,7 +2550,7 @@ config_init(fko_cli_options_t *options, int argc, char **argv)
             case TIME_OFFSET_MINUS:
                 if (! parse_time_offset(optarg, &options->time_offset_minus))
                 {
-                    log_msg(LOG_VERBOSITY_WARNING,
+                    log_msg(LOG_WARNING,
                         "Invalid time offset: '%s'", optarg);
                     exit(EXIT_FAILURE);
                 }
@@ -2527,11 +2572,31 @@ config_init(fko_cli_options_t *options, int argc, char **argv)
                 break;
             case FD_SET_ALT:
 #ifdef WIN32
-                log_msg(LOG_VERBOSITY_ERROR, "Read password from FD not supported on Windows");
+                log_msg(LOG_ERR, "Read password from FD not supported on Windows");
                 exit(EXIT_FAILURE);
 #endif
                 options->input_fd = strtol_wrapper(optarg, 0,
                         -1, EXIT_UPON_ERR, &is_err);
+                break;
+            case FOREGROUND:
+                /* Handled earlier.
+                */
+                break;
+            case SYSLOG_ENABLE:
+                /* Handled earlier.
+                */
+                break;
+            case KILL:
+                /* Handled earlier.
+                */
+                break;
+            case RESTART:
+                /* Handled earlier.
+                */
+                break;
+            case STATUS:
+                /* Handled earlier.
+                */
                 break;
             default:
                 usage();
@@ -2573,10 +2638,10 @@ config_init(fko_cli_options_t *options, int argc, char **argv)
 void
 usage(void)
 {
-    log_msg(LOG_VERBOSITY_NORMAL,
+    log_msg(LOG_INFO,
             "\n%s client version %s\n%s - http://%s/fwknop/\n",
             MY_NAME, MY_VERSION, MY_DESC, HTTP_RESOLVE_HOST);
-    log_msg(LOG_VERBOSITY_NORMAL,
+    log_msg(LOG_INFO,
       "Usage: fwknop -A <port list> [-s|-R|-a] -D <spa_server> [options]\n\n"
       " -n, --named-config          Specify a named configuration stanza in the\n"
       "                             '$HOME/.fwknoprc' file to provide some of all\n"
@@ -2735,7 +2800,7 @@ usage(void)
 
 DECLARE_TEST_SUITE_INIT(config_init)
 {
-    log_set_verbosity(LOG_VERBOSITY_ERROR);
+    log_set_verbosity(LOG_ERR);
     return 0;
 }
 

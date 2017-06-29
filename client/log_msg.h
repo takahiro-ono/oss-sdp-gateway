@@ -1,7 +1,9 @@
-/**
- * @file    log_msg.h
+/*
+ *****************************************************************************
  *
- * @brief   Header file for log_msg.c
+ * File:    log_msg.h
+ *
+ * Purpose: Header file for log_msg.c.
  *
  *  Fwknop is developed primarily by the people listed in the file 'AUTHORS'.
  *  Copyright (C) 2009-2014 fwknop developers and contributors. For a full
@@ -23,28 +25,34 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307
  *  USA
- */
-
+ *
+ *****************************************************************************
+*/
 #ifndef LOG_MSG_H
 #define LOG_MSG_H
 
-enum
-{
-    LOG_FIRST_VERBOSITY = 0,
-    LOG_VERBOSITY_ERROR = 0,    /*!< Constant to define a ERROR message */
-    LOG_VERBOSITY_WARNING,      /*!< Constant to define a WARNING message */
-    LOG_VERBOSITY_NORMAL,       /*!< Constant to define a NORMAL message */
-    LOG_VERBOSITY_INFO,         /*!< Constant to define a INFO message */
-    LOG_VERBOSITY_DEBUG,        /*!< Constant to define a DEBUG message */
-    LOG_LAST_VERBOSITY
-} log_level_t;
+#include <syslog.h>
+#include <stdarg.h>
+#include "fwknop_common.h"
 
-#define LOG_DEFAULT_VERBOSITY   LOG_VERBOSITY_NORMAL    /*!< Default verbosity to use */
+/* The LOG_STDERR value can be or'ed with the msg_log() level value
+ * to cause message going to syslog to be printed to stderr as well.
+ * LOG_STDERR_ONLY can be set to send a message stderr with a copy to
+ * syslog as well.
+*/
+#define LOG_SYSLOG_ONLY         0x0000
+#define LOG_STDERR              0x1000
+#define LOG_WITHOUT_SYSLOG      0x2000
+#define LOG_STDERR_ONLY         (LOG_STDERR | LOG_WITHOUT_SYSLOG)
+#define LOG_VERBOSITY_MASK      0x0FFF
 
-void log_new(void);
-void log_free(void);
+#define LOG_DEFAULT_VERBOSITY   LOG_INFO     /*!< Default verbosity to use */
+
+int  init_logging(fko_cli_options_t *opts);
+void free_logging(void);
+void set_log_facility(int fac);
+void log_msg(int, char*, ...);
 void log_set_verbosity(int level);
-void log_msg(int verbosity_level, char *msg, ...);
 
 #endif /* LOG_MSG_H */
 

@@ -31,6 +31,9 @@
 #include "common.h"
 #include "fwknop_common.h"
 #include "utils.h"
+#include "log_msg.h"
+#include "control_client.h"
+
 #ifndef WIN32
 #include <arpa/inet.h>
 #endif
@@ -56,6 +59,68 @@ static fko_protocol_t fko_protocol_array[] =
     { "http",   FKO_PROTO_HTTP      }
 };
 
+
+/* free up memory and exit
+*/
+void
+clean_exit(fko_ctx_t ctx, fko_cli_options_t *opts,
+        char *key, int *key_len, char *hmac_key, int *hmac_key_len,
+        unsigned int exit_status)
+{
+#if HAVE_LIBFIU
+    if(opts->fault_injection_tag[0] != 0x0)
+        fiu_disable(opts->fault_injection_tag);
+#endif
+    
+    destroy_control_client(opts);
+
+    if(fko_destroy(ctx) == FKO_ERROR_ZERO_OUT_DATA)
+        log_msg(LOG_ERR,
+                "[*] Could not zero out sensitive data buffer.");
+    ctx = NULL;
+    free_configs(opts);
+    zero_buf_wrapper(key, *key_len);
+    zero_buf_wrapper(hmac_key, *hmac_key_len);
+    *key_len = 0;
+    *hmac_key_len = 0;
+    log_msg(LOG_DEBUG, "fwknop clean_exit() : Supposedly exiting successfully, code is: %d", exit_status);
+    free_logging();
+    exit(exit_status);
+}
+
+void
+free_configs(fko_cli_options_t *opts)
+{
+    if (opts->resolve_url != NULL)
+        free(opts->resolve_url);
+    if (opts->wget_bin != NULL)
+        free(opts->wget_bin);
+    zero_buf_wrapper(opts->key, MAX_KEY_LEN+1);
+    zero_buf_wrapper(opts->key_base64, MAX_B64_KEY_LEN+1);
+    zero_buf_wrapper(opts->hmac_key, MAX_KEY_LEN+1);
+    zero_buf_wrapper(opts->hmac_key_base64, MAX_B64_KEY_LEN+1);
+    zero_buf_wrapper(opts->gpg_recipient_key, MAX_GPG_KEY_ID);
+    zero_buf_wrapper(opts->gpg_signer_key, MAX_GPG_KEY_ID);
+    zero_buf_wrapper(opts->gpg_home_dir, MAX_PATH_LEN);
+    zero_buf_wrapper(opts->server_command, MAX_LINE_LEN);
+}
+
+
+void
+zero_buf_wrapper(char *buf, int len)
+{
+
+    if(buf == NULL || len == 0)
+        return;
+
+    if(zero_buf(buf, len) == FKO_ERROR_ZERO_OUT_DATA)
+        log_msg(LOG_ERR,
+                "[*] Could not zero out sensitive data buffer.");
+
+    return;
+}
+
+
 int
 verify_file_perms_ownership(const char *file)
 {
@@ -74,7 +139,7 @@ verify_file_perms_ownership(const char *file)
         */
         if(S_ISREG(st.st_mode) != 1 && S_ISLNK(st.st_mode) != 1)
         {
-            log_msg(LOG_VERBOSITY_ERROR,
+            log_msg(LOG_ERR,
                 "[-] file: %s is not a regular file or symbolic link.",
                 file
             );
@@ -86,7 +151,7 @@ verify_file_perms_ownership(const char *file)
 
         if((st.st_mode & (S_IRWXU|S_IRWXG|S_IRWXO)) != (S_IRUSR|S_IWUSR))
         {
-            log_msg(LOG_VERBOSITY_ERROR,
+            log_msg(LOG_ERR,
                 "[-] file: %s permissions should only be user read/write (0600, -rw-------)",
                 file
             );
@@ -99,7 +164,7 @@ verify_file_perms_ownership(const char *file)
         caller_uid = getuid();
         if(st.st_uid != caller_uid)
         {
-            log_msg(LOG_VERBOSITY_ERROR, "[-] file: %s (owner: %llu) not owned by current effective user id: %llu",
+            log_msg(LOG_ERR, "[-] file: %s (owner: %llu) not owned by current effective user id: %llu",
                 file, (unsigned long long)st.st_uid, (unsigned long long)caller_uid);
 
             /* when we start in enforcing this instead of just warning
@@ -115,7 +180,7 @@ verify_file_perms_ownership(const char *file)
         */
         if(errno != ENOENT)
         {
-            log_msg(LOG_VERBOSITY_ERROR, "[-] stat() against file: %s returned: %s",
+            log_msg(LOG_ERR, "[-] stat() against file: %s returned: %s",
                 file, strerror(errno));
             res = 0;
         }
@@ -169,8 +234,8 @@ resolve_dst_addr(const char *dns_str, struct addrinfo *hints,
     struct addrinfo    *result;     /* Result of getaddrinfo() */
     struct addrinfo    *rp;         /* Element of the linked list returned by getaddrinfo() */
 #if WIN32 && WINVER <= 0x0600
-	struct sockaddr_in *in;
-	char			   *win_ip;
+    struct sockaddr_in *in;
+    char               *win_ip;
 #else
     struct sockaddr_in *sai_remote; /* Remote host information as a sockaddr_in structure */
 #endif
@@ -193,20 +258,20 @@ resolve_dst_addr(const char *dns_str, struct addrinfo *hints,
             {
                 if(rp->ai_family != AF_INET)
                 {
-                    log_msg(LOG_VERBOSITY_DEBUG, "Non-IPv4 resolution");
+                    log_msg(LOG_DEBUG, "Non-IPv4 resolution");
                     continue;
                 }
             }
 
             memset(ip_str, 0, ip_bufsize);
 #if WIN32 && WINVER <= 0x0600
-			/* On older Windows systems (anything before Vista?),
-			 * we use inet_ntoa for now.
-			*/
-			in = (struct sockaddr_in*)(rp->ai_addr);
-			win_ip = inet_ntoa(in->sin_addr);
+            /* On older Windows systems (anything before Vista?),
+             * we use inet_ntoa for now.
+            */
+            in = (struct sockaddr_in*)(rp->ai_addr);
+            win_ip = inet_ntoa(in->sin_addr);
 
-			if (win_ip != NULL && (strlcpy(ip_str, win_ip, ip_bufsize) > 0))
+            if (win_ip != NULL && (strlcpy(ip_str, win_ip, ip_bufsize) > 0))
 #else
             sai_remote = (struct sockaddr_in *)get_in_addr((struct sockaddr *)(rp->ai_addr));
             if (inet_ntop(rp->ai_family, sai_remote, ip_str, ip_bufsize) != NULL)
@@ -216,7 +281,7 @@ resolve_dst_addr(const char *dns_str, struct addrinfo *hints,
                 break;
             }
             else
-                log_msg(LOG_VERBOSITY_ERROR, "resolve_dst_addr() : inet_ntop (%d) - %s",
+                log_msg(LOG_ERR, "resolve_dst_addr() : inet_ntop (%d) - %s",
                         errno, strerror(errno));
         }
 
@@ -298,14 +363,14 @@ add_argv(char **argv_new, int *argc_new,
     int buf_size = 0;
 
     if(opts->verbose > 2)
-        log_msg(LOG_VERBOSITY_NORMAL, "[+] add_argv() + arg: %s", new_arg);
+        log_msg(LOG_INFO, "[+] add_argv() + arg: %s", new_arg);
 
     buf_size = strlen(new_arg) + 1;
     argv_new[*argc_new] = calloc(1, buf_size);
 
     if(argv_new[*argc_new] == NULL)
     {
-        log_msg(LOG_VERBOSITY_ERROR, "[*] Memory allocation error.");
+        log_msg(LOG_ERR, "[*] Memory allocation error.");
         return 0;
     }
     strlcpy(argv_new[*argc_new], new_arg, buf_size);
@@ -314,7 +379,7 @@ add_argv(char **argv_new, int *argc_new,
 
     if(*argc_new >= MAX_CMDLINE_ARGS-1)
     {
-        log_msg(LOG_VERBOSITY_ERROR, "[*] max command line args exceeded.");
+        log_msg(LOG_ERR, "[*] max command line args exceeded.");
         return 0;
     }
 
