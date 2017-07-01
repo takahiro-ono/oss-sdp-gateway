@@ -35,7 +35,7 @@
 
 
 
-unsigned short ip_in_cksum(struct iphdr *iph, unsigned short *ptr, int nbytes)
+unsigned short ip_in_cksum(struct common_iphdr *iph, unsigned short *ptr, int nbytes)
 {
 
 	register long sum = 0;	/* assumes long == 32 bits */

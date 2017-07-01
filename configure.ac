@@ -557,6 +557,14 @@ AC_SEARCH_LIBS([pthread_create], [pthread],
   [ AC_MSG_ERROR([libfko and fwknopd need pthread]) ]
 )
   
+dnl Check for libuv
+dnl
+AC_CHECK_HEADER(uv.h, , [ AC_MSG_ERROR( [did not find uv.h] ) ] )
+AC_SEARCH_LIBS([uv_loop_init], [uv],
+  ,
+  [ AC_MSG_ERROR([client and gateway need libuv])]
+)
+
 
 dnl Check for libpcap, gdbm (or ndbm) if we are building the server component
 dnl

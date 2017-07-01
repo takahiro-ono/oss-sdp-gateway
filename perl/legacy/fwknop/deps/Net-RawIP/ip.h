@@ -1,4 +1,4 @@
-struct iphdr
+struct common_iphdr
   {
 #if __BYTE_ORDER == __LITTLE_ENDIAN
     u_int8_t ihl:4;

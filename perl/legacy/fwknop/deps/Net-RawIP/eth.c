@@ -146,14 +146,14 @@ void send_eth_packet(int fd, char* eth_device, u_char *pkt, int len, int flag)
 
 #ifdef _BSDRAW_
     if (flag) {
-        ((struct iphdr *)(pkt + 14))->tot_len
-            = htons(((struct iphdr *)(pkt + 14))->tot_len);        
-        ((struct iphdr *)(pkt + 14))->frag_off
-            = htons(((struct iphdr *)(pkt + 14))->frag_off);        
-        ((struct iphdr *)(pkt + 14))->check = 0;        
-        ((struct iphdr *)(pkt + 14))->check 
+        ((struct common_iphdr *)(pkt + 14))->tot_len
+            = htons(((struct common_iphdr *)(pkt + 14))->tot_len);        
+        ((struct common_iphdr *)(pkt + 14))->frag_off
+            = htons(((struct common_iphdr *)(pkt + 14))->frag_off);        
+        ((struct common_iphdr *)(pkt + 14))->check = 0;        
+        ((struct common_iphdr *)(pkt + 14))->check 
             = in_cksum((unsigned short*)(pkt + 14), 
-                    4*((struct iphdr *)(pkt + 14))->ihl);
+                    4*((struct common_iphdr *)(pkt + 14))->ihl);
     }
 #endif
     retval = write(fd,pkt,len);

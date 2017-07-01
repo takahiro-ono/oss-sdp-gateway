@@ -215,10 +215,10 @@ send_spa_packet_tcp_raw(const char *spa_data, const int sd_len,
     int  sock, res = 0;
     char pkt_data[2048] = {0}; /* Should be enough for our purposes */
 
-    struct iphdr  *iph  = (struct iphdr *) pkt_data;
-    struct tcphdr *tcph = (struct tcphdr *) (pkt_data + sizeof (struct iphdr));
+    struct common_iphdr  *iph  = (struct common_iphdr *) pkt_data;
+    struct common_tcphdr *tcph = (struct common_tcphdr *) (pkt_data + sizeof (struct common_iphdr));
 
-    int hdrlen = sizeof(struct iphdr) + sizeof(struct tcphdr);
+    int hdrlen = sizeof(struct common_iphdr) + sizeof(struct common_tcphdr);
 
     /* Values for setsockopt.
     */
@@ -328,10 +328,10 @@ send_spa_packet_udp_raw(const char *spa_data, const int sd_len,
     int  sock, res = 0;
     char pkt_data[2048] = {0}; /* Should be enough for our purposes */
 
-    struct iphdr  *iph  = (struct iphdr *) pkt_data;
-    struct udphdr *udph = (struct udphdr *) (pkt_data + sizeof (struct iphdr));
+    struct common_iphdr  *iph  = (struct common_iphdr *) pkt_data;
+    struct common_udphdr *udph = (struct common_udphdr *) (pkt_data + sizeof (struct common_iphdr));
 
-    int hdrlen = sizeof(struct iphdr) + sizeof(struct udphdr);
+    int hdrlen = sizeof(struct common_iphdr) + sizeof(struct common_udphdr);
 
     /* Values for setsockopt.
     */
@@ -378,7 +378,7 @@ send_spa_packet_udp_raw(const char *spa_data, const int sd_len,
     udph->source    = saddr->sin_port;
     udph->dest      = daddr->sin_port;
     udph->check     = 0;
-    udph->len       = htons(sd_len + sizeof(struct udphdr));
+    udph->len       = htons(sd_len + sizeof(struct common_udphdr));
 
     /* Now we can compute our checksum.
     */
@@ -426,10 +426,10 @@ send_spa_packet_icmp(const char *spa_data, const int sd_len,
     int res = 0, sock;
     char pkt_data[2048] = {0};
 
-    struct iphdr  *iph    = (struct iphdr *) pkt_data;
-    struct icmphdr *icmph = (struct icmphdr *) (pkt_data + sizeof (struct iphdr));
+    struct common_iphdr  *iph    = (struct common_iphdr *) pkt_data;
+    struct common_icmphdr *icmph = (struct common_icmphdr *) (pkt_data + sizeof (struct common_iphdr));
 
-    int hdrlen = sizeof(struct iphdr) + sizeof(struct icmphdr);
+    int hdrlen = sizeof(struct common_iphdr) + sizeof(struct common_icmphdr);
 
     /* Values for setsockopt.
     */
@@ -487,7 +487,7 @@ send_spa_packet_icmp(const char *spa_data, const int sd_len,
     /* Now we can compute our checksum.
     */
     iph->check = chksum((unsigned short *)pkt_data, iph->tot_len);
-    icmph->checksum = chksum((unsigned short *)icmph, sizeof(struct icmphdr) + sd_len);
+    icmph->checksum = chksum((unsigned short *)icmph, sizeof(struct common_icmphdr) + sd_len);
 
     /* Make sure the kernel knows the header is included in the data so it
      * doesn't try to insert its own header into the packet.

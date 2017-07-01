@@ -50,10 +50,10 @@ process_packet(unsigned char *args, const struct pcap_pkthdr *packet_header,
     const unsigned char *packet)
 {
     struct ether_header *eth_p;
-    struct iphdr        *iph_p;
-    struct tcphdr       *tcph_p;
-    struct udphdr       *udph_p;
-    struct icmphdr      *icmph_p;
+    struct common_iphdr        *iph_p;
+    struct common_tcphdr       *tcph_p;
+    struct common_udphdr       *udph_p;
+    struct common_icmphdr      *icmph_p;
 
     unsigned char       *pkt_data;
     unsigned short      pkt_data_len;
@@ -125,7 +125,7 @@ process_packet(unsigned char *args, const struct pcap_pkthdr *packet_header,
 
     /* Pull the IP header.
     */
-    iph_p = (struct iphdr*)(packet + offset);
+    iph_p = (struct common_iphdr*)(packet + offset);
 
     /* If IP header is past calculated packet end, bail.
     */
@@ -161,12 +161,12 @@ process_packet(unsigned char *args, const struct pcap_pkthdr *packet_header,
     {
         /* Process TCP packet
         */
-        tcph_p = (struct tcphdr*)((unsigned char*)iph_p + (ip_hdr_words << 2));
+        tcph_p = (struct common_tcphdr*)((unsigned char*)iph_p + (ip_hdr_words << 2));
 
         src_port = ntohs(tcph_p->source);
         dst_port = ntohs(tcph_p->dest);
 
-        pkt_data = ((unsigned char*)(tcph_p+1))+((tcph_p->doff)<<2)-sizeof(struct tcphdr);
+        pkt_data = ((unsigned char*)(tcph_p+1))+((tcph_p->doff)<<2)-sizeof(struct common_tcphdr);
 
         pkt_data_len = (pkt_end-(unsigned char*)iph_p)-(pkt_data-(unsigned char*)iph_p);
     }
@@ -174,7 +174,7 @@ process_packet(unsigned char *args, const struct pcap_pkthdr *packet_header,
     {
         /* Process UDP packet
         */
-        udph_p = (struct udphdr*)((unsigned char*)iph_p + (ip_hdr_words << 2));
+        udph_p = (struct common_udphdr*)((unsigned char*)iph_p + (ip_hdr_words << 2));
 
         src_port = ntohs(udph_p->source);
         dst_port = ntohs(udph_p->dest);
@@ -186,7 +186,7 @@ process_packet(unsigned char *args, const struct pcap_pkthdr *packet_header,
     {
         /* Process ICMP packet
         */
-        icmph_p = (struct icmphdr*)((unsigned char*)iph_p + (ip_hdr_words << 2));
+        icmph_p = (struct common_icmphdr*)((unsigned char*)iph_p + (ip_hdr_words << 2));
 
         pkt_data = ((unsigned char*)(icmph_p + 1));
         pkt_data_len = (pkt_end-(unsigned char*)iph_p)-(pkt_data-(unsigned char*)iph_p);

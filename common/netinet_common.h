@@ -74,7 +74,7 @@
 
 /* The IP header
 */
-struct iphdr
+struct common_iphdr
 {
 #if __BYTE_ORDER == __LITTLE_ENDIAN
     unsigned int ihl:4;
@@ -98,7 +98,7 @@ struct iphdr
 
 /* The TCP header
 */
-struct tcphdr
+struct common_tcphdr
 {
     unsigned short source;
     unsigned short dest;
@@ -134,7 +134,7 @@ struct tcphdr
 
 /* The UDP header
 */
-struct udphdr {
+struct common_udphdr {
     unsigned short source;              /* source port */
     unsigned short dest;                /* destination port */
     unsigned short len;                 /* udp length */
@@ -143,7 +143,7 @@ struct udphdr {
 
 /* The ICMP header
 */
-struct icmphdr
+struct common_icmphdr
 {
     unsigned char type;                 /* message type */
     unsigned char code;                 /* type sub-code */
