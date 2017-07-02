@@ -9,24 +9,53 @@
 #define TUNNEL_MANAGER_H_
 
 #include <uv.h>
+#include "fko_limits.h"
+
+#define ID_TOKEN_BUF_LEN 2048
+
+struct tunneled_service{
+    uint32_t service_id;
+    uint32_t idp_id;
+    char id_token[ID_TOKEN_BUF_LEN];
+    struct tunneled_service *next;
+};
+typedef struct tunneled_service *tunneled_service_t;
 
 struct tunnel_info{
-    int x;
+    uint32_t sdp_id;
+    char remote_public_ip[MAX_IPV4_STR_LEN];
+    char remote_tunnel_ip[MAX_IPV4_STR_LEN];
+    unsigned int remote_port;
+    tunneled_service_t services_requested;
+    tunneled_service_t services_opened;
+    uv_tcp_t *handle;
+    hash_table_t *containing_tbl;
+    time_t created_time;
     struct tunnel_info *next;
 };
 typedef struct tunnel_info *tunnel_info_t;
 
+
+struct tunnel_info_node{
+    tunnel_info_t tunnel_data;
+    struct tunnel_info_node *next;
+};
+typedef struct tunnel_info_node *tunnel_info_node_t;
+
 struct tunnel_manager{
     uv_loop_t *loop;
     uv_pipe_t *tm_pipe;
+    uv_pipe_t *tm_pipe_client;
     int tm_sock_fd;
+    uv_tcp_t *tm_tcp_server;
     //uv_pipe_t *pipe_to_tm;
     //int read_pipe_to_tunnel_manager;
 	//int write_pipe_to_tunnel_manager;
     //int read_pipe_from_tunnel_manager;
 	//int write_pipe_from_tunnel_manager;
-	hash_table_t *tunnel_hash_tbl;
-	hash_table_t *waiting_tunnel_hash_tbl;
+	hash_table_t *open_tunnel_hash_tbl;
+	hash_table_t *requested_tunnel_hash_tbl;
+    pthread_mutex_t requested_tunnel_hash_tbl_mutex;
 };
 typedef struct tunnel_manager *tunnel_manager_t;
 
@@ -37,9 +66,17 @@ typedef struct {
 } write_req_t;
 
 
-
 void tunnel_manager_destroy(tunnel_manager_t tunnel_mgr);
-int tunnel_manager_new(int tbl_len, tunnel_manager_t *r_tunnel_mgr);
-int tunnel_manager_connect_pipe(tunnel_manager_t tunnel_mgr);
+int  tunnel_manager_new(int tbl_len, tunnel_manager_t *r_tunnel_mgr);
+int  tunnel_manager_connect_pipe(tunnel_manager_t tunnel_mgr);
+int  tunnel_manager_send_stop(tunnel_manager_t tunnel_mgr);
+int  tunnel_manager_submit_client_request(tunnel_manager_t tunnel_mgr, 
+        uint32_t sdp_id, char *ip_str);
+int  tunnel_manager_find_client_request(tunnel_manager_t tunnel_mgr, 
+        uint32_t sdp_id, tunnel_info_t *r_tunnel_data);
+int  tunnel_manager_get_peer_addr_and_port(uv_tcp_t *peer, 
+        char **ip_str, uint32_t *ip_num, uint32_t *port_num);
+void tunnel_manager_close_client_cb(uv_handle_t *handle);
+void tunnel_manager_alloc_buffer(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf);
 
 #endif /* SERVER_TUNNEL_MANAGER_H_ */
