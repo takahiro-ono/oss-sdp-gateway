@@ -13,6 +13,11 @@
 
 #define ID_TOKEN_BUF_LEN 2048
 
+#define TUNNEL_PORT 8282
+#define TUNNEL_BACKLOG 10
+
+
+
 struct tunneled_service{
     uint32_t service_id;
     uint32_t idp_id;

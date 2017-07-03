@@ -10,9 +10,6 @@
 #include "tunnel_manager.h"
 #include "server_tunnel_manager.h"
 
-#define PORT 8282
-#define BACKLOG 10
-
 
 static void on_read(uv_stream_t* handle, ssize_t nread, const uv_buf_t *buf)
 {
@@ -256,7 +253,7 @@ void *tunnel_manager_thread_func(void *arg)
 
     // Convert ipv4 address and port into sockaddr struct
     // ip address '0.0.0.0' means listen on any interface
-    uv_ip4_addr("0.0.0.0", PORT, &addr);
+    uv_ip4_addr("0.0.0.0", TUNNEL_PORT, &addr);
 
     // Set up tcp handle
     uv_tcp_init(opts->tunnel_mgr->loop, &server);
@@ -267,7 +264,7 @@ void *tunnel_manager_thread_func(void *arg)
     uv_tcp_bind(&server, (const struct sockaddr*)&addr, 0);
 
     // Listen on socket, run new_tunnel_connection() on every new connection
-    if((rv = uv_listen((uv_stream_t*) &server, BACKLOG, new_tunnel_connection)) != 0)
+    if((rv = uv_listen((uv_stream_t*) &server, TUNNEL_BACKLOG, new_tunnel_connection)) != 0)
     {
         log_msg(LOG_ERR, "uv_listen error: %s", uv_strerror(rv));
         return NULL;
