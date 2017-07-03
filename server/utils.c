@@ -374,6 +374,8 @@ clean_exit(fko_srv_options_t *opts, unsigned int fw_cleanup_flag, unsigned int e
     }
 #endif
 
+    destroy_connection_tracker(opts);
+
     if(!opts->test && opts->enable_fw && (fw_cleanup_flag == FW_CLEANUP))
         fw_cleanup(opts);
 
@@ -396,8 +398,6 @@ clean_exit(fko_srv_options_t *opts, unsigned int fw_cleanup_flag, unsigned int e
 
         sdp_ctrl_client_destroy(opts->ctrl_client);
     }
-
-    destroy_connection_tracker(opts);
 
     free_logging();
     free_cmd_cycle_list(opts);
