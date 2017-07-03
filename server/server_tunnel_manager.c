@@ -311,7 +311,7 @@ int start_tunnel_manager(fko_srv_options_t *opts)
         clean_exit(opts, NO_FW_CLEANUP, EXIT_FAILURE);
     }
 
-    if((rv = tunnel_manager_new(hash_table_len, &tunnel_mgr)) != FKO_SUCCESS)
+    if((rv = tunnel_manager_new(0, hash_table_len, &tunnel_mgr)) != FKO_SUCCESS)
     {
         log_msg(LOG_ERR, "[*] Failed to create tunnel manager");
         clean_exit(opts, NO_FW_CLEANUP, EXIT_FAILURE);

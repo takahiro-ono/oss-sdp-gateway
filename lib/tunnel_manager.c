@@ -18,7 +18,8 @@
 #include "sdp_ctrl_client.h"
 
 
-#define NAME_TM_PIPE "tm_pipe"
+#define NAME_TM_GATEWAY_PIPE "tm_g_pipe"
+#define NAME_TM_CLIENT_PIPE "tm_c_pipe"
 #define TM_STOP_MSG "TM_STOP"
 
 
@@ -179,7 +180,7 @@ static void destroy_tunnel_hash_node_cb(hash_table_node_t *node)
 static void remove_sock(tunnel_manager_t tunnel_mgr) 
 {
     uv_fs_t req;
-    uv_fs_unlink(tunnel_mgr->loop, &req, NAME_TM_PIPE, NULL);
+    uv_fs_unlink(tunnel_mgr->loop, &req, tunnel_mgr->pipe_name, NULL);
 }
 
 
@@ -359,7 +360,7 @@ void tunnel_manager_destroy(tunnel_manager_t tunnel_mgr)
 }
 
 
-int tunnel_manager_new(int tbl_len, tunnel_manager_t *r_tunnel_mgr)
+int tunnel_manager_new(int is_sdp_client, int tbl_len, tunnel_manager_t *r_tunnel_mgr)
 {
     int rv = FKO_SUCCESS;
     tunnel_manager_t tunnel_mgr = NULL;
@@ -368,6 +369,10 @@ int tunnel_manager_new(int tbl_len, tunnel_manager_t *r_tunnel_mgr)
     // allocate memory
     if((tunnel_mgr = calloc(1, sizeof *tunnel_mgr)) == NULL)
         return (FKO_ERROR_MEMORY_ALLOCATION);
+
+    tunnel_mgr->is_sdp_client = is_sdp_client;
+    tunnel_mgr->pipe_name = (is_sdp_client ? NAME_TM_CLIENT_PIPE : NAME_TM_GATEWAY_PIPE);
+    log_msg(LOG_WARNING, "Tunnel Manager pipe name set to %s", tunnel_mgr->pipe_name);
 
     tunnel_mgr->loop = uv_default_loop();
     
@@ -393,7 +398,7 @@ int tunnel_manager_new(int tbl_len, tunnel_manager_t *r_tunnel_mgr)
     remove_sock(tunnel_mgr);
 
 
-    if((rv = uv_pipe_bind(tunnel_mgr->tm_pipe, NAME_TM_PIPE))) 
+    if((rv = uv_pipe_bind(tunnel_mgr->tm_pipe, tunnel_mgr->pipe_name))) 
     {
         log_msg(LOG_ERR, "[*] uv_pipe_bind error %s\n", uv_err_name(rv));
         tunnel_manager_destroy(tunnel_mgr);
@@ -446,15 +451,16 @@ int tunnel_manager_connect_pipe(tunnel_manager_t tunnel_mgr)
     char buf[100];
     char str[] = "Hello from main";
     int bytes_rcvd = 0;
-
-    if ((tunnel_mgr->tm_sock_fd = socket(AF_UNIX, SOCK_STREAM, 0)) == -1) 
+    
+    // if this is an SDP client (not gateway), this pipe is IPC capable
+    if ((tunnel_mgr->tm_sock_fd = socket(AF_UNIX, SOCK_STREAM, tunnel_mgr->is_sdp_client)) == -1) 
     {
         perror("socket");
         return FKO_ERROR_FILESYSTEM_OPERATION;
     }
 
     remote.sun_family = AF_UNIX;
-    strcpy(remote.sun_path, NAME_TM_PIPE);
+    strcpy(remote.sun_path, tunnel_mgr->pipe_name);
     len = strlen(remote.sun_path) + sizeof(remote.sun_family);
     
     if (connect(tunnel_mgr->tm_sock_fd, (struct sockaddr *)&remote, len) < 0) 

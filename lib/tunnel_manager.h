@@ -43,6 +43,8 @@ struct tunnel_info_node{
 typedef struct tunnel_info_node *tunnel_info_node_t;
 
 struct tunnel_manager{
+    int is_sdp_client;
+    char *pipe_name;
     uv_loop_t *loop;
     uv_pipe_t *tm_pipe;
     uv_pipe_t *tm_pipe_client;
@@ -67,7 +69,7 @@ typedef struct {
 
 
 void tunnel_manager_destroy(tunnel_manager_t tunnel_mgr);
-int  tunnel_manager_new(int tbl_len, tunnel_manager_t *r_tunnel_mgr);
+int  tunnel_manager_new(int is_sdp_client, int tbl_len, tunnel_manager_t *r_tunnel_mgr);
 int  tunnel_manager_connect_pipe(tunnel_manager_t tunnel_mgr);
 int  tunnel_manager_send_stop(tunnel_manager_t tunnel_mgr);
 int  tunnel_manager_submit_client_request(tunnel_manager_t tunnel_mgr, 
