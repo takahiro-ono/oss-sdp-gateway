@@ -803,7 +803,7 @@ static bstring tunnel_key_from_sdpid(uint32_t sdp_id)
 
 /*
  *  When a SPA packet arrives, create the tunnel request and 
- *  submit to the tunnel manager so it knows whom to expect
+ *  put in the request hash table so the tunnel manager knows whom to expect
  *  from what IP address.
  */
 int tunnel_manager_submit_client_request(
@@ -1098,3 +1098,33 @@ int tunnel_manager_array_2_ptr(const char* const array, char **r_ptr)
 
 }
 
+
+// on the SDP client, json string messages are sent in full over the pipe
+// on the SDP gateway, pointers to json objects are sent over the pipe
+int tunnel_manager_send_to_tm(tunnel_manager_t tunnel_mgr, void *msg)
+{
+    //int len = strlen(TM_STOP_MSG);
+    char *ptr = NULL;
+    int rv = 0;
+
+    if(!tunnel_mgr->is_sdp_client)
+    {
+        //stopping the gateway tm, have to send the pointer addr, not the string
+        tunnel_manager_ptr_2_array((const char* const)msg, &ptr);
+
+        rv = send(tunnel_mgr->tm_sock_fd, ptr, sizeof ptr, 0);
+        free(ptr);
+    }
+    else
+    {
+        rv = send(tunnel_mgr->tm_sock_fd, (char*)msg, strnlen((char*)msg, MAX_PIPE_MSG_LEN), 0);
+    }
+
+    if (rv == -1) 
+    {
+        perror("Failed to send message to tunnel manager");
+        return FKO_ERROR_FILESYSTEM_OPERATION;
+    }
+
+    return FKO_SUCCESS;
+}

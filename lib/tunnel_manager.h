@@ -15,6 +15,7 @@
 #include "hash_table.h"
 
 #define ID_TOKEN_BUF_LEN 2048
+#define MAX_PIPE_MSG_LEN 10240  // TODO: this is arbitrary
 
 #define TUNNEL_PORT 8282
 #define TUNNEL_BACKLOG 10
@@ -97,5 +98,6 @@ void tunnel_manager_close_client_cb(uv_handle_t *handle);
 void tunnel_manager_alloc_buffer(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf);
 int  tunnel_manager_ptr_2_array(const char* const ptr, char **r_array);
 int  tunnel_manager_array_2_ptr(const char* const array, char **r_ptr);
+int  tunnel_manager_send_to_tm(tunnel_manager_t tunnel_mgr, void *msg);
 
 #endif /* SERVER_TUNNEL_MANAGER_H_ */
