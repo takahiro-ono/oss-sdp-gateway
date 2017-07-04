@@ -9,12 +9,20 @@
 #define TUNNEL_MANAGER_H_
 
 #include <uv.h>
+#include <sys/socket.h>
+#include <sys/un.h>
 #include "fko_limits.h"
+#include "hash_table.h"
 
 #define ID_TOKEN_BUF_LEN 2048
 
 #define TUNNEL_PORT 8282
 #define TUNNEL_BACKLOG 10
+
+#define NAME_TM_GATEWAY_PIPE "tm_g_pipe"
+#define NAME_TM_CLIENT_PIPE "tm_c_pipe"
+
+extern const char* TM_STOP_MSG;
 
 
 
@@ -31,6 +39,8 @@ struct tunnel_info{
     char remote_public_ip[MAX_IPV4_STR_LEN];
     char remote_tunnel_ip[MAX_IPV4_STR_LEN];
     unsigned int remote_port;
+    uint32_t idp_id;
+    char id_token[ID_TOKEN_BUF_LEN];
     tunneled_service_t services_requested;
     tunneled_service_t services_opened;
     uv_tcp_t *handle;
@@ -85,5 +95,7 @@ int  tunnel_manager_get_peer_addr_and_port(uv_tcp_t *peer,
         char **ip_str, uint32_t *ip_num, uint32_t *port_num);
 void tunnel_manager_close_client_cb(uv_handle_t *handle);
 void tunnel_manager_alloc_buffer(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf);
+int  tunnel_manager_ptr_2_array(const char* const ptr, char **r_array);
+int  tunnel_manager_array_2_ptr(const char* const array, char **r_ptr);
 
 #endif /* SERVER_TUNNEL_MANAGER_H_ */

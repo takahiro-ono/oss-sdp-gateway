@@ -86,7 +86,7 @@ init_logging(fko_cli_options_t *opts) {
 
     static_log_flag = LOG_SYSLOG_ONLY;
 
-    /* If we are running in the foreground or performing firewall operations,
+    /* If we are running in the foreground,
      * all logging will go to stderr.
     */
     if(opts->foreground != 0)

@@ -173,7 +173,8 @@ static void *control_client_thread_func(void *arg)
 
     if(opts == NULL ||
        opts->ctrl_client == NULL ||
-       opts->ctrl_client->initialized != 1)
+       opts->ctrl_client->initialized != 1 ||
+       opts->tunnel_mgr == NULL)
     {
         log_msg(LOG_ERR, "Attempted to start SDP control client "
                 "thread without proper initializations. Aborting.");
@@ -182,6 +183,16 @@ static void *control_client_thread_func(void *arg)
         kill(getpid(), SIGTERM);
         return NULL;
     }
+
+    if((rv = tunnel_manager_connect_pipe(opts->tunnel_mgr)) != FKO_SUCCESS)
+    {
+        log_msg(LOG_ERR, "Ctrl Client failed on attempt to connect to Tunnel Manager");
+
+        // send kill signal for main thread to catch and exit safely
+        kill(getpid(), SIGTERM);
+        return NULL;
+    }
+
 
     while(1)
     {
@@ -204,16 +215,25 @@ static void *control_client_thread_func(void *arg)
         {
             log_msg(LOG_DEBUG, "sdp_ctrl_client_check_inbox returned data, processing");
 
-            //rv = handle_data_msg(opts, action, jdata);
-
-            if(jdata != NULL && json_object_get_type(jdata) != json_type_null)
+            //if the message was destined for the tunnel manager, jdata is a json 
+            //object containing the entire message, so send to the tunnel manager
+            if(action == CTRL_ACTION_SERVICE_GRANTED ||
+               action == CTRL_ACTION_SERVICE_DENIED  ||
+               action == CTRL_ACTION_AUTHN_ACCEPTED  ||
+               action == CTRL_ACTION_AUTHN_REJECTED  )
             {
-                json_object_put(jdata);
+                if (send(opts->tunnel_mgr->tm_sock_fd, jdata, sizeof jdata, 0) == -1) 
+                {
+                    perror("Failed to send json object to tunnel manager");
+                    rv = FKO_ERROR_FILESYSTEM_OPERATION;
+                    json_object_put(jdata);
+                    break;
+                }
+
+                log_msg(LOG_WARNING, "json object passed to tunnel manager");
+                // don't free json object in this case
                 jdata = NULL;
             }
-
-            if(rv != FKO_SUCCESS)
-                break;
 
         }
 

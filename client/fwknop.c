@@ -37,6 +37,8 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
+#include "client_tunnel_manager.h"
+
 
 /* prototypes
 */
@@ -165,6 +167,7 @@ main(int argc, char **argv)
     int                 tmp_port = 0;
     char                dump_buf[CTX_DUMP_BUFSIZE];
     uint32_t            sdp_id = 0;
+    int                 exit_code = EXIT_SUCCESS;
 
     fko_cli_options_t   options;
 
@@ -174,6 +177,8 @@ main(int argc, char **argv)
     */
     config_init(&options, argc, argv);
 
+    log_msg(LOG_DEBUG, "fwknop main() : completed config_init");
+
     /* Initialize the log module */
     if(init_logging(&options) != FKO_SUCCESS)
     {
@@ -182,7 +187,7 @@ main(int argc, char **argv)
                 &hmac_key_len, EXIT_FAILURE);
     }
 
-    log_msg(LOG_DEBUG, "fwknop main() : completed config_init");
+    log_msg(LOG_DEBUG, "fwknop main() : completed init_logging");
 
 #if HAVE_LIBFIU
         /* Set any fault injection points early
@@ -201,6 +206,49 @@ main(int argc, char **argv)
     if(options.show_last_command)
         clean_exit(ctx, &options, key, &key_len, hmac_key,
                 &hmac_key_len, EXIT_SUCCESS);
+
+
+    if(options.do_tunneling)
+    {
+        if(options.idp_id)
+        {
+            // if a client process is running as tunnel manager
+            // connect to that and tell it what's needed
+            if((res = ask_tunnel_manager_for_service(
+                options.service_ids_str, options.idp_id, options.id_token
+                )) != FKO_SUCCESS)
+            {
+                log_msg(
+                    LOG_ERR, 
+                    "Tunnel Manager failed to connect to requested services"
+                ); 
+            }
+            else
+            {
+                log_msg(LOG_WARNING, "Tunnel Manager reported successful connection");
+            }
+
+        }
+        else
+        {
+            // we're being told to BE the tunnel manager, 
+            // so fire up the control client and the tunnel manager, 
+            if((res = be_tunnel_manager(&options)) != FKO_SUCCESS)
+            {
+                log_msg(LOG_ERR, "Tunnel Manager exited with a failure"); 
+            }
+            else
+            {
+                log_msg(LOG_WARNING, "Tunnel Manager loop exited with success");
+            }
+        }
+        
+        exit_code = (res == FKO_SUCCESS ? EXIT_SUCCESS: EXIT_FAILURE);
+
+        clean_exit(ctx, &options, key, &key_len, hmac_key,
+                &hmac_key_len, exit_code);
+    }
+
 
     /* Intialize the context
     */

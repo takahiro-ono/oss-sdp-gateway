@@ -33,6 +33,7 @@
 
 #include "common.h"
 #include "sdp_ctrl_client.h"
+#include "tunnel_manager.h"
 #include <pthread.h>
 
 
@@ -76,6 +77,10 @@
 */
 typedef struct fko_cli_options
 {
+    int  do_tunneling;
+    tunnel_manager_t tunnel_mgr;
+    uint32_t idp_id;
+    char     id_token[ID_TOKEN_BUF_LEN];
     uint32_t sdp_id;
     char service_ids_str[MAX_PATH_LEN];
     char sdp_ctrl_client_config_file[MAX_PATH_LEN];

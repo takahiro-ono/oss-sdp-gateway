@@ -90,7 +90,7 @@ enum {
 
 /* Our getopt_long options string.
 */
-#define GETOPTS_OPTION_STRING "a:A:bB:C:D:E:f:gG:hH:kK:lm:M:n:N:p:P:Q:rRsS:Tu:U:vVw:"
+#define GETOPTS_OPTION_STRING "a:A:bB:C:D:E:f:gG:hH:i:I:kK:lm:M:n:N:p:P:Q:rRsS:tTu:U:vVw:"
 
 /* Our program command-line options...
 */
@@ -126,6 +126,8 @@ static struct option cmd_opts[] =
     {"get-hmac-key",        1, NULL, GET_HMAC_KEY },
     {"help",                0, NULL, 'h'},
     {"http-proxy",          1, NULL, 'H'},
+    {"id-token",            1, NULL, 'i'},
+    {"idp",                 1, NULL, 'I'},
     {"key-gen",             0, NULL, 'k'},
     {"key-gen-file",        1, NULL, 'K'},
     {"key-rijndael",        1, NULL, KEY_RIJNDAEL },
@@ -167,6 +169,7 @@ static struct option cmd_opts[] =
     {"test",                0, NULL, 'T'},
     {"time-offset-plus",    1, NULL, TIME_OFFSET_PLUS},
     {"time-offset-minus",   1, NULL, TIME_OFFSET_MINUS},
+    {"tunnel",              0, NULL, 't'},
     {"user-agent",          1, NULL, 'u'},
     {"use-hmac",            0, NULL, USE_HMAC},
     {"use-wget-user-agent", 0, NULL, USE_WGET_USER_AGENT},

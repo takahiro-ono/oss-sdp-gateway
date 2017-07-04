@@ -706,6 +706,16 @@ int sdp_ctrl_client_check_inbox(sdp_ctrl_client_t client, int *r_action, void **
                 *r_data = data;
                 goto cleanup;
 
+            case CTRL_ACTION_SERVICE_GRANTED:
+            case CTRL_ACTION_SERVICE_DENIED:
+            case CTRL_ACTION_AUTHN_ACCEPTED:
+            case CTRL_ACTION_AUTHN_REJECTED:
+                // these all get passed in full to tunnel manager
+                // data is actually the full message json object
+                *r_action = action;
+                *r_data = data;
+                goto cleanup;                
+
             default:
                 log_msg(LOG_ERR, "Unknown message processing result");
 

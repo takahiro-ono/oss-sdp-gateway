@@ -41,12 +41,19 @@ const char *sdp_action_service_ack             = "service_ack";
 const char *sdp_action_bad_message            = "bad_message";
 const char *sdp_action_connection_update      = "connection_update";
 
+const char *sdp_action_service_request        = "service_request";
+const char *sdp_action_service_granted        = "service_granted";
+const char *sdp_action_service_denied         = "service_denied";
+const char *sdp_action_authn_request          = "authn_request";
+const char *sdp_action_authn_accepted         = "authn_accepted";
+const char *sdp_action_authn_rejected         = "authn_rejected";
+
+
 const char *sdp_stage_error                   = "error";
 const char *sdp_stage_fulfilling              = "fulfilling";
 const char *sdp_stage_requesting              = "requesting";
 const char *sdp_stage_fulfilled               = "fulfilled";
 const char *sdp_stage_unfulfilled             = "unfulfilled";
-
 
 
 static int sdp_get_required_json_string_field(const char *key, json_object *jdata, char **r_field)
@@ -179,6 +186,18 @@ static int sdp_get_message_action(json_object *jmsg, ctrl_action_t *r_action)
     else if(strncmp(action_str, sdp_action_access_remove, strlen(sdp_action_access_remove)) == 0)
         action = CTRL_ACTION_ACCESS_REMOVE;
 
+    else if(strncmp(action_str, sdp_action_service_granted, strlen(sdp_action_access_remove)) == 0)
+        action = CTRL_ACTION_SERVICE_GRANTED;
+
+    else if(strncmp(action_str, sdp_action_service_denied, strlen(sdp_action_access_remove)) == 0)
+        action = CTRL_ACTION_SERVICE_DENIED;
+
+    else if(strncmp(action_str, sdp_action_authn_accepted, strlen(sdp_action_access_remove)) == 0)
+        action = CTRL_ACTION_AUTHN_ACCEPTED;
+
+    else if(strncmp(action_str, sdp_action_authn_rejected, strlen(sdp_action_access_remove)) == 0)
+        action = CTRL_ACTION_AUTHN_REJECTED;
+
     else if(strncmp(action_str, sdp_action_bad_message, strlen(sdp_action_bad_message)) == 0)
         action = CTRL_ACTION_BAD_MESSAGE;
 
@@ -295,6 +314,18 @@ int sdp_message_process(const char *msg, ctrl_action_t *r_action, void **r_data)
 
         // increment the reference count to the data portion of the json message
         *r_data = (void*)json_object_get(jdata);
+    }
+    else if(action == CTRL_ACTION_SERVICE_GRANTED ||
+            action == CTRL_ACTION_SERVICE_DENIED  ||
+            action == CTRL_ACTION_AUTHN_ACCEPTED  ||
+            action == CTRL_ACTION_AUTHN_REJECTED  )
+    {
+        log_msg(LOG_WARNING, "Received message for tunnel manager");
+
+        // return the entire json object so the tunnel manager can get it
+        *r_data = (void*)jmsg;
+        *r_action = action;
+        return SDP_SUCCESS;
     }
     else if(action == CTRL_ACTION_BAD_MESSAGE)
     {

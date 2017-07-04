@@ -1896,6 +1896,8 @@ static void
 validate_options(fko_cli_options_t *options)
 {
 
+    log_msg(LOG_DEBUG, "Validating options...");
+
     if ( (options->use_rc_stanza[0] != 0x0)
         && (options->got_named_stanza == 0)
         && (options->save_rc_stanza == 0) )
@@ -1933,7 +1935,7 @@ validate_options(fko_cli_options_t *options)
         && !options->restart
         && !options->status)
     {
-        if (options->spa_server_str[0] == 0x0)
+        if (options->spa_server_str[0] == 0x0 && options->do_tunneling == 0)
         {
             log_msg(LOG_ERR,
                 "Must use --destination unless --test mode is used");
@@ -1968,6 +1970,20 @@ validate_options(fko_cli_options_t *options)
                 log_msg(LOG_ERR,
                     "SDP_ID must be specified when SDP mode is enabled");
                 exit(EXIT_FAILURE);
+            }
+
+            if(options->idp_id > 0 || options->id_token[0] != 0x0)
+            {
+                if(options->service_ids_str[0] == 0x0
+                    || options->do_tunneling == 0
+                    || options->idp_id == 0
+                    || options->id_token[0] == 0x0)
+                {
+                    log_msg(LOG_ERR, 
+                        "When either 'idp' or 'id_token' "
+                        "is set, both must be set, plus 'services'");
+                    exit(EXIT_FAILURE);
+                }
             }
         }
     }
@@ -2052,6 +2068,8 @@ validate_options(fko_cli_options_t *options)
     if(options->key_gen && options->hmac_type == FKO_HMAC_UNKNOWN)
         options->hmac_type = FKO_DEFAULT_HMAC_MODE;
 
+    log_msg(LOG_DEBUG, "Options validated.");
+
     return;
 }
 
@@ -2061,6 +2079,7 @@ validate_options(fko_cli_options_t *options)
 static void
 set_defaults(fko_cli_options_t *options)
 {
+    options->foreground     = 1;
     options->spa_proto      = FKO_DEFAULT_PROTO;
     options->spa_dst_port   = FKO_DEFAULT_PORT;
     options->fw_timeout     = -1;
@@ -2144,6 +2163,9 @@ config_init(fko_cli_options_t *options, int argc, char **argv)
                 break;
             case STATUS:
                 options->status = 1;
+                break;
+            case 't':
+                options->do_tunneling = 1;
                 break;
 
         }
@@ -2243,6 +2265,15 @@ config_init(fko_cli_options_t *options, int argc, char **argv)
             case 'H':
                 options->spa_proto = FKO_PROTO_HTTP;
                 strlcpy(options->http_proxy, optarg, sizeof(options->http_proxy));
+                break;
+            case 'i':
+                options->do_tunneling = 1;
+                strlcpy(options->id_token, optarg, sizeof(options->id_token));
+                break;
+            case 'I':
+                options->do_tunneling = 1;
+                options->idp_id = strtoul_wrapper(optarg, 0,
+                        UINT32_MAX, EXIT_UPON_ERR, &is_err);
                 break;
             case 'k':
                 options->key_gen = 1;
@@ -2471,6 +2502,9 @@ config_init(fko_cli_options_t *options, int argc, char **argv)
                 /* We already handled this earlier, so we do nothing here
                 */
                 break;
+            case 't':
+                options->do_tunneling = 1;
+                break;
             case 'T':
                 options->test = 1;
                 break;
@@ -2630,6 +2664,8 @@ config_init(fko_cli_options_t *options, int argc, char **argv)
 
     keys_status(options);
 
+    log_msg(LOG_DEBUG, "config_init is finished and exiting");
+
     return;
 }
 
@@ -2648,6 +2684,14 @@ usage(void)
       "                             of the configuration parameters.\n"
       "                             If more arguments are set through the command\n"
       "                             line, the configuration is updated accordingly.\n"
+      " -t, --tunnel                Set up a tunnel between this machine and the\n"
+      "                             gateway. If a client is already running, this\n"
+      "                             instance will pass the request to it and return\n"
+      "                             the result of the attempted connection. This is\n"
+      "                             set automatically when idp or id-token is set.\n"
+      " -I, --idp                   The Identity Provider ID number for\n"
+      "                             authentication when using tunnel mode.\n"
+      " -i, --id-token              The ID token provided by the Identity Provider.\n"
       "     --sdp-id                Specify this 32 bit unsigned integer to \n"
       "                             indicate this client's SDP client ID.\n"
       "     --disable-sdp           Turn off SDP mode to revert to the classic \n"
