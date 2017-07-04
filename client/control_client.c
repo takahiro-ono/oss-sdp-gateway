@@ -215,25 +215,16 @@ static void *control_client_thread_func(void *arg)
         {
             log_msg(LOG_DEBUG, "sdp_ctrl_client_check_inbox returned data, processing");
 
-            //if the message was destined for the tunnel manager, jdata is a json 
-            //object containing the entire message, so send to the tunnel manager
-            if(action == CTRL_ACTION_SERVICE_GRANTED ||
-               action == CTRL_ACTION_SERVICE_DENIED  ||
-               action == CTRL_ACTION_AUTHN_ACCEPTED  ||
-               action == CTRL_ACTION_AUTHN_REJECTED  )
-            {
-                if (send(opts->tunnel_mgr->tm_sock_fd, jdata, sizeof jdata, 0) == -1) 
-                {
-                    perror("Failed to send json object to tunnel manager");
-                    rv = FKO_ERROR_FILESYSTEM_OPERATION;
-                    json_object_put(jdata);
-                    break;
-                }
+            //rv = handle_data_msg(opts, action, jdata);
 
-                log_msg(LOG_WARNING, "json object passed to tunnel manager");
-                // don't free json object in this case
+            if(jdata != NULL && json_object_get_type(jdata) != json_type_null)
+            {
+                json_object_put(jdata);
                 jdata = NULL;
             }
+
+            if(rv != FKO_SUCCESS)
+                break;
 
         }
 

@@ -268,23 +268,48 @@ void *control_client_thread_func(void *arg)
         // if data was returned, process it
         if(jdata != NULL)
         {
-            log_msg(LOG_DEBUG, "sdp_ctrl_client_check_inbox returned access data, processing");
+            log_msg(LOG_DEBUG, "sdp_ctrl_client_check_inbox returned data, processing");
 
-            rv = handle_data_msg(opts, action, jdata);
-
-            if(jdata != NULL && json_object_get_type(jdata) != json_type_null)
+            //if the message was destined for the tunnel manager, jdata is a json 
+            //object containing the entire message, so send to the tunnel manager
+            if(action == CTRL_ACTION_SERVICE_GRANTED ||
+               action == CTRL_ACTION_SERVICE_DENIED  ||
+               action == CTRL_ACTION_AUTHN_ACCEPTED  ||
+               action == CTRL_ACTION_AUTHN_REJECTED  )
             {
-                json_object_put(jdata);
+                rv = tunnel_manager_send_to_tm(opts->tunnel_mgr, (void*)jdata);
+
+                if (rv != FKO_SUCCESS) 
+                {
+                    log_msg(LOG_ERR, "Failed to send json object to tunnel manager");
+                    rv = FKO_ERROR_FILESYSTEM_OPERATION;
+                    json_object_put(jdata);
+                    break;
+                }
+
+                log_msg(LOG_WARNING, "json object passed to tunnel manager");
+                // don't free json object in this case
                 jdata = NULL;
             }
-
-            if(rv != FWKNOPD_SUCCESS)
-                break;
-
-            if(strncmp(opts->config[CONF_DISABLE_CONNECTION_TRACKING], "N", 1) == 0)
+            else
             {
-                if((rv = validate_connections(opts)) != FWKNOPD_SUCCESS)
+                // message meant for me (Control Client)
+                rv = handle_data_msg(opts, action, jdata);
+
+                if(jdata != NULL && json_object_get_type(jdata) != json_type_null)
+                {
+                    json_object_put(jdata);
+                    jdata = NULL;
+                }
+
+                if(rv != FWKNOPD_SUCCESS)
                     break;
+
+                if(strncmp(opts->config[CONF_DISABLE_CONNECTION_TRACKING], "N", 1) == 0)
+                {
+                    if((rv = validate_connections(opts)) != FWKNOPD_SUCCESS)
+                        break;
+                }
             }
         }
 
