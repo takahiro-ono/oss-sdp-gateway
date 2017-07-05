@@ -33,6 +33,7 @@
 #include "utils.h"
 #include "log_msg.h"
 #include "control_client.h"
+#include "client_tunnel_manager.h"
 
 #ifndef WIN32
 #include <arpa/inet.h>
@@ -74,6 +75,8 @@ clean_exit(fko_ctx_t ctx, fko_cli_options_t *opts,
     
     destroy_control_client(opts);
 
+    destroy_tunnel_manager(opts);
+    
     if(fko_destroy(ctx) == FKO_ERROR_ZERO_OUT_DATA)
         log_msg(LOG_ERR,
                 "[*] Could not zero out sensitive data buffer.");

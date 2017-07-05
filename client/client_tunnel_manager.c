@@ -85,15 +85,84 @@ int ask_tunnel_manager_for_service(char *service_ids_str, uint32_t idp_id, char 
     return FKO_SUCCESS;
 }
 
+static void got_sigint(uv_signal_t *handle, int sig)
+{
+    uv_stop(handle->loop);
+}
+
+
+static void signal_close_cb(uv_handle_t *handle)
+{
+    free(handle);
+}
+
 
 int be_tunnel_manager(fko_cli_options_t *opts)
 {
+    int rv = 0;
+    tunnel_manager_t tunnel_mgr = NULL;
+    uv_signal_t *signal_handle = NULL;
+
     //create the tunnel manager
+    if((rv = tunnel_manager_new(0, HASH_TABLE_LEN, &tunnel_mgr)) != FKO_SUCCESS)
+    {
+        log_msg(LOG_ERR, "[*] Failed to create tunnel manager");
+        return rv;
+    }
+
+    opts->tunnel_mgr = tunnel_mgr;
+
+    if((signal_handle = calloc(1, sizeof *signal_handle)) == NULL)
+    {
+        log_msg(LOG_ERR, "Memory allocation error");
+        return FKO_ERROR_MEMORY_ALLOCATION;
+    }
+
+    if((rv = uv_signal_init(tunnel_mgr->loop, signal_handle)))
+    {
+        log_msg(LOG_ERR, "uv_signal_init error: %s", uv_err_name(rv));
+        return FKO_ERROR_UNKNOWN;
+    }
+
+    if((rv = uv_signal_start(signal_handle, got_sigint, SIGINT)))
+    {
+        log_msg(LOG_ERR, "uv_signal_start error: %s", uv_err_name(rv));
+        return FKO_ERROR_UNKNOWN;
+    }
 
     //start ctrl client
+    if((rv = start_control_client(opts)) != SDP_SUCCESS)
+    {
+        log_msg(LOG_ERR, "[*] Failed to start Ctrl Client thread");
+        return rv;
+    }
+
+    log_msg(LOG_WARNING, "[+] Ctrl Client thread successfully started");
 
     //start tunnel manager
+    uv_run(tunnel_mgr->loop, UV_RUN_DEFAULT);
+
+    uv_close((uv_handle_t*)signal_handle, signal_close_cb);
 
     return FKO_SUCCESS;
+}
+
+
+void destroy_tunnel_manager(fko_cli_options_t *opts)
+{
+    if(opts->tunnel_mgr != NULL)
+    {
+        log_msg(LOG_WARNING, "Destroying Tunnel Manager...");
+
+        tunnel_manager_destroy(opts->tunnel_mgr);
+        opts->tunnel_mgr = NULL;
+    
+        log_msg(LOG_WARNING, "Tunnel Manager Destroyed");    
+    }
+    else
+    {
+        log_msg(LOG_WARNING, "Tunnel Manager not found for destruction");
+    }
+
 }
 

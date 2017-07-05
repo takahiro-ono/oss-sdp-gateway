@@ -184,14 +184,14 @@ static void *control_client_thread_func(void *arg)
         return NULL;
     }
 
-    if((rv = tunnel_manager_connect_pipe(opts->tunnel_mgr)) != FKO_SUCCESS)
-    {
-        log_msg(LOG_ERR, "Ctrl Client failed on attempt to connect to Tunnel Manager");
-
-        // send kill signal for main thread to catch and exit safely
-        kill(getpid(), SIGTERM);
-        return NULL;
-    }
+    //if((rv = tunnel_manager_connect_pipe(opts->tunnel_mgr)) != FKO_SUCCESS)
+    //{
+    //    log_msg(LOG_ERR, "Ctrl Client failed on attempt to connect to Tunnel Manager");
+    //
+    //    // send kill signal for main thread to catch and exit safely
+    //    kill(getpid(), SIGTERM);
+    //    return NULL;
+    //}
 
 
     while(1)
@@ -300,9 +300,17 @@ void stop_control_client(fko_cli_options_t *opts)
     {
         if(opts->ctrl_client_thread > 0)
         {
+            log_msg(LOG_WARNING, "Definitely stopping Control Client thread...");
+
             pthread_cancel(opts->ctrl_client_thread);
             pthread_join(opts->ctrl_client_thread, NULL);
             opts->ctrl_client_thread = 0;
+
+            log_msg(LOG_WARNING, "Control Client thread stopped");
+        }
+        else
+        {
+            log_msg(LOG_WARNING, "Control Client thread not found");
         }
     }    
 }
@@ -313,13 +321,27 @@ void destroy_control_client(fko_cli_options_t *opts)
     // kill thread
     if(opts->ctrl_client != NULL)
     {
+        log_msg(LOG_WARNING, "Destroying Control Client...");
+
         if(opts->ctrl_client_thread > 0)
         {
+            log_msg(LOG_WARNING, "Stopping Control Client thread...");
+
             stop_control_client(opts);
+        }
+        else
+        {
+            log_msg(LOG_WARNING, "Control Client thread not found");
         }
 
         sdp_ctrl_client_destroy(opts->ctrl_client);
-    }    
+
+        log_msg(LOG_WARNING, "Control Client destroyed");
+    }
+    else
+    {
+        log_msg(LOG_WARNING, "Control Client not found");
+    }
 }
 
 
