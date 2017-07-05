@@ -19,6 +19,69 @@
 
 const char *TM_STOP_MSG = "STOP_TM";
 
+static int add_to_pipe_client_list(tunnel_manager_t tunnel_mgr, uv_pipe_t *handle)
+{
+    pipe_client_item_t new_guy = NULL;
+    pipe_client_item_t ptr = tunnel_mgr->pipe_client_list;
+
+    if((new_guy = calloc(1, sizeof *new_guy)) == NULL)
+    {
+        return FKO_ERROR_MEMORY_ALLOCATION;
+    }
+
+    new_guy->handle = handle;
+
+    if(ptr == NULL)
+    {
+        tunnel_mgr->pipe_client_list = new_guy;
+        log_msg(LOG_WARNING, "Added pipe client to list");
+        return FKO_SUCCESS;
+    }
+
+    while(ptr->next)
+        ptr = ptr->next;
+
+    ptr->next = new_guy;
+    log_msg(LOG_WARNING, "Added pipe client to list");
+    return FKO_SUCCESS;
+}
+
+
+static int remove_from_pipe_client_list(tunnel_manager_t tunnel_mgr, uv_pipe_t *handle)
+{
+    pipe_client_item_t ptr = tunnel_mgr->pipe_client_list;
+    pipe_client_item_t follower = NULL;
+
+    if(!ptr)
+    {
+        log_msg(LOG_WARNING, "Pipe client not found for removal");
+        return FKO_SUCCESS;
+    }
+
+    while(ptr)
+    {
+        if(ptr->handle == handle)
+        {
+            if(follower)
+                follower->next = ptr->next;
+            else
+                tunnel_mgr->pipe_client_list = ptr->next;
+
+            free(ptr);
+            log_msg(LOG_WARNING, "Removed pipe client from list");
+            return FKO_SUCCESS;
+        }
+
+        follower = ptr;
+        ptr = ptr->next;
+    }
+
+    log_msg(LOG_WARNING, "Pipe client not found for removal");
+    return FKO_SUCCESS;
+}
+
+
+
 static void print_tunnel_info_item(tunnel_info_t item)
 {
     char req_services[100] = {0};
@@ -182,7 +245,28 @@ static void remove_sock(tunnel_manager_t tunnel_mgr)
 
 static void pipe_close_cb(uv_handle_t* handle)
 {
+    remove_from_pipe_client_list((tunnel_manager_t)handle->data, (uv_pipe_t*)handle);
     free(handle);
+}
+
+static void main_pipe_close_cb(uv_handle_t* handle)
+{
+    free(handle);
+}
+
+static void close_all_pipe_clients(tunnel_manager_t tunnel_mgr)
+{
+    pipe_client_item_t ptr = tunnel_mgr->pipe_client_list;
+    pipe_client_item_t prev = NULL;
+
+    while(ptr)
+    {
+        uv_close((uv_handle_t*)ptr->handle, main_pipe_close_cb);
+        prev = ptr;
+        ptr = ptr->next;
+        free(prev);
+    }
+
 }
 
 void free_write_req(uv_write_t *req) 
@@ -354,12 +438,21 @@ void on_pipe_connection(uv_stream_t *server, int status)
     {
         log_msg(LOG_ERR, "uv_pipe_init error: %s", uv_err_name(rv));
         uv_close((uv_handle_t*) client, pipe_close_cb);
+        return;
+    }
+
+    client->data = tunnel_mgr;
+    if((rv = add_to_pipe_client_list(tunnel_mgr, client)) != FKO_SUCCESS)
+    {
+        log_msg(LOG_ERR, "[*] Fatal memory error");
+        uv_close((uv_handle_t*) client, pipe_close_cb);
+        uv_stop(server->loop);
+        return;        
     }
 
     if (uv_accept(server, (uv_stream_t*) client) == 0) 
     {
         log_msg(LOG_WARNING, "[*] Tunnel Manager received pipe connection");
-        tunnel_mgr->tm_pipe_client = client;
         uv_read_start((uv_stream_t*) client, tunnel_manager_alloc_buffer, read_cb);
     }
     else 
@@ -398,16 +491,13 @@ void tunnel_manager_destroy(tunnel_manager_t tunnel_mgr)
 
     if(tunnel_mgr->loop != NULL)
     {
-        if(tunnel_mgr->tm_pipe_client != NULL)
-        {
-            uv_close((uv_handle_t*)tunnel_mgr->tm_pipe_client, pipe_close_cb);
-        }
-
+        close_all_pipe_clients(tunnel_mgr);
+        
         remove_sock(tunnel_mgr);
 
         if(tunnel_mgr->tm_pipe != NULL)
         {
-            uv_close((uv_handle_t*)tunnel_mgr->tm_pipe, pipe_close_cb);
+            uv_close((uv_handle_t*)tunnel_mgr->tm_pipe, main_pipe_close_cb);
         }
 
         uv_loop_close(tunnel_mgr->loop);

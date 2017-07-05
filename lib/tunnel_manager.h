@@ -58,12 +58,20 @@ struct tunnel_info_node{
 };
 typedef struct tunnel_info_node *tunnel_info_node_t;
 
+
+struct pipe_client_item{
+    uv_pipe_t *handle;
+    struct pipe_client_item *next;
+};
+typedef struct pipe_client_item *pipe_client_item_t;
+
+
 struct tunnel_manager{
     int is_sdp_client;
     char *pipe_name;
     uv_loop_t *loop;
     uv_pipe_t *tm_pipe;
-    uv_pipe_t *tm_pipe_client;
+    pipe_client_item_t pipe_client_list;
     int tm_sock_fd;
     uv_tcp_t *tm_tcp_server;
     //uv_pipe_t *pipe_to_tm;
