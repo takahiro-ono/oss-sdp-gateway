@@ -214,7 +214,7 @@ main(int argc, char **argv)
         {
             // if a client process is running as tunnel manager
             // connect to that and tell it what's needed
-            if((res = ask_tunnel_manager_for_service(
+            if((res = ask_tunnel_manager_for_service(options.sdp_id,
                 options.service_ids_str, options.idp_id, options.id_token
                 )) != FKO_SUCCESS)
             {

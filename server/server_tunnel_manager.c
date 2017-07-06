@@ -10,8 +10,10 @@
 #include "tunnel_manager.h"
 #include "server_tunnel_manager.h"
 
+const char *TM_STOP_MSG = "STOP_TM";
 
-static void on_read(uv_stream_t* handle, ssize_t nread, const uv_buf_t *buf)
+
+static void tm_on_read(uv_stream_t* handle, ssize_t nread, const uv_buf_t *buf)
 {
     tunnel_info_t tunnel_data = handle->data;
     if(tunnel_data == NULL)
@@ -46,26 +48,26 @@ static void on_read(uv_stream_t* handle, ssize_t nread, const uv_buf_t *buf)
 }
 
 // Write callback
-void on_write(uv_write_t *req, int status) {
-    // Check status
-    if (status < 0) {
-        log_msg(LOG_ERR, "Write failed: %s\n", uv_strerror(status));
-    }
+//void on_write(uv_write_t *req, int status) {
+//    // Check status
+//    if (status < 0) {
+//        log_msg(LOG_ERR, "Write failed: %s\n", uv_strerror(status));
+//    }
+//
+//    // Close client handle
+//    uv_close((uv_handle_t*)req->handle, tunnel_manager_close_client_cb);
+//
+//    // Free request handle
+//    free(req);
+//}
 
-    // Close client hanlde
-    uv_close((uv_handle_t*)req->handle, tunnel_manager_close_client_cb);
-
-    // Free request handle
-    free(req);
-}
-
-void server_close_cb(uv_handle_t *handle)
+static void tm_server_close_cb(uv_handle_t *handle)
 {
     free(handle);
 }
 
 // Callback for new connections
-void new_tunnel_connection(uv_stream_t *server, int status) {
+static void tm_new_tunnel_connection_cb(uv_stream_t *server, int status) {
     uv_tcp_t *client = NULL;
     //uv_write_t *req = NULL;
     int rv = FKO_SUCCESS;
@@ -97,7 +99,7 @@ void new_tunnel_connection(uv_stream_t *server, int status) {
 
     if((rv = uv_tcp_init(server->loop, client)))
     {
-        log_msg(LOG_ERR, "new_tunnel_connection uv_tcp_init error: %s\n", uv_strerror(rv));
+        log_msg(LOG_ERR, "tm_new_tunnel_connection_cb uv_tcp_init error: %s\n", uv_strerror(rv));
         free(client);
         return;
     }
@@ -128,7 +130,7 @@ void new_tunnel_connection(uv_stream_t *server, int status) {
             (tunnel_manager_t)server->data, sdp_id, ip_str
             )) != FKO_SUCCESS)
         {
-            log_msg(LOG_ERR, "[*] new_tunnel_connection failed to create tunnel request");
+            log_msg(LOG_ERR, "[*] tm_new_tunnel_connection_cb failed to create tunnel request");
 
             if(rv == FKO_ERROR_MEMORY_ALLOCATION)
             {
@@ -140,11 +142,14 @@ void new_tunnel_connection(uv_stream_t *server, int status) {
             }
         }
 
-        log_msg(LOG_WARNING, "[+] new_tunnel_connection Successfully stored tunnel request");
+        log_msg(LOG_WARNING, "[+] tm_new_tunnel_connection_cb Successfully stored tunnel request");
 
         // TODO: perform SSL handshake, that's async so code below will need
         // to become part of the callback for that
 
+        // TODO: what do we do if sdp id already has a tunnel connection
+        // yet sent another SPA, disconnect old one?
+        // if this one checks out, probably should kill the old one
 
         // check if we were expecting this connection
         if((rv = tunnel_manager_find_client_request(
@@ -189,11 +194,13 @@ void new_tunnel_connection(uv_stream_t *server, int status) {
             tunnel_data->remote_public_ip
         );
 
+        // TODO: Move tunnel info to live connection hash table
+
 
         // start accepting messages from the client
-        if((rv = uv_read_start((uv_stream_t*) client, tunnel_manager_alloc_buffer, on_read)))
+        if((rv = uv_read_start((uv_stream_t*) client, tunnel_manager_alloc_buffer, tm_on_read)))
         {
-            log_msg(LOG_ERR, "new_tunnel_connection uv_read_start error: %s", uv_strerror(rv));
+            log_msg(LOG_ERR, "tm_new_tunnel_connection_cb uv_read_start error: %s", uv_strerror(rv));
 
             //closing client handle
             uv_close((uv_handle_t*)client, tunnel_manager_close_client_cb);
@@ -230,6 +237,179 @@ void new_tunnel_connection(uv_stream_t *server, int status) {
 }
 
 
+static void tm_handle_service_request(
+        tunnel_manager_t tunnel_mgr, 
+        uint32_t sdp_id, 
+        uint32_t service_id, 
+        uint32_t idp_id, 
+        char *id_token)
+{
+    //int rv = FKO_SUCCESS;
+    //uv_tcp_t *handle = NULL;
+    //
+    //// if a tunnel exists, get the handle
+    //// otherwise set up a new tunnel
+    //if((rv = tm_connect_to_peer(tunnel_mgr, sdp_id, service_id, idp_id, id_token, &handle)) != FKO_SUCCESS)
+    //{
+    //    log_msg(LOG_ERR, "Tunnel Manager could not connect to peer");
+    //}
+    //
+    //if((rv = tm_send_service_request()) != FKO_SUCCESS)
+    //{
+    //    log_msg(LOG_ERR, "Tunnel Manager failed to send service request to peer");
+    //}
+
+    return;
+}
+
+static void tm_handle_service_granted(
+        tunnel_manager_t tunnel_mgr, 
+        uint32_t sdp_id, 
+        uint32_t service_id, 
+        uint32_t idp_id, 
+        char *id_token)
+{
+    return;
+
+}
+
+static void tm_handle_service_denied(
+        tunnel_manager_t tunnel_mgr, 
+        uint32_t sdp_id, 
+        uint32_t service_id)
+{
+    return;
+
+}
+
+static void tm_handle_authn_request(
+        tunnel_manager_t tunnel_mgr, 
+        uint32_t sdp_id, 
+        uint32_t service_id, 
+        uint32_t idp_id, 
+        char *id_token)
+{
+    return;
+
+}
+
+static void tm_handle_authn_accepted(
+        tunnel_manager_t tunnel_mgr, 
+        uint32_t sdp_id, 
+        char *tunnel_ip)
+{
+    return;
+
+}
+
+static void tm_handle_authn_rejected(
+        tunnel_manager_t tunnel_mgr, 
+        uint32_t sdp_id)
+{
+    return;
+
+}
+
+static void tm_handle_msg(tunnel_manager_t tunnel_mgr, void *msg, int data_type)
+{
+    int rv = FKO_SUCCESS;
+    int action = 0;
+    uint32_t sdp_id = 0;
+    uint32_t idp_id = 0;
+    uint32_t service_id = 0;
+    char *id_token = NULL;
+    char *tunnel_ip = NULL;
+    char *packet = NULL;
+
+    if(data_type == PTR_TO_STR)
+    {
+        if((rv = tunnel_manager_process_json_msg_string(
+                (char*)msg,
+                &action,
+                &sdp_id,
+                &idp_id,
+                &service_id,
+                &id_token,
+                &tunnel_ip,
+                &packet
+            )) != FKO_SUCCESS)
+        {
+            log_msg(LOG_ERR, "Received bad control message");
+            goto cleanup;
+        }
+    }
+    else
+    {
+        if((rv = tunnel_manager_process_json_msg(
+                (json_object*)msg,
+                &action,
+                &sdp_id,
+                &idp_id,
+                &service_id,
+                &id_token,
+                &tunnel_ip,
+                &packet
+            )) != FKO_SUCCESS)
+        {
+            log_msg(LOG_ERR, "Received bad control message");
+            goto cleanup;
+        }
+    }
+
+    // react to message
+    switch(action)
+    {
+        case CTRL_ACTION_SERVICE_REQUEST:
+            tm_handle_service_request(tunnel_mgr, sdp_id, service_id, idp_id, id_token);
+
+            // definitely free allocated memory in this case
+            break;
+
+        case CTRL_ACTION_SERVICE_GRANTED:
+            tm_handle_service_granted(tunnel_mgr, sdp_id, service_id, idp_id, id_token);
+            break;
+
+        case CTRL_ACTION_SERVICE_DENIED:
+            tm_handle_service_denied(tunnel_mgr, sdp_id, service_id);
+            break;
+
+        case CTRL_ACTION_AUTHN_REQUEST:
+            tm_handle_authn_request(tunnel_mgr, sdp_id, service_id, idp_id, id_token);
+            break;
+
+        case CTRL_ACTION_AUTHN_ACCEPTED:
+            tm_handle_authn_accepted(tunnel_mgr, sdp_id, tunnel_ip);
+            break;
+
+        case CTRL_ACTION_AUTHN_REJECTED:
+            tm_handle_authn_rejected(tunnel_mgr, sdp_id);
+            break;
+
+        case CTRL_ACTION_TUNNEL_TRAFFIC:
+            tunnel_manager_handle_tunnel_traffic(tunnel_mgr, sdp_id, packet);
+            break;
+
+        case CTRL_ACTION_BAD_MESSAGE:
+            log_msg(LOG_ERR, "Tunnel manager received notice of a bad message");
+            break;
+
+        default:
+            log_msg(LOG_ERR, "Received message with unhandled action");
+
+    }
+
+    
+cleanup:
+    if(id_token) free(id_token);
+    if(tunnel_ip) free(tunnel_ip);
+    if(packet) free(packet);
+    return;
+}
+
+
+
+
+
 void *tunnel_manager_thread_func(void *arg)
 {
     fko_srv_options_t *opts = (fko_srv_options_t*)arg;
@@ -263,8 +443,8 @@ void *tunnel_manager_thread_func(void *arg)
     // Bind to socket
     uv_tcp_bind(&server, (const struct sockaddr*)&addr, 0);
 
-    // Listen on socket, run new_tunnel_connection() on every new connection
-    if((rv = uv_listen((uv_stream_t*) &server, TUNNEL_BACKLOG, new_tunnel_connection)) != 0)
+    // Listen on socket, run tm_new_tunnel_connection_cb() on every new connection
+    if((rv = uv_listen((uv_stream_t*) &server, TUNNEL_BACKLOG, tm_new_tunnel_connection_cb)) != 0)
     {
         log_msg(LOG_ERR, "uv_listen error: %s", uv_strerror(rv));
         return NULL;
@@ -275,7 +455,7 @@ void *tunnel_manager_thread_func(void *arg)
     // Start the loop
     uv_run(opts->tunnel_mgr->loop, UV_RUN_DEFAULT);
 
-    uv_close((uv_handle_t*)&server, server_close_cb);
+    uv_close((uv_handle_t*)&server, tm_server_close_cb);
 
     // Close loop and shutdown
     //uv_loop_close(opts->tunnel_mgr->loop);
@@ -283,6 +463,81 @@ void *tunnel_manager_thread_func(void *arg)
 
     return NULL;
 }
+
+
+static void gateway_pipe_read_cb(uv_stream_t *client, ssize_t nread, const uv_buf_t *buf) 
+{
+    json_object *msg = NULL;
+
+    log_msg(LOG_DEBUG, "gateway_pipe_read_cb() just called...");
+
+    if (nread > 0) 
+    {
+
+        log_msg(LOG_DEBUG, "gateway_pipe_read_cb() got bytes: %d", nread);
+
+        if(nread != sizeof msg)
+        {
+            log_msg(LOG_ERR, "Tunnel manager received non-pointer message on pipe.");
+        }
+        else
+        {
+            log_msg(LOG_DEBUG, "gateway_pipe_read_cb() getting ptr...");
+
+            if(tunnel_manager_array_2_ptr((const char const*)buf->base, (char**)&msg))
+            {
+                log_msg(LOG_ERR, "Failed to convert received buffer to a pointer address");
+                free(buf->base);
+                uv_stop(client->loop);       
+            }
+
+            free(buf->base);
+
+            log_msg(LOG_DEBUG, "gateway_pipe_read_cb() comparing against stop msg...");
+
+            //is the pointer value pointing to the stop message
+            if((char*)msg == TM_STOP_MSG)
+            {
+                log_msg(LOG_WARNING, "Tunnel manager received stop message from pipe");
+                uv_stop(client->loop);
+                return;
+            }
+
+            log_msg(LOG_WARNING, "Tunnel manager received message from pipe");
+            tm_handle_msg((tunnel_manager_t)client->data, msg, PTR_TO_JSON);
+
+           
+            // try to free the msg object
+            if(msg != NULL)
+            {
+                if(json_object_get_type(msg) != json_type_null) 
+                    json_object_put(msg);
+                else
+                    free(msg);
+            }
+
+            //tunnel_manager_ptr_2_array((const char* const)reply_str, &ptr);
+            //write_req_t *req = calloc(1, sizeof *req);
+            //req->buf = uv_buf_init(ptr, sizeof ptr);
+            //uv_write((uv_write_t*) req, client, &req->buf, 1, tm_write_cb);
+
+            return;
+        }
+
+    }
+
+    if (nread <= 0) 
+    {
+        if (nread != UV_EOF)
+            log_msg(LOG_ERR, "uv read error %s\n", uv_err_name(nread));
+        else
+            log_msg(LOG_WARNING, "ctrl client closed pipe to tunnel manager");
+        uv_close((uv_handle_t*) client, tunnel_manager_pipe_close_cb);
+    }
+
+    free(buf->base);
+}
+
 
 
 int start_tunnel_manager(fko_srv_options_t *opts)
@@ -308,7 +563,8 @@ int start_tunnel_manager(fko_srv_options_t *opts)
         clean_exit(opts, NO_FW_CLEANUP, EXIT_FAILURE);
     }
 
-    if((rv = tunnel_manager_new(0, hash_table_len, &tunnel_mgr)) != FKO_SUCCESS)
+    if((rv = tunnel_manager_new(IS_SDP_GATEWAY, hash_table_len, 
+            gateway_pipe_read_cb, &tunnel_mgr)) != FKO_SUCCESS)
     {
         log_msg(LOG_ERR, "[*] Failed to create tunnel manager");
         clean_exit(opts, NO_FW_CLEANUP, EXIT_FAILURE);
@@ -344,6 +600,34 @@ int start_tunnel_manager(fko_srv_options_t *opts)
 }
 
 
+static int tm_send_stop_msg_to_me(tunnel_manager_t tunnel_mgr)
+{
+    char *ptr = NULL;
+    int rv = 0;
+
+    log_msg(LOG_DEBUG, "tm_send_stop_msg_to_me() getting ptr address...");
+
+    //stopping the gateway tm, have to send the pointer addr, not the string
+    tunnel_manager_ptr_2_array((const char* const)TM_STOP_MSG, &ptr);
+
+    log_msg(LOG_DEBUG, "tm_send_stop_msg_to_me() sending ptr address...");
+    
+    rv = send(tunnel_mgr->tm_sock_fd, ptr, sizeof(void*), 0);
+    free(ptr);
+
+    if (rv == -1) 
+    {
+        perror("Failed to send stop message to tunnel manager");
+        return FKO_ERROR_FILESYSTEM_OPERATION;
+    }
+
+    log_msg(LOG_DEBUG, "tm_send_stop_msg_to_me() bytes sent: %d", rv);
+
+    return FKO_SUCCESS;
+}
+
+
+
 void stop_tunnel_manager(fko_srv_options_t *opts)
 {
     log_msg(LOG_DEBUG, "Looking for Tunnel Manager thread to stop...");
@@ -353,8 +637,8 @@ void stop_tunnel_manager(fko_srv_options_t *opts)
     {
         if(opts->tunnel_mgr_thread > 0)
         {
-            log_msg(LOG_DEBUG, "Stopping Tunnel Manager thread now...");
-            tunnel_manager_send_stop(opts->tunnel_mgr);
+            log_msg(LOG_WARNING, "Stopping Tunnel Manager thread now...");
+            tm_send_stop_msg_to_me(opts->tunnel_mgr);
             pthread_cancel(opts->tunnel_mgr_thread);
             pthread_join(opts->tunnel_mgr_thread, NULL);
             opts->tunnel_mgr_thread = 0;
@@ -362,12 +646,12 @@ void stop_tunnel_manager(fko_srv_options_t *opts)
         }
         else
         {
-            log_msg(LOG_DEBUG, "Tunnel Manager thread not found");
+            log_msg(LOG_WARNING, "Tunnel Manager thread not found");
         }
     }
     else
     {
-        log_msg(LOG_DEBUG, "Tunnel Manager not found for stopping");
+        log_msg(LOG_WARNING, "Tunnel Manager not found for stopping");
     }
 }
 

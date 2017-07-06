@@ -11,15 +11,15 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include "fko.h"
+#include "fko_common.h"
 #include "sdp_log_msg.h"
 #include "bstr_lib.h"
 #include "hash_table.h"
 #include "tunnel_manager.h"
 #include "sdp_ctrl_client.h"
 
-const char *TM_STOP_MSG = "STOP_TM";
 
-static int add_to_pipe_client_list(tunnel_manager_t tunnel_mgr, uv_pipe_t *handle)
+static int tm_add_to_pipe_client_list(tunnel_manager_t tunnel_mgr, uv_pipe_t *handle)
 {
     pipe_client_item_t new_guy = NULL;
     pipe_client_item_t ptr = tunnel_mgr->pipe_client_list;
@@ -47,7 +47,7 @@ static int add_to_pipe_client_list(tunnel_manager_t tunnel_mgr, uv_pipe_t *handl
 }
 
 
-static int remove_from_pipe_client_list(tunnel_manager_t tunnel_mgr, uv_pipe_t *handle)
+static int tm_remove_from_pipe_client_list(tunnel_manager_t tunnel_mgr, uv_pipe_t *handle)
 {
     pipe_client_item_t ptr = tunnel_mgr->pipe_client_list;
     pipe_client_item_t follower = NULL;
@@ -82,7 +82,7 @@ static int remove_from_pipe_client_list(tunnel_manager_t tunnel_mgr, uv_pipe_t *
 
 
 
-static void print_tunnel_info_item(tunnel_info_t item)
+static void tm_print_tunnel_info_item(tunnel_info_t item)
 {
     char req_services[100] = {0};
     char opened_services[100] = {0};
@@ -143,11 +143,11 @@ static void print_tunnel_info_item(tunnel_info_t item)
 }
 
 
-static void print_tunnel_info_list(tunnel_info_t item)
+static void tm_print_tunnel_info_list(tunnel_info_t item)
 {
     while(item != NULL)
     {
-        print_tunnel_info_item(item);
+        tm_print_tunnel_info_item(item);
         item = item->next;
     }
 
@@ -155,22 +155,22 @@ static void print_tunnel_info_list(tunnel_info_t item)
 }
 
 
-static int traverse_print_tunnel_items_cb(hash_table_node_t *node, void *arg)
+static int tm_traverse_print_tunnel_items_cb(hash_table_node_t *node, void *arg)
 {
-    print_tunnel_info_list((tunnel_info_t)(node->data));
+    tm_print_tunnel_info_list((tunnel_info_t)(node->data));
 
     return FKO_SUCCESS;
 }
 
 
 
-static void destroy_tunneled_service_info_item(tunneled_service_t item)
+static void tm_destroy_tunneled_service_info_item(tunneled_service_t item)
 {
     free(item);
 }
 
 
-static void destroy_tunneled_service_list(tunneled_service_t list)
+static void tm_destroy_tunneled_service_list(tunneled_service_t list)
 {
     tunneled_service_t this_node = list;
     tunneled_service_t next = NULL;
@@ -178,20 +178,20 @@ static void destroy_tunneled_service_list(tunneled_service_t list)
     while(this_node != NULL)
     {
         next = this_node->next;
-        destroy_tunneled_service_info_item(this_node);
+        tm_destroy_tunneled_service_info_item(this_node);
         this_node = next;
     }    
 }
 
-static void destroy_tunnel_info_item(tunnel_info_t item)
+static void tm_destroy_tunnel_info_item(tunnel_info_t item)
 {
     log_msg(LOG_WARNING, "Destroying tunnel info item for SDP ID %"PRIu32, item->sdp_id);
 
     if(item->services_requested != NULL)
-        destroy_tunneled_service_list(item->services_requested);
+        tm_destroy_tunneled_service_list(item->services_requested);
 
     if(item->services_opened != NULL)
-        destroy_tunneled_service_list(item->services_opened);
+        tm_destroy_tunneled_service_list(item->services_opened);
 
     if(item->handle != NULL)
     {
@@ -210,58 +210,56 @@ static void destroy_tunnel_info_item(tunnel_info_t item)
 }
 
 
-static void destroy_tunnel_info_list(tunnel_info_t list)
-{
-    tunnel_info_t this_node = list;
-    tunnel_info_t next = NULL;
+//static void tm_destroy_tunnel_info_list(tunnel_info_t list)
+//{
+//    tunnel_info_t this_node = list;
+//    tunnel_info_t next = NULL;
+//
+//    while(this_node != NULL)
+//    {
+//        next = this_node->next;
+//        tm_destroy_tunnel_info_item(this_node);
+//        this_node = next;
+//    }
+//}
 
-    while(this_node != NULL)
-    {
-        next = this_node->next;
-        destroy_tunnel_info_item(this_node);
-        this_node = next;
-    }
-}
 
-
-static void destroy_tunnel_hash_node_cb(hash_table_node_t *node)
+static void tm_destroy_tunnel_hash_node_cb(hash_table_node_t *node)
 {
     log_msg(LOG_WARNING, "Found a tunnel info hash table node to destroy.");
     if(node->key != NULL) bstr_destroy((bstring)(node->key));
     if(node->data != NULL)
     {
-        // this function takes care of all tunnel info nodes (NOT hash table nodes)
-        // for this SDP ID, including the very first one
-        destroy_tunnel_info_list((tunnel_info_t)(node->data));
+        tm_destroy_tunnel_info_item((tunnel_info_t)(node->data));
     }
 }
 
-static void remove_sock(tunnel_manager_t tunnel_mgr) 
+static void tm_remove_sock(tunnel_manager_t tunnel_mgr) 
 {
     uv_fs_t req;
     uv_fs_unlink(tunnel_mgr->loop, &req, tunnel_mgr->pipe_name, NULL);
 }
 
 
-static void pipe_close_cb(uv_handle_t* handle)
+void tunnel_manager_pipe_close_cb(uv_handle_t* handle)
 {
-    remove_from_pipe_client_list((tunnel_manager_t)handle->data, (uv_pipe_t*)handle);
+    tm_remove_from_pipe_client_list((tunnel_manager_t)handle->data, (uv_pipe_t*)handle);
     free(handle);
 }
 
-static void main_pipe_close_cb(uv_handle_t* handle)
+static void tm_main_pipe_close_cb(uv_handle_t* handle)
 {
     free(handle);
 }
 
-static void close_all_pipe_clients(tunnel_manager_t tunnel_mgr)
+static void tm_close_all_pipe_clients(tunnel_manager_t tunnel_mgr)
 {
     pipe_client_item_t ptr = tunnel_mgr->pipe_client_list;
     pipe_client_item_t prev = NULL;
 
     while(ptr)
     {
-        uv_close((uv_handle_t*)ptr->handle, main_pipe_close_cb);
+        uv_close((uv_handle_t*)ptr->handle, tm_main_pipe_close_cb);
         prev = ptr;
         ptr = ptr->next;
         free(prev);
@@ -269,145 +267,72 @@ static void close_all_pipe_clients(tunnel_manager_t tunnel_mgr)
 
 }
 
-void free_write_req(uv_write_t *req) 
+void tm_free_write_req(uv_write_t *req) 
 {
     write_req_t *wr = (write_req_t*) req;
     free(wr->buf.base);
     free(wr);
 }
 
-void echo_write(uv_write_t *req, int status) 
+static void tm_write_cb(uv_write_t *req, int status) 
 {
     if (status < 0) 
     {
         log_msg(LOG_ERR, "uv_write error %s\n", uv_err_name(status));
     }
 
-    free_write_req(req);
+    tm_free_write_req(req);
 }
 
-static void process_msg_from_ctrl(json_object *msg)
+int tunnel_manager_send_msg(tunnel_manager_t tunnel_mgr, int send_type, uv_stream_t *handle, char *msg)
+{
+    int rv = FKO_SUCCESS;
+    char *ptr = NULL;
+    int len = 0;
+
+    if(send_type == SEND_PTR)
+    {
+        log_msg(LOG_WARNING, "tm_send_msg() sending message as pointer");
+
+        if((rv = tunnel_manager_ptr_2_array((const char* const)msg, &ptr)) != FKO_SUCCESS)
+        {
+            log_msg(LOG_ERR, "tm_send_msg() failed to make address array to send pointer");
+            return rv;
+        }
+
+        len = sizeof(void*);
+    }
+    else
+    {
+        log_msg(LOG_WARNING, "tm_send_msg() sending message as json string");
+        
+        ptr = msg;
+
+        len = strnlen(ptr, MAX_PIPE_MSG_LEN);
+    }
+
+    write_req_t *req = calloc(1, sizeof *req);
+    req->buf = uv_buf_init(ptr, len);
+    uv_write((uv_write_t*) req, handle, &req->buf, 1, tm_write_cb);
+
+    return rv;
+}
+
+void tunnel_manager_handle_tunnel_traffic(
+        tunnel_manager_t tunnel_mgr, 
+        uint32_t sdp_id, 
+        char *packet)
 {
     return;
+
 }
 
 
-void gateway_pipe_read_cb(uv_stream_t *client, ssize_t nread, const uv_buf_t *buf) 
-{
-    json_object *msg = NULL;
-    char *reply_str = NULL; 
-    char *ptr = NULL;
-
-    if (nread > 0) 
-    {
-        if(nread != sizeof msg)
-        {
-            log_msg(LOG_ERR, "Tunnel manager received non-pointer message on pipe.");
-        }
-        else
-        {
-            if(tunnel_manager_array_2_ptr((const char const*)buf->base, (char**)&msg))
-            {
-                log_msg(LOG_ERR, "Failed to convert received buffer to a pointer address");
-                free(buf->base);
-                uv_stop(client->loop);       
-            }
-
-            free(buf->base);
-
-            //is the pointer value pointing to the stop message
-            if((char*)msg == TM_STOP_MSG)
-            {
-                log_msg(LOG_WARNING, "Tunnel manager received stop message from pipe");
-                uv_stop(client->loop);
-                return;
-            }
-
-            log_msg(LOG_WARNING, "Tunnel manager received ctrl message from pipe");
-            process_msg_from_ctrl(msg);
-
-            //TODO: Get rid of this. Only for a one-time trial
-            log_msg(LOG_WARNING, "Tunnel manager received pipe message: %s", (char*)msg);
-            free((char*)msg);
-            msg = NULL;
-            
-            // try to free the msg object
-            if(msg != NULL && json_object_get_type(msg) != json_type_null) 
-                json_object_put(msg);
-
-            // send a reply for fun
-            reply_str = calloc(1, 40);
-            snprintf(reply_str, 40, "WHAT'S UP GATEWAY MAIN!");
-            tunnel_manager_ptr_2_array((const char* const)reply_str, &ptr);
-            write_req_t *req = calloc(1, sizeof *req);
-            req->buf = uv_buf_init(ptr, sizeof ptr);
-            uv_write((uv_write_t*) req, client, &req->buf, 1, echo_write);
-
-            return;
-        }
-
-    }
-
-    if (nread < 0) 
-    {
-        if (nread != UV_EOF)
-            log_msg(LOG_ERR, "uv read error %s\n", uv_err_name(nread));
-        else
-            log_msg(LOG_WARNING, "ctrl client closed pipe to tunnel manager");
-        uv_close((uv_handle_t*) client, NULL);
-    }
-
-    free(buf->base);
-}
-
-
-static int stop_msg_received(const uv_buf_t *buf)
-{
-    if(strncmp(buf->base, TM_STOP_MSG, strlen(TM_STOP_MSG)) == 0)
-    {
-        return 1;
-    }
-
-    return 0;
-}
-
-
-void client_pipe_read_cb(uv_stream_t *client, ssize_t nread, const uv_buf_t *buf) 
-{
-    if (nread > 0) 
-    {
-        if(stop_msg_received(buf))
-        {
-            log_msg(LOG_WARNING, "Tunnel manager received stop message from pipe");
-            free(buf->base);
-            uv_stop(client->loop);
-            return;
-        }
-
-        log_msg(LOG_WARNING, "Tunnel manager received pipe message: %s", buf->base);
-        write_req_t *req = calloc(1, sizeof *req);
-        req->buf = uv_buf_init(buf->base, nread);
-        uv_write((uv_write_t*) req, client, &req->buf, 1, echo_write);
-        return;
-    }
-
-    if (nread < 0) 
-    {
-        if (nread != UV_EOF)
-            log_msg(LOG_ERR, "uv read error %s\n", uv_err_name(nread));
-        uv_close((uv_handle_t*) client, NULL);
-    }
-
-    free(buf->base);
-}
-
-
-void on_pipe_connection(uv_stream_t *server, int status) 
+static void tm_on_pipe_connection(uv_stream_t *server, int status) 
 {
     int rv = FKO_SUCCESS;
     uv_pipe_t *client = NULL;
     tunnel_manager_t tunnel_mgr = (tunnel_manager_t)server->data;
-    uv_read_cb read_cb;
 
     if (status == -1) {
         // error!
@@ -425,7 +350,16 @@ void on_pipe_connection(uv_stream_t *server, int status)
         return;
     }
 
-    read_cb = (tunnel_mgr->is_sdp_client ? client_pipe_read_cb : gateway_pipe_read_cb);
+    if(tunnel_mgr->pipe_read_cb_ptr == NULL)
+    {
+        log_msg(
+            LOG_ERR, 
+            "Received pipe connection, but tunnel manager's pipe_read_cb_ptr is not set"
+        );
+
+        uv_stop(server->loop);
+        return;
+    }
 
     if((client = calloc(1, sizeof *client)) == NULL)
     {
@@ -437,15 +371,15 @@ void on_pipe_connection(uv_stream_t *server, int status)
     if((rv = uv_pipe_init(server->loop, client, 0)))
     {
         log_msg(LOG_ERR, "uv_pipe_init error: %s", uv_err_name(rv));
-        uv_close((uv_handle_t*) client, pipe_close_cb);
+        uv_close((uv_handle_t*) client, tm_main_pipe_close_cb);
         return;
     }
 
     client->data = tunnel_mgr;
-    if((rv = add_to_pipe_client_list(tunnel_mgr, client)) != FKO_SUCCESS)
+    if((rv = tm_add_to_pipe_client_list(tunnel_mgr, client)) != FKO_SUCCESS)
     {
         log_msg(LOG_ERR, "[*] Fatal memory error");
-        uv_close((uv_handle_t*) client, pipe_close_cb);
+        uv_close((uv_handle_t*) client, tm_main_pipe_close_cb);
         uv_stop(server->loop);
         return;        
     }
@@ -453,11 +387,13 @@ void on_pipe_connection(uv_stream_t *server, int status)
     if (uv_accept(server, (uv_stream_t*) client) == 0) 
     {
         log_msg(LOG_WARNING, "[*] Tunnel Manager received pipe connection");
-        uv_read_start((uv_stream_t*) client, tunnel_manager_alloc_buffer, read_cb);
+        uv_read_start((uv_stream_t*) client, 
+            tunnel_manager_alloc_buffer, 
+            tunnel_mgr->pipe_read_cb_ptr);
     }
     else 
     {
-        uv_close((uv_handle_t*) client, pipe_close_cb);
+        uv_close((uv_handle_t*) client, tm_main_pipe_close_cb);
     }
 }
 
@@ -491,13 +427,13 @@ void tunnel_manager_destroy(tunnel_manager_t tunnel_mgr)
 
     if(tunnel_mgr->loop != NULL)
     {
-        close_all_pipe_clients(tunnel_mgr);
+        tm_close_all_pipe_clients(tunnel_mgr);
         
-        remove_sock(tunnel_mgr);
+        tm_remove_sock(tunnel_mgr);
 
         if(tunnel_mgr->tm_pipe != NULL)
         {
-            uv_close((uv_handle_t*)tunnel_mgr->tm_pipe, main_pipe_close_cb);
+            uv_close((uv_handle_t*)tunnel_mgr->tm_pipe, tm_main_pipe_close_cb);
         }
 
         uv_loop_close(tunnel_mgr->loop);
@@ -525,11 +461,28 @@ void tunnel_manager_destroy(tunnel_manager_t tunnel_mgr)
 }
 
 
-int tunnel_manager_new(int is_sdp_client, int tbl_len, tunnel_manager_t *r_tunnel_mgr)
+int tunnel_manager_new(
+        int is_sdp_client, 
+        int tbl_len, 
+        uv_read_cb pipe_read_cb_ptr, 
+        tunnel_manager_t *r_tunnel_mgr)
 {
     int rv = FKO_SUCCESS;
     tunnel_manager_t tunnel_mgr = NULL;
     uv_pipe_t *tm_pipe = NULL;
+
+    if(!tbl_len)
+    {
+        log_msg(LOG_ERR, "tunnel_manager_new() hash table length not provided");
+        return FKO_ERROR_UNKNOWN;
+    }
+
+    if(!pipe_read_cb_ptr)
+    {
+        log_msg(LOG_ERR, "tunnel_manager_new() pipe read callback function not provided");
+        return FKO_ERROR_UNKNOWN;
+    }
+
 
     // allocate memory
     if((tunnel_mgr = calloc(1, sizeof *tunnel_mgr)) == NULL)
@@ -537,6 +490,8 @@ int tunnel_manager_new(int is_sdp_client, int tbl_len, tunnel_manager_t *r_tunne
 
     tunnel_mgr->is_sdp_client = is_sdp_client;
     tunnel_mgr->pipe_name = (is_sdp_client ? NAME_TM_CLIENT_PIPE : NAME_TM_GATEWAY_PIPE);
+    tunnel_mgr->pipe_read_cb_ptr = pipe_read_cb_ptr;
+
     log_msg(LOG_WARNING, "Tunnel Manager pipe name set to %s", tunnel_mgr->pipe_name);
 
     tunnel_mgr->loop = uv_default_loop();
@@ -560,7 +515,7 @@ int tunnel_manager_new(int is_sdp_client, int tbl_len, tunnel_manager_t *r_tunne
 
     tunnel_mgr->tm_pipe = tm_pipe;
     tm_pipe->data = tunnel_mgr;
-    remove_sock(tunnel_mgr);
+    tm_remove_sock(tunnel_mgr);
 
 
     if((rv = uv_pipe_bind(tunnel_mgr->tm_pipe, tunnel_mgr->pipe_name))) 
@@ -570,7 +525,7 @@ int tunnel_manager_new(int is_sdp_client, int tbl_len, tunnel_manager_t *r_tunne
         return FKO_ERROR_FILESYSTEM_OPERATION;
     }
 
-    if((rv = uv_listen((uv_stream_t*) tunnel_mgr->tm_pipe, 128, on_pipe_connection))) 
+    if((rv = uv_listen((uv_stream_t*) tunnel_mgr->tm_pipe, 128, tm_on_pipe_connection))) 
     {
         log_msg(LOG_ERR, "[*] pipe uv_listen error %s\n", uv_err_name(rv));
         tunnel_manager_destroy(tunnel_mgr);
@@ -579,7 +534,7 @@ int tunnel_manager_new(int is_sdp_client, int tbl_len, tunnel_manager_t *r_tunne
 
 
     tunnel_mgr->open_tunnel_hash_tbl = hash_table_create(tbl_len,
-        NULL, NULL, destroy_tunnel_hash_node_cb);
+        NULL, NULL, tm_destroy_tunnel_hash_node_cb);
 
     if(tunnel_mgr->open_tunnel_hash_tbl == NULL)
     {
@@ -591,7 +546,7 @@ int tunnel_manager_new(int is_sdp_client, int tbl_len, tunnel_manager_t *r_tunne
     }
 
     tunnel_mgr->requested_tunnel_hash_tbl = hash_table_create(tbl_len,
-        NULL, NULL, destroy_tunnel_hash_node_cb);
+        NULL, NULL, tm_destroy_tunnel_hash_node_cb);
 
     if(tunnel_mgr->requested_tunnel_hash_tbl == NULL)
     {
@@ -613,11 +568,11 @@ int tunnel_manager_connect_pipe(tunnel_manager_t tunnel_mgr)
 {
     struct sockaddr_un remote;
     int len = 0;
-    char buf[100];
-    char str[] = "Hello from main";
-    int bytes_rcvd = 0;
-    char *msg_for_gate_tm = NULL;
-    char *ptr = NULL;
+    //char buf[100];
+    //char str[] = "Hello from main";
+    //int bytes_rcvd = 0;
+    //char *msg_for_gate_tm = NULL;
+    //char *ptr = NULL;
 
 
     
@@ -640,6 +595,8 @@ int tunnel_manager_connect_pipe(tunnel_manager_t tunnel_mgr)
 
     log_msg(LOG_ALERT, "Connected to tunnel manager's pipe");
 
+
+    /*
     if(tunnel_mgr->is_sdp_client)
     {
 
@@ -701,43 +658,13 @@ int tunnel_manager_connect_pipe(tunnel_manager_t tunnel_mgr)
         }
 
     }
+    */
 
     return FKO_SUCCESS;
 }
 
 
-int tunnel_manager_send_stop(tunnel_manager_t tunnel_mgr)
-{
-    int len = strlen(TM_STOP_MSG);
-    char *ptr = NULL;
-    int rv = 0;
-
-    if(!tunnel_mgr->is_sdp_client)
-    {
-        //stopping the gateway tm, have to send the pointer addr, not the string
-        tunnel_manager_ptr_2_array((const char* const)TM_STOP_MSG, &ptr);
-
-        len = sizeof ptr;
-
-        rv = send(tunnel_mgr->tm_sock_fd, ptr, len, 0);
-        free(ptr);
-    }
-    else
-    {
-        rv = send(tunnel_mgr->tm_sock_fd, TM_STOP_MSG, len, 0);
-    }
-
-    if (rv == -1) 
-    {
-        perror("Failed to send stop message to tunnel manager");
-        return FKO_ERROR_FILESYSTEM_OPERATION;
-    }
-
-    return FKO_SUCCESS;
-}
-
-
-static int create_tunneled_service_item(uint32_t service_id,
+static int tm_create_tunneled_service_item(uint32_t service_id,
                                         uint32_t idp_id,
                                         char *id_token,
                                         tunneled_service_t *r_new_guy)
@@ -761,7 +688,7 @@ static int create_tunneled_service_item(uint32_t service_id,
 
 
 
-static int add_tunneled_service_to_list(tunneled_service_t *list, tunneled_service_t new_guy)
+static int tm_add_tunneled_service_to_list(tunneled_service_t *list, tunneled_service_t new_guy)
 {
     tunneled_service_t ptr = *list;
 
@@ -779,7 +706,7 @@ static int add_tunneled_service_to_list(tunneled_service_t *list, tunneled_servi
 }
 
 
-static int remove_tunneled_service_from_list(tunneled_service_t *list, 
+static int tm_remove_tunneled_service_from_list(tunneled_service_t *list, 
                                              uint32_t service_id, 
                                              tunneled_service_t *r_item)
 {
@@ -815,7 +742,7 @@ static int remove_tunneled_service_from_list(tunneled_service_t *list,
 }
 
 
-static int find_tunneled_service_in_list(tunneled_service_t *list, 
+static int tm_find_tunneled_service_in_list(tunneled_service_t *list, 
                                              uint32_t service_id, 
                                              tunneled_service_t *r_item)
 {
@@ -836,7 +763,7 @@ static int find_tunneled_service_in_list(tunneled_service_t *list,
 }
 
 
-static int create_tunnel_info_item(uint32_t sdp_id,
+static int tm_create_tunnel_info_item(uint32_t sdp_id,
                                   tunneled_service_t services_requested,
                                   tunneled_service_t services_opened,
                                   char *remote_public_ip,
@@ -881,7 +808,7 @@ static int create_tunnel_info_item(uint32_t sdp_id,
     return FKO_SUCCESS;
 }
 
-static bstring tunnel_key_from_sdpid(uint32_t sdp_id)
+static bstring tm_tunnel_key_from_sdpid(uint32_t sdp_id)
 {
     char id_str[SDP_MAX_CLIENT_ID_STR_LEN] = {0};
 
@@ -916,7 +843,7 @@ int tunnel_manager_submit_client_request(
         return FKO_ERROR_UNKNOWN;
     }
 
-    key = tunnel_key_from_sdpid(sdp_id);
+    key = tm_tunnel_key_from_sdpid(sdp_id);
 
     // are there requests for this sdp id in the table already?
     if(pthread_mutex_lock(&(tunnel_mgr->requested_tunnel_hash_tbl_mutex)))
@@ -930,7 +857,7 @@ int tunnel_manager_submit_client_request(
     {
 
         if((rv = 
-            create_tunnel_info_item(
+            tm_create_tunnel_info_item(
                 sdp_id, 
                 NULL, 
                 NULL, 
@@ -961,7 +888,7 @@ int tunnel_manager_submit_client_request(
 
         pthread_mutex_unlock(&(tunnel_mgr->requested_tunnel_hash_tbl_mutex));
 
-        hash_table_traverse(tunnel_mgr->requested_tunnel_hash_tbl, traverse_print_tunnel_items_cb, NULL);
+        hash_table_traverse(tunnel_mgr->requested_tunnel_hash_tbl, tm_traverse_print_tunnel_items_cb, NULL);
 
         return FKO_SUCCESS; 
     }
@@ -981,7 +908,7 @@ cleanup:
     if(key)
         bstr_destroy(key);
     if(tunnel_data)
-        destroy_tunnel_info_item(tunnel_data);
+        tm_destroy_tunnel_info_item(tunnel_data);
 
     return rv;
 }
@@ -1004,9 +931,9 @@ int tunnel_manager_find_client_request(
     }
 
     log_msg(LOG_WARNING, "\nentered tunnel_manager_find_client_request");
-    hash_table_traverse(tunnel_mgr->requested_tunnel_hash_tbl, traverse_print_tunnel_items_cb, NULL);
+    hash_table_traverse(tunnel_mgr->requested_tunnel_hash_tbl, tm_traverse_print_tunnel_items_cb, NULL);
 
-    key = tunnel_key_from_sdpid(sdp_id);
+    key = tm_tunnel_key_from_sdpid(sdp_id);
 
     // are there requests for this sdp id in the table ?
     if(pthread_mutex_lock(&(tunnel_mgr->requested_tunnel_hash_tbl_mutex)))
@@ -1109,7 +1036,7 @@ void tunnel_manager_close_client_cb(uv_handle_t *handle)
 
         // 'data' points to the hash table tunnel_info_t entry
         // need to remove it from the hash table
-        key = tunnel_key_from_sdpid(tunnel_data->sdp_id);
+        key = tm_tunnel_key_from_sdpid(tunnel_data->sdp_id);
         if(hash_table_delete(tunnel_data->containing_tbl, key))
         {
             log_msg(
@@ -1120,7 +1047,7 @@ void tunnel_manager_close_client_cb(uv_handle_t *handle)
             );
 
             // so destroy it now instead
-            destroy_tunnel_info_item(tunnel_data);
+            tm_destroy_tunnel_info_item(tunnel_data);
         }
         else
         {
@@ -1202,7 +1129,7 @@ int tunnel_manager_send_to_tm(tunnel_manager_t tunnel_mgr, void *msg)
         //stopping the gateway tm, have to send the pointer addr, not the string
         tunnel_manager_ptr_2_array((const char* const)msg, &ptr);
 
-        rv = send(tunnel_mgr->tm_sock_fd, ptr, sizeof ptr, 0);
+        rv = send(tunnel_mgr->tm_sock_fd, ptr, sizeof(void*), 0);
         free(ptr);
     }
     else
@@ -1218,3 +1145,328 @@ int tunnel_manager_send_to_tm(tunnel_manager_t tunnel_mgr, void *msg)
 
     return FKO_SUCCESS;
 }
+
+
+int tunnel_manager_message_make(
+        const char *action, 
+        uint32_t sdp_id, 
+        char *service_ids_str, 
+        uint32_t idp_id, 
+        char *id_token, 
+        char *packet,
+        char **r_msg)
+{
+    char *out_msg = NULL;
+    const char *json_string;
+    json_object *jout_msg = json_object_new_object();
+    json_object *jdata = json_object_new_object();
+    uint32_t tmp = 0;
+    int rv = FKO_SUCCESS;
+    int msg_len = 0;
+
+    if(action == NULL)
+    {  
+        log_msg(LOG_ERR, "tunnel_manager_message_make() action arg is NULL");
+        rv = FKO_ERROR_UNKNOWN;
+        goto cleanup;
+    }
+
+    if(jout_msg == NULL || jdata == NULL)
+    {
+        log_msg(LOG_ERR, "Memory allocation error");
+        rv = FKO_ERROR_MEMORY_ALLOCATION;
+        goto cleanup;
+    }
+
+    if(sdp_id)
+    {
+        json_object_object_add(jdata, sdp_key_sdp_id,     json_object_new_int((int32_t)sdp_id));
+    }
+
+    if(idp_id)
+    {
+        json_object_object_add(jdata, sdp_key_idp_id,     json_object_new_int((int32_t)idp_id));
+    }
+
+    if(id_token)
+    {
+        json_object_object_add(jdata, sdp_key_id_token,   json_object_new_string(id_token));
+    }
+
+    // TODO: eventually may need to handle more than one service id
+    if(service_ids_str)
+    {
+        tmp = strtoul_wrapper(service_ids_str, 0, UINT32_MAX, NO_EXIT_UPON_ERR, &rv);
+        if(rv)
+        {
+            log_msg(LOG_ERR, "tunnel_manager_message_make() failed to convert service id string "
+                "to uint32_t");
+            goto cleanup;
+        }
+        json_object_object_add(jdata, sdp_key_service_id, json_object_new_int((int32_t)tmp));
+    }
+
+    if(packet)
+    {
+        json_object_object_add(jdata, sdp_key_ip_packet,   json_object_new_string(packet));
+    }
+
+    json_object_object_add(jout_msg, sdp_key_action,  json_object_new_string(action));
+    json_object_object_add(jout_msg, sdp_key_data, jdata);
+
+    // now that jdata is part of jout_msg, do not try to free, it will be freed as part of jout_msg
+    jdata = NULL;
+
+    json_string = json_object_to_json_string(jout_msg);
+    if((msg_len = strnlen(json_string, MAX_PIPE_MSG_LEN)) >= MAX_PIPE_MSG_LEN )
+    {
+        log_msg(LOG_ERR, "tunnel_manager_message_make() message exceeds max len %d", MAX_PIPE_MSG_LEN);
+        rv = FKO_ERROR_UNKNOWN;
+        goto cleanup;
+    }
+
+    if((out_msg = strndup(json_string, msg_len)) == NULL)
+    {
+        log_msg(LOG_ERR, "Memory allocation error");
+        rv = FKO_ERROR_MEMORY_ALLOCATION;
+        goto cleanup;
+    }
+
+    *r_msg = out_msg;
+    rv = FKO_SUCCESS;
+
+cleanup:
+    if(jout_msg)
+        json_object_put(jout_msg);
+    if(jdata)
+        json_object_put(jdata);
+    return rv;
+}
+
+
+static int tm_get_message_action(json_object *json_msg, int *r_action)
+{
+    int rv = FKO_ERROR_UNKNOWN;
+    char *action_str = NULL;
+    ctrl_action_t action = INVALID_CTRL_ACTION;
+
+    if((rv = sdp_get_json_string_field(sdp_key_action, json_msg, &action_str)) != SDP_SUCCESS)
+        return rv;
+
+
+    if(strncmp(action_str, sdp_action_service_request, strlen(sdp_action_service_request)) == 0)
+        action = CTRL_ACTION_SERVICE_REQUEST;
+
+    else if(strncmp(action_str, sdp_action_service_granted, strlen(sdp_action_service_granted)) == 0)
+        action = CTRL_ACTION_SERVICE_GRANTED;
+
+    else if(strncmp(action_str, sdp_action_service_denied, strlen(sdp_action_service_denied)) == 0)
+        action = CTRL_ACTION_SERVICE_DENIED;
+
+    else if(strncmp(action_str, sdp_action_authn_request, strlen(sdp_action_authn_request)) == 0)
+        action = CTRL_ACTION_AUTHN_REQUEST;
+
+    else if(strncmp(action_str, sdp_action_authn_accepted, strlen(sdp_action_authn_accepted)) == 0)
+        action = CTRL_ACTION_AUTHN_ACCEPTED;
+
+    else if(strncmp(action_str, sdp_action_authn_rejected, strlen(sdp_action_authn_rejected)) == 0)
+        action = CTRL_ACTION_AUTHN_REJECTED;
+
+    else if(strncmp(action_str, sdp_action_tunnel_traffic, strlen(sdp_action_tunnel_traffic)) == 0)
+        action = CTRL_ACTION_TUNNEL_TRAFFIC;
+
+    else if(strncmp(action_str, sdp_action_bad_message, strlen(sdp_action_bad_message)) == 0)
+        action = CTRL_ACTION_BAD_MESSAGE;
+
+    free(action_str);
+
+    if(action == INVALID_CTRL_ACTION)
+        return rv;
+
+    *r_action = (int)action;
+    return FKO_SUCCESS;
+
+}
+
+
+
+int tunnel_manager_process_json_msg(
+        json_object *json_msg, 
+        int      *r_action,
+        uint32_t *r_sdp_id,
+        uint32_t *r_idp_id,
+        uint32_t *r_service_id,
+        char    **r_id_token,
+        char    **r_tunnel_ip,
+        char    **r_packet)
+{
+    json_object *jdata = NULL;
+    int      rv         = FKO_SUCCESS;
+    int      action     = 0;
+    uint32_t sdp_id     = 0;
+    uint32_t idp_id     = 0;
+    uint32_t service_id = 0;
+    char    *id_token   = NULL;
+    char    *tunnel_ip  = NULL;
+    char    *packet     = NULL;
+
+    if(!json_msg || json_object_get_type(json_msg) == json_type_null)
+    {
+        log_msg(LOG_ERR, "tunnel_manager_process_json_msg() given bad json message");
+        return FKO_ERROR_UNKNOWN;
+    }
+
+    if((rv = tm_get_message_action(json_msg, &action)) != FKO_SUCCESS)
+    {
+        log_msg(LOG_ERR, "tunnel_manager_process_json_msg() failed to extract action field");
+        return FKO_ERROR_UNKNOWN;
+    }
+
+    if( !json_object_object_get_ex(json_msg, sdp_key_data, &jdata))
+    {
+        log_msg(LOG_ERR, "tunnel_manager_process_json_msg() failed to extract data object");
+        return FKO_ERROR_UNKNOWN;
+    }
+
+    if(action == CTRL_ACTION_TUNNEL_TRAFFIC)
+    {
+        if((rv = sdp_get_json_string_field(sdp_key_ip_packet, jdata, &packet)) != FKO_SUCCESS)
+        {
+            log_msg(LOG_ERR, "tunnel_manager_process_json_msg() failed to extract ip packet");
+        }
+
+        goto cleanup;
+    }
+
+    if((rv = sdp_get_json_int_field(sdp_key_sdp_id, jdata, (int*)&sdp_id)) != FKO_SUCCESS)
+    {
+        log_msg(LOG_ERR, "tunnel_manager_process_json_msg() failed to extract sdp id");
+        return FKO_ERROR_UNKNOWN;        
+    }
+
+    if(action == CTRL_ACTION_AUTHN_REJECTED)
+    {
+        goto cleanup;
+    }
+
+    if(action == CTRL_ACTION_AUTHN_ACCEPTED)
+    {
+        if((rv = sdp_get_json_string_field(sdp_key_tunnel_ip, jdata, &tunnel_ip)) != FKO_SUCCESS)
+        {
+            log_msg(LOG_ERR, "tunnel_manager_process_json_msg() failed to extract tunnel IP");
+        }
+
+        goto cleanup;
+    }
+
+    if(action == CTRL_ACTION_AUTHN_REQUEST)
+    {
+        if((rv = sdp_get_json_int_field(sdp_key_idp_id, jdata, (int*)&idp_id)) != FKO_SUCCESS)
+        {
+            log_msg(LOG_ERR, "tunnel_manager_process_json_msg() failed to extract IdP id");
+            goto cleanup;        
+        }
+
+        if((rv = sdp_get_json_string_field(sdp_key_id_token, jdata, &id_token)) != FKO_SUCCESS)
+        {
+            log_msg(LOG_ERR, "tunnel_manager_process_json_msg() failed to extract id token");
+            goto cleanup;        
+        }
+
+        goto cleanup;
+    }
+
+    if( action == CTRL_ACTION_SERVICE_REQUEST ||
+        action == CTRL_ACTION_SERVICE_GRANTED ||
+        action == CTRL_ACTION_SERVICE_DENIED )
+    {
+        if((rv = sdp_get_json_int_field(sdp_key_service_id, jdata, (int*)&service_id)) != FKO_SUCCESS)
+        {
+            log_msg(LOG_ERR, "tunnel_manager_process_json_msg() failed to extract service id");
+            goto cleanup;        
+        }
+
+        if(action != CTRL_ACTION_SERVICE_REQUEST)
+        {
+            goto cleanup;
+        }
+
+        if((rv = sdp_get_json_int_field(sdp_key_idp_id, jdata, (int*)&idp_id)) != FKO_SUCCESS)
+        {
+            log_msg(LOG_ERR, "tunnel_manager_process_json_msg() failed to extract IdP id");
+            goto cleanup;        
+        }
+
+        if((rv = sdp_get_json_string_field(sdp_key_id_token, jdata, &id_token)) != FKO_SUCCESS)
+        {
+            log_msg(LOG_ERR, "tunnel_manager_process_json_msg() failed to extract id token");
+            goto cleanup;        
+        }
+
+        goto cleanup;
+    }
+
+
+cleanup:
+    if(rv != FKO_SUCCESS)
+    {
+        if(id_token) free(id_token);
+        if(tunnel_ip) free(tunnel_ip);
+        if(packet) free(packet);
+        
+        return rv;
+    }
+
+    *r_action       =  action;
+    *r_sdp_id       =  sdp_id;
+    *r_idp_id       =  idp_id;
+    *r_service_id   =  service_id;    
+    *r_id_token     =  id_token;  
+    *r_tunnel_ip    =  tunnel_ip;
+    *r_packet       =  packet;
+    
+    return rv;
+}
+
+
+int tunnel_manager_process_json_msg_string(
+        char *msg,
+        int *r_action,
+        uint32_t *r_sdp_id,
+        uint32_t *r_idp_id,
+        uint32_t *r_service_id,
+        char **r_id_token,
+        char    **r_tunnel_ip,
+        char    **r_packet)
+{
+    json_object *jmsg = NULL;
+    int rv = FKO_SUCCESS;
+
+    if(!msg)
+    {
+        log_msg(LOG_ERR, "tunnel_manager_process_json_msg_string() null message string given");
+        return FKO_ERROR_UNKNOWN;
+    }
+
+    if((jmsg = json_tokener_parse(msg)) == NULL)
+    {
+        log_msg(LOG_ERR, "Failed to parse json string message");
+        return FKO_ERROR_UNKNOWN;
+    }
+
+    rv = tunnel_manager_process_json_msg(
+            jmsg, 
+            r_action,
+            r_sdp_id,
+            r_idp_id,
+            r_service_id,
+            r_id_token,
+            r_tunnel_ip,
+            r_packet);
+
+    json_object_put(jmsg);
+
+    return rv;
+}
+
+

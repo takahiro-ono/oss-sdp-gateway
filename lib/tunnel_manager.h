@@ -11,11 +11,12 @@
 #include <uv.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <json-c/json.h>
 #include "fko_limits.h"
 #include "hash_table.h"
 
 #define ID_TOKEN_BUF_LEN 2048
-#define MAX_PIPE_MSG_LEN 10240  // TODO: this is arbitrary
+#define MAX_PIPE_MSG_LEN 65536   // TODO: this is max tcp packet size
 
 #define TUNNEL_PORT 8282
 #define TUNNEL_BACKLOG 10
@@ -23,9 +24,21 @@
 #define NAME_TM_GATEWAY_PIPE "tm_g_pipe"
 #define NAME_TM_CLIENT_PIPE "tm_c_pipe"
 
-extern const char* TM_STOP_MSG;
 
+enum {
+    PTR_TO_JSON,
+    PTR_TO_STR
+};
 
+enum {
+    SEND_PTR,
+    SEND_STR
+};
+
+enum {
+    IS_SDP_GATEWAY = 0,
+    IS_SDP_CLIENT = 1
+};
 
 struct tunneled_service{
     uint32_t service_id;
@@ -72,6 +85,7 @@ struct tunnel_manager{
     uv_loop_t *loop;
     uv_pipe_t *tm_pipe;
     pipe_client_item_t pipe_client_list;
+    uv_read_cb pipe_read_cb_ptr;
     int tm_sock_fd;
     uv_tcp_t *tm_tcp_server;
     //uv_pipe_t *pipe_to_tm;
@@ -92,8 +106,15 @@ typedef struct {
 } write_req_t;
 
 
+void tunnel_manager_pipe_close_cb(uv_handle_t* handle);
+int  tunnel_manager_send_msg(tunnel_manager_t tunnel_mgr, int send_type, 
+        uv_stream_t *handle, char *msg);
+void tunnel_manager_handle_tunnel_traffic(tunnel_manager_t tunnel_mgr, 
+        uint32_t sdp_id, char *packet);
+
 void tunnel_manager_destroy(tunnel_manager_t tunnel_mgr);
-int  tunnel_manager_new(int is_sdp_client, int tbl_len, tunnel_manager_t *r_tunnel_mgr);
+int  tunnel_manager_new(int is_sdp_client, int tbl_len, 
+        uv_read_cb pipe_read_cb_ptr, tunnel_manager_t *r_tunnel_mgr);
 int  tunnel_manager_connect_pipe(tunnel_manager_t tunnel_mgr);
 int  tunnel_manager_send_stop(tunnel_manager_t tunnel_mgr);
 int  tunnel_manager_submit_client_request(tunnel_manager_t tunnel_mgr, 
@@ -107,5 +128,25 @@ void tunnel_manager_alloc_buffer(uv_handle_t *handle, size_t suggested_size, uv_
 int  tunnel_manager_ptr_2_array(const char* const ptr, char **r_array);
 int  tunnel_manager_array_2_ptr(const char* const array, char **r_ptr);
 int  tunnel_manager_send_to_tm(tunnel_manager_t tunnel_mgr, void *msg);
+int  tunnel_manager_message_make(const char *action, uint32_t sdp_id, char *service_ids_str, 
+        uint32_t idp_id, char *id_token, char *packet, char **r_msg);
+int  tunnel_manager_process_json_msg(
+        json_object *json_msg, 
+        int *r_action,
+        uint32_t *r_sdp_id,
+        uint32_t *r_idp_id,
+        uint32_t *r_service_id,
+        char **r_id_token,
+        char **r_tunnel_ip,
+        char **r_packet);
+int  tunnel_manager_process_json_msg_string(
+        char *msg,
+        int *r_action,
+        uint32_t *r_sdp_id,
+        uint32_t *r_idp_id,
+        uint32_t *r_service_id,
+        char **r_id_token,
+        char **r_tunnel_ip,
+        char **r_packet);
 
 #endif /* SERVER_TUNNEL_MANAGER_H_ */

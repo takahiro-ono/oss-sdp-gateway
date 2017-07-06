@@ -27,10 +27,13 @@ typedef enum {
     CTRL_ACTION_CLIENT_SERVICE_UPDATE,
     CTRL_ACTION_CLIENT_SERVICE_REMOVE,
     CTRL_ACTION_CLIENT_SERVICE_ACK,
+    CTRL_ACTION_SERVICE_REQUEST,
     CTRL_ACTION_SERVICE_GRANTED,
     CTRL_ACTION_SERVICE_DENIED,
+    CTRL_ACTION_AUTHN_REQUEST,
     CTRL_ACTION_AUTHN_ACCEPTED,
     CTRL_ACTION_AUTHN_REJECTED,
+    CTRL_ACTION_TUNNEL_TRAFFIC,
     CTRL_ACTION_BAD_MESSAGE
 } ctrl_action_t;
 
@@ -60,6 +63,12 @@ typedef struct sdp_creds *sdp_creds_t;
 extern const char *sdp_key_action;
 extern const char *sdp_key_stage;
 extern const char *sdp_key_data;
+extern const char *sdp_key_sdp_id;
+extern const char *sdp_key_service_id;
+extern const char *sdp_key_idp_id;
+extern const char *sdp_key_id_token;
+extern const char *sdp_key_tunnel_ip;
+extern const char *sdp_key_ip_packet;
 
 extern const char *sdp_action_credentials_good;
 extern const char *sdp_action_keep_alive;
@@ -90,6 +99,7 @@ extern const char *sdp_action_service_denied;
 extern const char *sdp_action_authn_request;  
 extern const char *sdp_action_authn_accepted; 
 extern const char *sdp_action_authn_rejected; 
+extern const char *sdp_action_tunnel_traffic; 
 
 extern const char *sdp_stage_error;
 extern const char *sdp_stage_fulfilling;

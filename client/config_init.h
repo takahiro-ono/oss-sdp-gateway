@@ -41,6 +41,7 @@
 /* Function Prototypes
 */
 void config_init(fko_cli_options_t *options, int argc, char **argv);
+int process_rc_section(char *section_name, fko_cli_options_t *options);
 void usage(void);
 
 #ifdef HAVE_C_UNIT_TESTS

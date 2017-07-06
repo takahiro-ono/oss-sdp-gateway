@@ -17,6 +17,12 @@
 const char *sdp_key_action                    = "action";
 const char *sdp_key_stage                     = "stage";
 const char *sdp_key_data                      = "data";
+const char *sdp_key_sdp_id                    = "sdp_id";
+const char *sdp_key_service_id                = "service_id";
+const char *sdp_key_idp_id                    = "idp_id";
+const char *sdp_key_id_token                  = "id_token";
+const char *sdp_key_tunnel_ip                 = "tunnel_ip";
+const char *sdp_key_ip_packet                 = "packet";
 
 const char *sdp_action_credentials_good       = "credentials_good";
 const char *sdp_action_keep_alive             = "keep_alive";
@@ -47,7 +53,7 @@ const char *sdp_action_service_denied         = "service_denied";
 const char *sdp_action_authn_request          = "authn_request";
 const char *sdp_action_authn_accepted         = "authn_accepted";
 const char *sdp_action_authn_rejected         = "authn_rejected";
-
+const char *sdp_action_tunnel_traffic         = "tunnel_traffic";
 
 const char *sdp_stage_error                   = "error";
 const char *sdp_stage_fulfilling              = "fulfilling";

@@ -1617,7 +1617,7 @@ add_multiple_vars_to_rc(FILE* rc, fko_cli_options_t *options, fko_var_bitmask_t 
  * @return 0 if the section has been found and processed successfully
  *         a negative value if one or more errors occured
  */
-static int
+int
 process_rc_section(char *section_name, fko_cli_options_t *options)
 {
     FILE           *rc;
