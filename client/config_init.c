@@ -1618,7 +1618,7 @@ add_multiple_vars_to_rc(FILE* rc, fko_cli_options_t *options, fko_var_bitmask_t 
  *         a negative value if one or more errors occured
  */
 int
-process_rc_section(char *section_name, fko_cli_options_t *options)
+process_rc_section(char *section_name, fko_cli_options_t *options, int exit_on_err)
 {
     FILE           *rc;
     int             line_num = 0, do_exit = 0;
@@ -1699,7 +1699,12 @@ process_rc_section(char *section_name, fko_cli_options_t *options)
     fclose(rc);
 
     if (do_exit)
-        exit(EXIT_FAILURE);
+    {
+        if(exit_on_err)
+            exit(EXIT_FAILURE);
+        else
+            return -1;
+    }
 
     return 0;
 }
@@ -2183,11 +2188,11 @@ config_init(fko_cli_options_t *options, int argc, char **argv)
 
     /* First process the .fwknoprc file.
     */
-    process_rc_section(RC_SECTION_DEFAULT, options);
+    process_rc_section(RC_SECTION_DEFAULT, options, 1);
 
     /* Load the user specified stanza from .fwknoprc file */
     if ( (options->got_named_stanza) && (options->save_rc_stanza == 0) )
-        process_rc_section(options->use_rc_stanza, options);
+        process_rc_section(options->use_rc_stanza, options, 1);
 
     /* Reset the options index so we can run through them again.
     */

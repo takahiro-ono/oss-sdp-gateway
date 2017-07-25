@@ -152,8 +152,12 @@ static void tm_new_tunnel_connection_cb(uv_stream_t *server, int status) {
         // if this one checks out, probably should kill the old one
 
         // check if we were expecting this connection
-        if((rv = tunnel_manager_find_client_request(
-            (tunnel_manager_t)server->data, sdp_id, &tunnel_data
+        if((rv = tunnel_manager_find_tunnel_record(
+                    (tunnel_manager_t)server->data, 
+                    (void*)&sdp_id,
+                    KEY_DATA_TYPE_SDP_ID,
+                    REQUEST_OR_OPENED_TYPE_REQUEST,
+                    &tunnel_data
             )) != FKO_SUCCESS)
         {
             log_msg(
@@ -410,7 +414,7 @@ cleanup:
 
 
 
-void *tunnel_manager_thread_func(void *arg)
+void *tm_thread_func(void *arg)
 {
     fko_srv_options_t *opts = (fko_srv_options_t*)arg;
     uv_tcp_t server;
@@ -563,8 +567,13 @@ int start_tunnel_manager(fko_srv_options_t *opts)
         clean_exit(opts, NO_FW_CLEANUP, EXIT_FAILURE);
     }
 
-    if((rv = tunnel_manager_new(IS_SDP_GATEWAY, hash_table_len, 
-            gateway_pipe_read_cb, &tunnel_mgr)) != FKO_SUCCESS)
+    if((rv = tunnel_manager_new(
+            (void*)opts,
+            IS_SDP_GATEWAY, 
+            hash_table_len, 
+            gateway_pipe_read_cb, 
+            &tunnel_mgr
+        )) != FKO_SUCCESS)
     {
         log_msg(LOG_ERR, "[*] Failed to create tunnel manager");
         clean_exit(opts, NO_FW_CLEANUP, EXIT_FAILURE);
@@ -580,7 +589,7 @@ int start_tunnel_manager(fko_srv_options_t *opts)
     }
     */
 
-    if(pthread_create( &(opts->tunnel_mgr_thread), NULL, tunnel_manager_thread_func, (void*)opts))
+    if(pthread_create( &(opts->tunnel_mgr_thread), NULL, tm_thread_func, (void*)opts))
     {
         log_msg(LOG_ERR, "Failed to start Tunnel Manager Thread. Aborting.");
         clean_exit(opts, FW_CLEANUP, EXIT_FAILURE);
