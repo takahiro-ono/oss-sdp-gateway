@@ -12,8 +12,11 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <json-c/json.h>
+#include <openssl/ssl.h>
+
 #include "fko_limits.h"
 #include "hash_table.h"
+#include "sdp_ctrl_client.h"
 
 #define ID_TOKEN_BUF_LEN 2048
 #define MAX_PIPE_MSG_LEN 65536   // TODO: this is max tcp packet size
@@ -77,7 +80,11 @@ struct tunnel_manager{
     uv_read_cb pipe_read_cb_ptr;
     int tm_sock_fd;
     uv_tcp_t *tm_tcp_server;
+    SSL_CTX *ssl_ctx;
     void *program_options_ptr;
+    sdp_ctrl_client_t ctrl_client;
+    char *cert_file;
+    char *key_file;
     //uv_pipe_t *pipe_to_tm;
     //int read_pipe_to_tunnel_manager;
 	//int write_pipe_to_tunnel_manager;
@@ -134,8 +141,14 @@ void tunnel_manager_handle_tunnel_traffic(tunnel_manager_t tunnel_mgr,
         uint32_t sdp_id, char *packet);
 
 void tunnel_manager_destroy(tunnel_manager_t tunnel_mgr);
-int  tunnel_manager_new(void *program_options, int is_sdp_client, int tbl_len, 
-        uv_read_cb pipe_read_cb_ptr, tunnel_manager_t *r_tunnel_mgr);
+int  tunnel_manager_new(
+        void *program_options, 
+        int is_sdp_client, 
+        sdp_ctrl_client_t ctrl_client,
+        int tbl_len, 
+        uv_read_cb pipe_read_cb_ptr, 
+        tunnel_manager_t *r_tunnel_mgr);
+
 int  tunnel_manager_connect_pipe(tunnel_manager_t tunnel_mgr);
 
 int tunnel_manager_add_service_to_tunnel(

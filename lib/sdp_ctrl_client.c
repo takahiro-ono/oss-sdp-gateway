@@ -2191,5 +2191,31 @@ cleanup:
 }
 
 
+int sdp_ctrl_client_get_cred_files(sdp_ctrl_client_t client, char **cert_file, char **key_file)
+{
+    char *c_file = NULL, *k_file = NULL;
+
+    // This should never happen, but just to be safe
+    if(client == NULL || !client->initialized ||
+       client->com == NULL || !client->com->initialized)
+        return SDP_ERROR_UNINITIALIZED;
+
+    if((c_file = strndup(client->com->cert_file, SDP_COM_MAX_PATH_LEN)) == NULL)
+    {
+        log_msg(LOG_ERR, "Memory allocation error");
+        return SDP_ERROR_MEMORY_ALLOCATION;
+    }
+
+    if((k_file = strndup(client->com->key_file, SDP_COM_MAX_PATH_LEN)) == NULL)
+    {
+        log_msg(LOG_ERR, "Memory allocation error");
+        free(c_file);
+        return SDP_ERROR_MEMORY_ALLOCATION;
+    }
+
+    *cert_file = c_file;
+    *key_file = k_file;
+    return SDP_SUCCESS;
+}
 
 // EOF

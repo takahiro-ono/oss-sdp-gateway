@@ -1067,10 +1067,19 @@ int be_tunnel_manager(fko_cli_options_t *opts)
     tunnel_manager_t tunnel_mgr = NULL;
     uv_signal_t *signal_handle = NULL;
 
+    // first get latest tls cert and key
+    if(get_updated_credentials_from_controller(opts) != SDP_SUCCESS)
+    {
+        // failed to run control client, stop here
+        //clean_exit(ctx, &options, key, &orig_key_len, hmac_key, &hmac_key_len, EXIT_SUCCESS);
+        log_msg(LOG_ERR, "Failed to start control client");
+    }
+
     //create the tunnel manager
     if((rv = tunnel_manager_new(
             (void*)opts, 
             IS_SDP_CLIENT, 
+            opts->ctrl_client,
             HASH_TABLE_LEN, 
             client_pipe_read_cb, 
             &tunnel_mgr
@@ -1100,7 +1109,7 @@ int be_tunnel_manager(fko_cli_options_t *opts)
         return FKO_ERROR_UNKNOWN;
     }
 
-    //start ctrl client
+    //start ctrl client thread
     if((rv = start_control_client(opts)) != SDP_SUCCESS)
     {
         log_msg(LOG_ERR, "[*] Failed to start Ctrl Client thread");

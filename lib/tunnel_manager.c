@@ -17,6 +17,7 @@
 #include "hash_table.h"
 #include "tunnel_manager.h"
 #include "sdp_ctrl_client.h"
+#include "tunnel_com.h"
 
 
 static int tm_add_to_pipe_client_list(tunnel_manager_t tunnel_mgr, uv_pipe_t *handle)
@@ -457,13 +458,44 @@ void tunnel_manager_destroy(tunnel_manager_t tunnel_mgr)
         }
     }
 
+    if(tunnel_mgr->cert_file != NULL)
+        free(tunnel_mgr->cert_file);
+
+    if(tunnel_mgr->key_file != NULL)
+        free(tunnel_mgr->key_file);
+    
+    if(tunnel_mgr->ssl_ctx != NULL)
+        SSL_CTX_free(tunnel_mgr->ssl_ctx);
+
     free(tunnel_mgr);
+}
+
+
+static int tm_ssl_ctx_init(tunnel_manager_t tunnel_mgr)
+{
+    int rv = SDP_SUCCESS;
+
+    // retrieve the paths to the cred files from the ctrl client
+    if((rv = sdp_ctrl_client_get_cred_files(
+            tunnel_mgr->ctrl_client,
+            &tunnel_mgr->cert_file,
+            &tunnel_mgr->key_file
+        )) != SDP_SUCCESS)
+    {
+        return rv;
+    }
+
+    return tunnel_com_ssl_ctx_init(
+            &tunnel_mgr->ssl_ctx, 
+            tunnel_mgr->cert_file,
+            tunnel_mgr->key_file);
 }
 
 
 int tunnel_manager_new(
         void *program_options, 
         int is_sdp_client, 
+        sdp_ctrl_client_t ctrl_client,
         int tbl_len, 
         uv_read_cb pipe_read_cb_ptr, 
         tunnel_manager_t *r_tunnel_mgr)
@@ -497,6 +529,7 @@ int tunnel_manager_new(
 
     tunnel_mgr->program_options_ptr = program_options;
     tunnel_mgr->is_sdp_client = is_sdp_client;
+    tunnel_mgr->ctrl_client = ctrl_client;
     tunnel_mgr->pipe_name = (is_sdp_client ? NAME_TM_CLIENT_PIPE : NAME_TM_GATEWAY_PIPE);
     tunnel_mgr->pipe_read_cb_ptr = pipe_read_cb_ptr;
 
@@ -566,6 +599,15 @@ int tunnel_manager_new(
     }
 
     pthread_mutex_init(&(tunnel_mgr->requested_tunnel_hash_tbl_mutex), NULL);
+
+
+    // init the SSL_CTX which is used for all tunnel connections
+    if((rv = tm_ssl_ctx_init(tunnel_mgr)) != SDP_SUCCESS)
+    {
+        tunnel_manager_destroy(tunnel_mgr);
+        return rv;
+    }
+
 
     *r_tunnel_mgr = tunnel_mgr;
     return rv;

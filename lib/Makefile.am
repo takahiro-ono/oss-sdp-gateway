@@ -13,7 +13,7 @@ libfko_source_files = \
     sdp_ctrl_client.h sdp_errors.h sdp_message.c sdp_message.h \
     sdp_util.c sdp_util.h sdp_log_msg.c sdp_log_msg.h \
     bstr_lib.c bstr_lib.h hash_table.c hash_table.h \
-    tunnel_manager.c tunnel_manager.h
+    tunnel_manager.c tunnel_manager.h tunnel_com.c tunnel_com.h
 
 
 if WANT_C_UNIT_TESTS

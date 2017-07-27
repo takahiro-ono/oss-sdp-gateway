@@ -570,6 +570,7 @@ int start_tunnel_manager(fko_srv_options_t *opts)
     if((rv = tunnel_manager_new(
             (void*)opts,
             IS_SDP_GATEWAY, 
+            opts->ctrl_client,
             hash_table_len, 
             gateway_pipe_read_cb, 
             &tunnel_mgr
