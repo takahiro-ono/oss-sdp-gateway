@@ -10,6 +10,7 @@
 #include "tunnel_manager.h"
 #include "tunnel_com.h"
 #include "sdp_errors.h"
+#include "common.h"
 
 
 
@@ -512,17 +513,225 @@ static void tc_check_outgoing_application_data(tunnel_record_t tunnel_rec)
 }
 
 
+//static int tc_extract_cn_from_line(char *line, char **r_cn)
+//{
+//    char *cn = NULL;
+//    char label[4] = "CN=";
+//    char delim[2] = "/";
+//    int cn_len = 0;
+//    char *field_end = NULL;
+//
+//    if((cn = strstr(line, label)) == NULL)
+//    {
+//        log_msg(
+//            LOG_ERR, 
+//            "tc_extract_cn_from_line() failed to locate label %s in line:\n\t%s", 
+//            label,
+//            line
+//        );
+//        return SDP_ERROR_CERT;
+//    }
+//
+//    cn += strnlen(label, 10);
+//
+//    if((field_end = strstr(cn, delim)) == NULL)
+//    {
+//        log_msg(
+//            LOG_ERR, 
+//            "tc_extract_cn_from_line() failed to locate delim %s in line:\n\t%s", 
+//            delim,
+//            line
+//        );
+//        return SDP_ERROR_CERT;
+//    }
+//
+//    if((field_end - cn) < 1)
+//    {
+//        log_msg(
+//            LOG_ERR, 
+//            "tc_extract_cn_from_line() CN field was empty in line:\n\t%s",
+//            line
+//        );
+//        return SDP_ERROR_CERT;
+//    }
+//
+//    field_end[0] = '\0';
+//
+//    log_msg(
+//        LOG_WARNING, 
+//        "tc_extract_cn_from_line() found CN: %s",
+//        cn
+//    );
+//
+//    *r_cn = cn;
+//    return SDP_SUCCESS;
+//}
+
+
+
+//static int tc_extract_cert_id(SSL *ssl, uint32_t *r_id)
+//{
+//    int rv = SDP_SUCCESS;
+//    X509 *cert = NULL;
+//    char *line = NULL;
+//
+//    if(ssl == NULL)
+//    {
+//        log_msg(LOG_ERR, "tc_extract_cert_id() ssl is null");
+//        return SDP_ERROR_UNINITIALIZED;
+//    }
+//
+//    if((cert = SSL_get_peer_certificate(ssl)) == NULL)
+//    {
+//        log_msg(LOG_ERR, "tc_extract_cert_id() SSL_get_peer_certificate failed");
+//        return SDP_ERROR_CERT;
+//    }
+//
+//
+//    if ( cert != NULL )
+//    {
+//        rv = SDP_SUCCESS;
+//        log_msg(LOG_NOTICE, "Server certificates:");
+//        line = X509_NAME_oneline(X509_get_subject_name(cert), 0, 0);
+//        log_msg(LOG_NOTICE, "Subject: %s", line);
+//        free(line);       /* free the malloc'ed string */
+//        line = X509_NAME_oneline(X509_get_issuer_name(cert), 0, 0);
+//        log_msg(LOG_NOTICE, "Issuer: %s", line);
+//        free(line);       /* free the malloc'ed string */
+//        X509_free(cert);     /* free the malloc'ed certificate copy */
+//    }
+//    else
+//    {
+//        log_msg(LOG_ERR, "Error: Could not retrieve controller certificate.");
+//        rv = SDP_ERROR_SSL_NO_CERT_RECEIVED;
+//    }
+//
+//    return rv;
+//}
+
+
+
+static int tc_extract_cert_commonname(SSL *ssl, unsigned char **r_cn)
+{
+    int idx = -1;
+    unsigned char *cn = NULL;
+    X509 *cert = NULL;
+    X509_NAME *name = NULL;
+    X509_NAME_ENTRY *entry = NULL;
+    int len = 0;
+
+    if(ssl == NULL)
+    {
+        log_msg(LOG_ERR, "tc_extract_cert_id() ssl is null");
+        return SDP_ERROR_UNINITIALIZED;
+    }
+
+    if((cert = SSL_get_peer_certificate(ssl)) == NULL)
+    {
+        log_msg(LOG_ERR, "tc_extract_cert_id() SSL_get_peer_certificate failed");
+        return SDP_ERROR_CERT;
+    }
+
+    if((name = X509_get_subject_name(cert)) == NULL)
+    {
+        log_msg(LOG_ERR, "tc_extract_cert_id() X509_get_subject_name failed");
+        X509_free(cert);
+        return SDP_ERROR_CERT;
+    }
+
+    if((idx = X509_NAME_get_index_by_NID(name, NID_commonName, idx)) < 0)
+    {
+        log_msg(LOG_ERR, "tc_extract_cert_id() X509_NAME_get_index_by_NID failed");
+        X509_free(cert);
+        return SDP_ERROR_CERT;
+    }
+
+    if((entry = X509_NAME_get_entry(name, idx)) == NULL)
+    {
+        log_msg(LOG_ERR, "tc_extract_cert_id() X509_NAME_get_entry failed");
+        X509_free(cert);
+        return SDP_ERROR_CERT;
+    }
+
+    if((len = ASN1_STRING_to_UTF8(
+            &cn, 
+            X509_NAME_ENTRY_get_data(entry)
+        )) < 1)
+    {
+        log_msg(LOG_ERR, "tc_extract_cert_id() ASN1_STRING_to_UTF8 failed");
+        X509_free(cert);
+        return SDP_ERROR_CERT;
+    }
+
+    log_msg(LOG_WARNING, "tc_extract_cert_id() got common name: %s", cn);
+    X509_free(cert);
+    *r_cn = cn;
+    return SDP_SUCCESS;
+}
+
+
+static int tc_verify_cert_id(tunnel_record_t tunnel_rec)
+{
+    int rv = SDP_SUCCESS;
+    unsigned char *cn = NULL;
+    uint32_t cert_id = 0;
+
+    if((rv = tc_extract_cert_commonname(tunnel_rec->ssl, &cn)) != SDP_SUCCESS)
+    {
+        log_msg(
+            LOG_ERR, 
+            "tc_verify_cert_id() failed to extract cert commonname for verification"
+        );
+        return rv;
+    }
+
+    cert_id = strtoul_wrapper((const char*)cn, 0, UINT32_MAX, NO_EXIT_UPON_ERR, &rv);
+    OPENSSL_free(cn);
+
+    if(cert_id == 0 || rv != SDP_SUCCESS)
+    {
+        log_msg(
+            LOG_ERR, 
+            "tc_verify_cert_id() failed to convert commonname to uint32_t"
+        );
+        return SDP_ERROR_CERT;
+    }
+
+    if(cert_id != tunnel_rec->sdp_id)
+    {
+        log_msg(
+            LOG_ERR, 
+            "tc_verify_cert_id() cert commonname %"PRIu32" does not match "
+            "expected SDP ID %"PRIu32,
+            cert_id,
+            tunnel_rec->sdp_id
+        );
+        return SDP_ERROR_CERT;
+    }
+
+    log_msg(
+        LOG_WARNING, 
+        "tc_verify_cert_id() cert commonname %"PRIu32" matches "
+        "expected SDP ID %"PRIu32,
+        cert_id,
+        tunnel_rec->sdp_id
+    );
+
+    return SDP_SUCCESS;
+}
+
+
 void tunnel_com_handle_event(tunnel_record_t tunnel_rec)
 {
     char buf[SDP_COM_MAX_MSG_LEN + 1];
     int rv = 0;
     sdp_header header;
-    char *hdr_obj_ptr = (char*)&header;
+    //char *hdr_obj_ptr = (char*)&header;
     uint32_t data_length = 0;
-    char dump_buf[20] = {0};
-    int ii = 0;
-    int offset = 0;
-    int remainder = 20;
+    //char dump_buf[20] = {0};
+    //int ii = 0;
+    //int offset = 0;
+    //int remainder = 20;
 
     log_msg(LOG_WARNING, "tunnel_com_handle_event() ...");
 
@@ -545,6 +754,15 @@ void tunnel_com_handle_event(tunnel_record_t tunnel_rec)
         else  // SSL handshake completed
         {
             log_msg(LOG_WARNING, "tunnel_com_handle_event() handshake completed");
+
+            // now have the client cert, which was verified by the BIO to be valid
+            // but still need to check that the client ID matches
+            if( !tunnel_rec->tunnel_mgr->is_sdp_client && 
+                (rv = tc_verify_cert_id(tunnel_rec)) != SDP_SUCCESS)
+            {
+                tunnel_manager_remove_tunnel_record(tunnel_rec);
+                return;
+            }
             tunnel_rec->con_state = TM_CON_STATE_SECURED;
             tc_flush_read_bio(tunnel_rec);
         }
@@ -568,17 +786,17 @@ void tunnel_com_handle_event(tunnel_record_t tunnel_rec)
 
         data_length = (uint32_t)ntohl(header.length);
 
-        while(ii < SDP_COM_HEADER_LEN && remainder)
-        {
-            snprintf(dump_buf+offset, remainder, "%02X ", hdr_obj_ptr[ii]);
-            offset = strnlen(dump_buf, 20);
-            remainder = 20 - offset;
-            ii++;
-        }
-
-        log_msg(LOG_WARNING, "header.length: %"PRIu32, header.length);
-        log_msg(LOG_WARNING, "hdr_obj_ptr  : %s", dump_buf);
-        log_msg(LOG_WARNING, "data_length  : %"PRIu32, data_length);
+        //while(ii < SDP_COM_HEADER_LEN && remainder)
+        //{
+        //    snprintf(dump_buf+offset, remainder, "%02X ", hdr_obj_ptr[ii]);
+        //    offset = strnlen(dump_buf, 20);
+        //    remainder = 20 - offset;
+        //    ii++;
+        //}
+        //
+        //log_msg(LOG_WARNING, "header.length: %"PRIu32, header.length);
+        //log_msg(LOG_WARNING, "hdr_obj_ptr  : %s", dump_buf);
+        //log_msg(LOG_WARNING, "data_length  : %"PRIu32, data_length);
 
 
         // got a message size header
