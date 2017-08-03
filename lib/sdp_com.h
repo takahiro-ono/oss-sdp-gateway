@@ -29,7 +29,7 @@ enum {
 	SDP_COM_MAX_ADDR_LEN = 1024,
 	SDP_COM_MAX_PATH_LEN = 1024,
 	SDP_COM_MAX_LINE_LEN = 1024,
-	SDP_COM_MAX_MSG_BLOCK_LEN = 16384,
+	SDP_COM_MAX_MSG_LEN = 16384,
 	SDP_COM_MAX_Q_LEN = 100,
 	SDP_COM_MAX_FWKNOP_ARGS = 6,
 	SDP_COM_MAX_FWKNOP_CMD_LEN = SDP_COM_MAX_PATH_LEN + SDP_COM_MAX_LINE_LEN + 100
@@ -67,13 +67,14 @@ struct sdp_com{
 	unsigned int max_conn_attempts;
 	unsigned int conn_attempts;
 	unsigned int initial_conn_attempt_interval;
-	char recv_buffer[SDP_COM_MAX_MSG_BLOCK_LEN];
+	char recv_buffer[SDP_COM_MAX_MSG_LEN];
 	//char **message_queue;
 	//unsigned int message_queue_len;
 };
 
 typedef struct sdp_com *sdp_com_t;
 
+int sdp_com_get_ssl_error(SSL *ssl, int rv, char *r_ssl_error);
 int sdp_com_init(sdp_com_t com);
 int sdp_com_new(sdp_com_t *r_com);
 void sdp_com_destroy(sdp_com_t com);

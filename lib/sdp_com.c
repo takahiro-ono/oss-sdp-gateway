@@ -177,7 +177,7 @@ static int sdp_com_default_send_spa(sdp_com_t com)
     return SDP_SUCCESS;
 }
 
-static int sdp_com_get_ssl_error(SSL *ssl, int rv, char *r_ssl_error)
+int sdp_com_get_ssl_error(SSL *ssl, int rv, char *r_ssl_error)
 {
     char *ssl_error = NULL;
     int value = SSL_get_error(ssl, rv);
@@ -725,8 +725,8 @@ int sdp_com_send_msg(sdp_com_t com, const char *msg)
     int bytes_sent = 0;
     char ssl_error_string[SDP_MAX_LINE_LEN];
     int ssl_error = 0;
-    //sdp_header header;
-    char header[4];
+    sdp_header header;
+    //char header[4];
 
     log_msg(LOG_DEBUG, "Entered sdp_com_send_msg");
 
@@ -757,13 +757,13 @@ int sdp_com_send_msg(sdp_com_t com, const char *msg)
     log_msg(LOG_DEBUG, "Message to send: ");
     log_msg(LOG_DEBUG, "  %s", msg);
 
-    //header.length = htonl(msg_len);
-    header[0] = (char)( (msg_len >> 24) & 0xFF );
-    header[1] = (char)( (msg_len >> 16) & 0xFF );
-    header[2] = (char)( (msg_len >> 8) & 0xFF );
-    header[3] = (char)(  msg_len & 0xFF );
+    header.length = htonl(msg_len);
+    //header[0] = (char)( (msg_len >> 24) & 0xFF );
+    //header[1] = (char)( (msg_len >> 16) & 0xFF );
+    //header[2] = (char)( (msg_len >> 8) & 0xFF );
+    //header[3] = (char)(  msg_len & 0xFF );
 
-    if((bytes_sent = SSL_write(com->ssl, header, SDP_COM_HEADER_LEN)) != SDP_COM_HEADER_LEN){
+    if((bytes_sent = SSL_write(com->ssl, (char*)&header, SDP_COM_HEADER_LEN)) != SDP_COM_HEADER_LEN){
         ssl_error = sdp_com_get_ssl_error(com->ssl, bytes_sent, ssl_error_string);
 
         log_msg(LOG_ERR, "Error from SSL_write: %s", ssl_error_string);
@@ -836,9 +836,9 @@ int sdp_com_get_msg(sdp_com_t com, char **r_msg, int *r_bytes)
 
     data_length = ntohl(header.length);
 
-    if (data_length > SDP_COM_MAX_MSG_BLOCK_LEN) {
+    if (data_length > SDP_COM_MAX_MSG_LEN) {
         log_msg(LOG_ERR, "Header length field indicates message sizes longer than the maximum");
-        log_msg(LOG_ERR, "Length field: %u; maximum: %d", data_length, SDP_COM_MAX_MSG_BLOCK_LEN);
+        log_msg(LOG_ERR, "Length field: %u; maximum: %d", data_length, SDP_COM_MAX_MSG_LEN);
         return SDP_ERROR_INVALID_MSG_LONG;
     }
 
@@ -867,10 +867,10 @@ int sdp_com_get_msg(sdp_com_t com, char **r_msg, int *r_bytes)
     total_bytes = bytes;
 
     // if necessary, keep reading input from controller
-    while(bytes >= SDP_COM_MAX_MSG_BLOCK_LEN)
+    while(bytes >= SDP_COM_MAX_MSG_LEN)
     {
         log_msg(LOG_DEBUG, "Checking for additional data waiting in stream");
-        if((bytes = SSL_read(com->ssl, com->recv_buffer, SDP_COM_MAX_MSG_BLOCK_LEN)) > 0)
+        if((bytes = SSL_read(com->ssl, com->recv_buffer, SDP_COM_MAX_MSG_LEN)) > 0)
         {
             if((msg = strncat(msg, com->recv_buffer, (size_t)bytes)) == NULL)
                 return SDP_ERROR_MEMORY_ALLOCATION;

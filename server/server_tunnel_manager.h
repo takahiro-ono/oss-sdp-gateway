@@ -8,8 +8,11 @@
 #ifndef SERVER_TUNNEL_MANAGER_H_
 #define SERVER_TUNNEL_MANAGER_H_
 
+#include "tunnel_manager.h"
+
 extern const char* TM_STOP_MSG;
 
+void gateway_handle_tunnel_msg(tunnel_info_t tunnel_data, char *msg);
 int start_tunnel_manager(fko_srv_options_t *opts);
 void stop_tunnel_manager(fko_srv_options_t *opts);
 void destroy_tunnel_manager(fko_srv_options_t *opts);

@@ -19,7 +19,8 @@
 #include "sdp_ctrl_client.h"
 
 #define ID_TOKEN_BUF_LEN 2048
-#define MAX_PIPE_MSG_LEN 65536   // TODO: this is max tcp packet size
+
+#define TUNNEL_MAX_Q_LEN 20
 
 #define MAX_TUNNEL_CON_ATTEMPTS 5
 #define INITIAL_TUNNEL_CON_RETRY_DELAY 1
@@ -29,6 +30,16 @@
 
 #define NAME_TM_GATEWAY_PIPE "tm_g_pipe"
 #define NAME_TM_CLIENT_PIPE "tm_c_pipe"
+
+
+//typedef struct sdp_tunnel_header {
+//    uint32_t length;
+//} sdp_tunnel_header;
+//
+//#define TUNNEL_COM_HEADER_LEN sizeof(sdp_header)
+
+//#define MAX_PIPE_MSG_LEN 1024*16 
+//#define TUNNEL_BUFFER_LEN 1024*16
 
 
 typedef enum {
@@ -45,7 +56,8 @@ typedef enum {
 typedef enum {
     TM_CON_STATE_DISCONNECTED = 0,
     TM_CON_STATE_CONNECTING,
-    TM_CON_STATE_CONNECTED
+    TM_CON_STATE_CONNECTED,
+    TM_CON_STATE_SECURED
 } tm_con_state_t;
 
 enum {
@@ -71,6 +83,12 @@ struct pipe_client_item{
 typedef struct pipe_client_item *pipe_client_item_t;
 
 
+// need the typedef for the function ptr typedef below
+typedef struct tunnel_info *tunnel_info_t;
+
+// function ptr to call when a message is ready
+typedef void (*tunnel_msg_in_callback)(tunnel_info_t tunnel_data, char *buf);
+
 struct tunnel_manager{
     int is_sdp_client;
     char *pipe_name;
@@ -78,6 +96,7 @@ struct tunnel_manager{
     uv_pipe_t *tm_pipe;
     pipe_client_item_t pipe_client_list;
     uv_read_cb pipe_read_cb_ptr;
+    tunnel_msg_in_callback tunnel_msg_in_cb;
     int tm_sock_fd;
     uv_tcp_t *tm_tcp_server;
     SSL_CTX *ssl_ctx;
@@ -106,6 +125,13 @@ struct tunneled_service{
 };
 typedef struct tunneled_service *tunneled_service_t;
 
+struct outbound_msg{
+    char *msg;
+    int length;
+    struct outbound_msg *next;
+};
+typedef struct outbound_msg *outbound_msg_t;
+
 struct tunnel_info{
     uint32_t sdp_id;
     char remote_public_ip[MAX_IPV4_STR_LEN];
@@ -116,14 +142,23 @@ struct tunnel_info{
     tunneled_service_t services_requested;
     tunneled_service_t services_opened;
     uv_tcp_t *handle;
+    SSL* ssl;
+    BIO* read_bio;
+    BIO* write_bio;
+    //char buffer_in[SDP_COM_MAX_MSG_LEN];
+    //char buffer_out[SDP_COM_MAX_MSG_LEN];
+    //int buffer_in_bytes_pending;
+    //int buffer_out_bytes_pending;
+    outbound_msg_t outbound_q;
+    int outbound_q_len;
     tm_con_state_t con_state;
     int con_attempts;
     time_t next_con_retry_time;
     tunnel_manager_t tunnel_mgr;
+    int submitted;
     time_t created_time;
     struct tunnel_info *next;
 };
-typedef struct tunnel_info *tunnel_info_t;
 
 
 
@@ -133,9 +168,13 @@ typedef struct {
 } write_req_t;
 
 
+
+
 void tunnel_manager_tcp_close_cb(uv_handle_t* handle);
 void tunnel_manager_pipe_close_cb(uv_handle_t* handle);
-int  tunnel_manager_send_msg(tunnel_manager_t tunnel_mgr, int send_type, 
+void tunnel_manager_free_write_req(uv_write_t *req);
+void tunnel_manager_write_cb(uv_write_t *req, int status);
+int  tunnel_manager_send_pipe_msg(tunnel_manager_t tunnel_mgr, int send_type, 
         uv_stream_t *handle, char *msg);
 void tunnel_manager_handle_tunnel_traffic(tunnel_manager_t tunnel_mgr, 
         uint32_t sdp_id, char *packet);
@@ -146,7 +185,8 @@ int  tunnel_manager_new(
         int is_sdp_client, 
         sdp_ctrl_client_t ctrl_client,
         int tbl_len, 
-        uv_read_cb pipe_read_cb_ptr, 
+        uv_read_cb pipe_read_cb_ptr,
+        tunnel_msg_in_callback tunnel_msg_in_cb, 
         tunnel_manager_t *r_tunnel_mgr);
 
 int  tunnel_manager_connect_pipe(tunnel_manager_t tunnel_mgr);
@@ -169,13 +209,8 @@ int tunnel_manager_mark_service_rejected(
 
 int tunnel_manager_create_tunnel_item(
         uint32_t sdp_id,
-        tunneled_service_t services_requested,
-        tunneled_service_t services_opened,
         char *remote_public_ip,
-        char *remote_tunnel_ip,
         uint32_t remote_port,
-        uint32_t idp_id,
-        char *id_token,
         uv_tcp_t *handle,
         tunnel_manager_t tunnel_mgr,
         tunnel_info_t *item);
@@ -199,15 +234,10 @@ int  tunnel_manager_find_tunnel_record(
         request_or_opened_type_t which_table,
         tunnel_info_t *r_tunnel_data);
 
-int tunnel_manager_remove_tunnel_record(
-        tunnel_manager_t tunnel_mgr, 
-        tunnel_info_t tunnel_data,
-        key_data_type_t data_type);
+int tunnel_manager_remove_tunnel_record(tunnel_info_t tunnel_data);
 
 int  tunnel_manager_get_peer_addr_and_port(uv_tcp_t *peer, 
         char **ip_str, uint32_t *ip_num, uint32_t *port_num);
-void tunnel_manager_close_client_cb(uv_handle_t *handle);
-void tunnel_manager_alloc_buffer(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf);
 int  tunnel_manager_ptr_2_array(const char* const ptr, char **r_array);
 int  tunnel_manager_array_2_ptr(const char* const array, char **r_ptr);
 int  tunnel_manager_send_to_tm(tunnel_manager_t tunnel_mgr, void *msg);

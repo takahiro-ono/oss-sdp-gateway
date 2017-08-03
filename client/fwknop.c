@@ -216,7 +216,7 @@ main(int argc, char **argv)
             // connect to that and tell it what's needed
             if((res = ask_tunnel_manager_for_service(options.sdp_id,
                 options.service_ids_str, options.idp_id, options.id_token
-                )) != FKO_SUCCESS)
+                )) != SDP_SUCCESS)
             {
                 log_msg(
                     LOG_ERR, 
@@ -233,7 +233,7 @@ main(int argc, char **argv)
         {
             // we're being told to BE the tunnel manager, 
             // so fire up the control client and the tunnel manager, 
-            if((res = be_tunnel_manager(&options)) != FKO_SUCCESS)
+            if((res = be_tunnel_manager(&options)) != SDP_SUCCESS)
             {
                 log_msg(LOG_ERR, "Tunnel Manager exited with a failure"); 
             }

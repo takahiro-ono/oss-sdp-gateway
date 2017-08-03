@@ -632,7 +632,7 @@ int sdp_ctrl_client_check_inbox(sdp_ctrl_client_t client, int *r_action, void **
                 break;
 
             case CTRL_ACTION_KEEP_ALIVE:
-                log_msg(LOG_INFO, "Keep-alive response received");
+                log_msg(LOG_DEBUG, "Keep-alive response received");
                 sdp_ctrl_client_process_keep_alive(client);
                 break;
 
