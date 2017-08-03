@@ -14,10 +14,10 @@
 const char *TM_STOP_MSG = "STOP_TM";
 
 
-//static void tm_on_read(uv_stream_t* handle, ssize_t nread, const uv_buf_t *buf)
+//static void stm_on_read(uv_stream_t* handle, ssize_t nread, const uv_buf_t *buf)
 //{
-//    tunnel_info_t tunnel_data = handle->data;
-//    if(tunnel_data == NULL)
+//    tunnel_record_t tunnel_rec = handle->data;
+//    if(tunnel_rec == NULL)
 //    {
 //        log_msg(
 //            LOG_ERR, 
@@ -34,15 +34,15 @@ const char *TM_STOP_MSG = "STOP_TM";
 //        if (nread != UV_EOF)
 //            log_msg(LOG_ERR, "uv read error %s", uv_err_name(nread));
 //
-//        log_msg(LOG_INFO, "[*] %"PRIu32" has disconnected", tunnel_data->sdp_id);
+//        log_msg(LOG_INFO, "[*] %"PRIu32" has disconnected", tunnel_rec->sdp_id);
 //        free(buf->base);
-//        tunnel_manager_remove_tunnel_record(tunnel_data);
+//        tunnel_manager_remove_tunnel_record(tunnel_rec);
 //
 //        return;
 //    }
 //
 //    // show message
-//    log_msg(LOG_INFO, "%"PRIu32" said: %s", tunnel_data->sdp_id, buf->base);
+//    log_msg(LOG_INFO, "%"PRIu32" said: %s", tunnel_rec->sdp_id, buf->base);
 //    free(buf->base);
 //}
 
@@ -60,13 +60,13 @@ const char *TM_STOP_MSG = "STOP_TM";
 //    free(req);
 //}
 
-static void tm_server_close_cb(uv_handle_t *handle)
+static void stm_server_close_cb(uv_handle_t *handle)
 {
     free(handle);
 }
 
 // Callback for new connections
-static void tm_new_tunnel_connection_cb(uv_stream_t *server, int status) 
+static void stm_new_tunnel_connection_cb(uv_stream_t *server, int status) 
 {
     uv_tcp_t *client = NULL;
     //uv_write_t *req = NULL;
@@ -75,7 +75,7 @@ static void tm_new_tunnel_connection_cb(uv_stream_t *server, int status)
     uint32_t ip_num = 0;
     uint32_t port_num = 0;
 
-    tunnel_info_t tunnel_data = NULL;
+    tunnel_record_t tunnel_rec = NULL;
     uint32_t sdp_id = 55555;
 
     //char *s = "Hello, World!\n";
@@ -99,7 +99,7 @@ static void tm_new_tunnel_connection_cb(uv_stream_t *server, int status)
 
     if((rv = uv_tcp_init(server->loop, client)))
     {
-        log_msg(LOG_ERR, "tm_new_tunnel_connection_cb uv_tcp_init error: %s\n", uv_strerror(rv));
+        log_msg(LOG_ERR, "stm_new_tunnel_connection_cb uv_tcp_init error: %s\n", uv_strerror(rv));
         free(client);
         return;
     }
@@ -135,7 +135,7 @@ static void tm_new_tunnel_connection_cb(uv_stream_t *server, int status)
         (tunnel_manager_t)server->data, sdp_id, ip_str
         )) != SDP_SUCCESS)
     {
-        log_msg(LOG_ERR, "[*] tm_new_tunnel_connection_cb failed to create tunnel request");
+        log_msg(LOG_ERR, "[*] stm_new_tunnel_connection_cb failed to create tunnel request");
 
         if(rv == SDP_ERROR_MEMORY_ALLOCATION)
         {
@@ -147,7 +147,7 @@ static void tm_new_tunnel_connection_cb(uv_stream_t *server, int status)
         }
     }
 
-    log_msg(LOG_WARNING, "[+] tm_new_tunnel_connection_cb Successfully stored tunnel request");
+    log_msg(LOG_WARNING, "[+] stm_new_tunnel_connection_cb Successfully stored tunnel request");
 
     // TODO: perform SSL handshake, that's async so code below will need
     // to become part of the callback for that
@@ -162,7 +162,7 @@ static void tm_new_tunnel_connection_cb(uv_stream_t *server, int status)
                 (void*)&sdp_id,
                 KEY_DATA_TYPE_SDP_ID,
                 REQUEST_OR_OPENED_TYPE_REQUEST,
-                &tunnel_data
+                &tunnel_rec
         )) != SDP_SUCCESS)
     {
         log_msg(
@@ -177,7 +177,7 @@ static void tm_new_tunnel_connection_cb(uv_stream_t *server, int status)
         return;
     }
 
-    if(strncmp(ip_str, tunnel_data->remote_public_ip, MAX_IPV4_STR_LEN))
+    if(strncmp(ip_str, tunnel_rec->remote_public_ip, MAX_IPV4_STR_LEN))
     {
         log_msg(
             LOG_ERR, 
@@ -186,37 +186,37 @@ static void tm_new_tunnel_connection_cb(uv_stream_t *server, int status)
             sdp_id, ip_str, port_num
         );
 
-        tunnel_manager_remove_tunnel_record(tunnel_data);
+        tunnel_manager_remove_tunnel_record(tunnel_rec);
         free(ip_str);
         return;            
     }
 
     free(ip_str);
 
-    client->data = tunnel_data;
-    tunnel_data->handle = client;
-    tunnel_data->remote_port = (uint32_t)port_num;
+    client->data = tunnel_rec;
+    tunnel_rec->handle = client;
+    tunnel_rec->remote_port = (uint32_t)port_num;
 
     log_msg(
         LOG_WARNING, 
         "[+] Tunnel connection by sdp id %"PRIu32" from %s:%"PRIu32" was expected!",
-        tunnel_data->sdp_id, 
-        tunnel_data->remote_public_ip,
-        tunnel_data->remote_port
+        tunnel_rec->sdp_id, 
+        tunnel_rec->remote_public_ip,
+        tunnel_rec->remote_port
     );
 
     // this handles the initialization of SSL and allows the SSL handshake
     // to be initiated by the client
-    if((rv = tunnel_com_finalize_connection(tunnel_data, 0)) != SDP_SUCCESS)
+    if((rv = tunnel_com_finalize_connection(tunnel_rec, 0)) != SDP_SUCCESS)
     {
         log_msg(LOG_ERR, "failed to secure connection");
-        tunnel_manager_remove_tunnel_record(tunnel_data);
+        tunnel_manager_remove_tunnel_record(tunnel_rec);
     }
 
 }
 
 
-static void tm_handle_service_request(
+static void stm_handle_service_request(
         tunnel_manager_t tunnel_mgr, 
         uint32_t sdp_id, 
         uint32_t service_id, 
@@ -228,12 +228,12 @@ static void tm_handle_service_request(
     //
     //// if a tunnel exists, get the handle
     //// otherwise set up a new tunnel
-    //if((rv = tm_connect_to_peer(tunnel_mgr, sdp_id, service_id, idp_id, id_token, &handle)) != SDP_SUCCESS)
+    //if((rv = stm_connect_to_peer(tunnel_mgr, sdp_id, service_id, idp_id, id_token, &handle)) != SDP_SUCCESS)
     //{
     //    log_msg(LOG_ERR, "Tunnel Manager could not connect to peer");
     //}
     //
-    //if((rv = tm_send_service_request()) != SDP_SUCCESS)
+    //if((rv = stm_send_service_request()) != SDP_SUCCESS)
     //{
     //    log_msg(LOG_ERR, "Tunnel Manager failed to send service request to peer");
     //}
@@ -241,7 +241,7 @@ static void tm_handle_service_request(
     return;
 }
 
-static void tm_handle_service_granted(
+static void stm_handle_service_granted(
         tunnel_manager_t tunnel_mgr, 
         uint32_t sdp_id, 
         uint32_t service_id, 
@@ -252,7 +252,7 @@ static void tm_handle_service_granted(
 
 }
 
-static void tm_handle_service_denied(
+static void stm_handle_service_denied(
         tunnel_manager_t tunnel_mgr, 
         uint32_t sdp_id, 
         uint32_t service_id)
@@ -261,7 +261,7 @@ static void tm_handle_service_denied(
 
 }
 
-static void tm_handle_authn_request(
+static void stm_handle_authn_request(
         tunnel_manager_t tunnel_mgr, 
         uint32_t sdp_id, 
         uint32_t service_id, 
@@ -272,7 +272,7 @@ static void tm_handle_authn_request(
 
 }
 
-static void tm_handle_authn_accepted(
+static void stm_handle_authn_accepted(
         tunnel_manager_t tunnel_mgr, 
         uint32_t sdp_id, 
         char *tunnel_ip)
@@ -281,7 +281,7 @@ static void tm_handle_authn_accepted(
 
 }
 
-static void tm_handle_authn_rejected(
+static void stm_handle_authn_rejected(
         tunnel_manager_t tunnel_mgr, 
         uint32_t sdp_id)
 {
@@ -290,8 +290,8 @@ static void tm_handle_authn_rejected(
 }
 
 
-static void tm_handle_tunnel_traffic_in(
-        tunnel_info_t tunnel_data, 
+static void stm_handle_tunnel_traffic_in(
+        tunnel_record_t tunnel_rec, 
         uint32_t sdp_id, 
         char *packet)
 {
@@ -300,7 +300,7 @@ static void tm_handle_tunnel_traffic_in(
 
 
 
-static void tm_handle_pipe_msg(tunnel_manager_t tunnel_mgr, void *msg, int data_type)
+static void stm_handle_pipe_msg(tunnel_manager_t tunnel_mgr, void *msg, int data_type)
 {
     int rv = SDP_SUCCESS;
     int action = 0;
@@ -350,29 +350,29 @@ static void tm_handle_pipe_msg(tunnel_manager_t tunnel_mgr, void *msg, int data_
     switch(action)
     {
         case CTRL_ACTION_SERVICE_REQUEST:
-            tm_handle_service_request(tunnel_mgr, sdp_id, service_id, idp_id, id_token);
+            stm_handle_service_request(tunnel_mgr, sdp_id, service_id, idp_id, id_token);
 
             // definitely free allocated memory in this case
             break;
 
         case CTRL_ACTION_SERVICE_GRANTED:
-            tm_handle_service_granted(tunnel_mgr, sdp_id, service_id, idp_id, id_token);
+            stm_handle_service_granted(tunnel_mgr, sdp_id, service_id, idp_id, id_token);
             break;
 
         case CTRL_ACTION_SERVICE_DENIED:
-            tm_handle_service_denied(tunnel_mgr, sdp_id, service_id);
+            stm_handle_service_denied(tunnel_mgr, sdp_id, service_id);
             break;
 
         case CTRL_ACTION_AUTHN_REQUEST:
-            tm_handle_authn_request(tunnel_mgr, sdp_id, service_id, idp_id, id_token);
+            stm_handle_authn_request(tunnel_mgr, sdp_id, service_id, idp_id, id_token);
             break;
 
         case CTRL_ACTION_AUTHN_ACCEPTED:
-            tm_handle_authn_accepted(tunnel_mgr, sdp_id, tunnel_ip);
+            stm_handle_authn_accepted(tunnel_mgr, sdp_id, tunnel_ip);
             break;
 
         case CTRL_ACTION_AUTHN_REJECTED:
-            tm_handle_authn_rejected(tunnel_mgr, sdp_id);
+            stm_handle_authn_rejected(tunnel_mgr, sdp_id);
             break;
 
         case CTRL_ACTION_TUNNEL_TRAFFIC:
@@ -397,7 +397,7 @@ cleanup:
 }
 
 
-void gateway_handle_tunnel_msg(tunnel_info_t tunnel_data, char *msg)
+void gateway_handle_tunnel_msg(tunnel_record_t tunnel_rec, char *msg)
 {
     int rv = SDP_SUCCESS;
     int action = 0;
@@ -408,13 +408,13 @@ void gateway_handle_tunnel_msg(tunnel_info_t tunnel_data, char *msg)
     char *tunnel_ip = NULL;
     char *packet = NULL;
     
-    if(!tunnel_data || !tunnel_data->tunnel_mgr)
+    if(!tunnel_rec || !tunnel_rec->tunnel_mgr)
     {
         log_msg(LOG_ERR, "client_handle_tunnel_msg() Error, context data missing");
         return;
     }
 
-    log_msg(LOG_INFO, "Tunnel msg from %"PRIu32" said: %s", tunnel_data->sdp_id, msg);
+    log_msg(LOG_INFO, "Tunnel msg from %"PRIu32" said: %s", tunnel_rec->sdp_id, msg);
 
     if((rv = tunnel_manager_process_json_msg_string(
             (char*)msg,
@@ -436,23 +436,23 @@ void gateway_handle_tunnel_msg(tunnel_info_t tunnel_data, char *msg)
     {
         /*
         case CTRL_ACTION_SERVICE_GRANTED:
-            tm_handle_service_granted(tunnel_data, sdp_id, service_id, idp_id, id_token);
+            stm_handle_service_granted(tunnel_rec, sdp_id, service_id, idp_id, id_token);
             break;
 
         case CTRL_ACTION_SERVICE_DENIED:
-            tm_handle_service_denied(tunnel_data, sdp_id, service_id);
+            stm_handle_service_denied(tunnel_rec, sdp_id, service_id);
             break;
 
         case CTRL_ACTION_AUTHN_ACCEPTED:
-            tm_handle_authn_accepted(tunnel_data, sdp_id, tunnel_ip);
+            stm_handle_authn_accepted(tunnel_rec, sdp_id, tunnel_ip);
             break;
 
         case CTRL_ACTION_AUTHN_REJECTED:
-            tm_handle_authn_rejected(tunnel_data, sdp_id);
+            stm_handle_authn_rejected(tunnel_rec, sdp_id);
             break;
         */
         case CTRL_ACTION_TUNNEL_TRAFFIC:
-            tm_handle_tunnel_traffic_in(tunnel_data, sdp_id, packet);
+            stm_handle_tunnel_traffic_in(tunnel_rec, sdp_id, packet);
             break;
 
         case CTRL_ACTION_BAD_MESSAGE:
@@ -474,7 +474,7 @@ cleanup:
 
 
 
-void *tm_thread_func(void *arg)
+void *stm_thread_func(void *arg)
 {
     fko_srv_options_t *opts = (fko_srv_options_t*)arg;
     uv_tcp_t server;
@@ -507,8 +507,8 @@ void *tm_thread_func(void *arg)
     // Bind to socket
     uv_tcp_bind(&server, (const struct sockaddr*)&addr, 0);
 
-    // Listen on socket, run tm_new_tunnel_connection_cb() on every new connection
-    if((rv = uv_listen((uv_stream_t*) &server, TUNNEL_BACKLOG, tm_new_tunnel_connection_cb)) != 0)
+    // Listen on socket, run stm_new_tunnel_connection_cb() on every new connection
+    if((rv = uv_listen((uv_stream_t*) &server, TUNNEL_BACKLOG, stm_new_tunnel_connection_cb)) != 0)
     {
         log_msg(LOG_ERR, "uv_listen error: %s", uv_strerror(rv));
         return NULL;
@@ -519,7 +519,7 @@ void *tm_thread_func(void *arg)
     // Start the loop
     uv_run(opts->tunnel_mgr->loop, UV_RUN_DEFAULT);
 
-    uv_close((uv_handle_t*)&server, tm_server_close_cb);
+    uv_close((uv_handle_t*)&server, stm_server_close_cb);
 
     // Close loop and shutdown
     //uv_loop_close(opts->tunnel_mgr->loop);
@@ -568,7 +568,7 @@ static void gateway_pipe_read_cb(uv_stream_t *client, ssize_t nread, const uv_bu
             }
 
             log_msg(LOG_WARNING, "Tunnel manager received message from pipe");
-            tm_handle_pipe_msg((tunnel_manager_t)client->data, msg, PTR_TO_JSON);
+            stm_handle_pipe_msg((tunnel_manager_t)client->data, msg, PTR_TO_JSON);
 
            
             // try to free the msg object
@@ -583,7 +583,7 @@ static void gateway_pipe_read_cb(uv_stream_t *client, ssize_t nread, const uv_bu
             //tunnel_manager_ptr_2_array((const char* const)reply_str, &ptr);
             //write_req_t *req = calloc(1, sizeof *req);
             //req->buf = uv_buf_init(ptr, sizeof ptr);
-            //uv_write((uv_write_t*) req, client, &req->buf, 1, tm_write_cb);
+            //uv_write((uv_write_t*) req, client, &req->buf, 1, stm_write_cb);
 
             return;
         }
@@ -651,7 +651,7 @@ int start_tunnel_manager(fko_srv_options_t *opts)
     }
     */
 
-    if(pthread_create( &(opts->tunnel_mgr_thread), NULL, tm_thread_func, (void*)opts))
+    if(pthread_create( &(opts->tunnel_mgr_thread), NULL, stm_thread_func, (void*)opts))
     {
         log_msg(LOG_ERR, "Failed to start Tunnel Manager Thread. Aborting.");
         clean_exit(opts, FW_CLEANUP, EXIT_FAILURE);
@@ -671,17 +671,17 @@ int start_tunnel_manager(fko_srv_options_t *opts)
 }
 
 
-static int tm_send_stop_msg_to_me(tunnel_manager_t tunnel_mgr)
+static int stm_send_stop_msg_to_me(tunnel_manager_t tunnel_mgr)
 {
     char *ptr = NULL;
     int rv = 0;
 
-    log_msg(LOG_DEBUG, "tm_send_stop_msg_to_me() getting ptr address...");
+    log_msg(LOG_DEBUG, "stm_send_stop_msg_to_me() getting ptr address...");
 
     //stopping the gateway tm, have to send the pointer addr, not the string
     tunnel_manager_ptr_2_array((const char* const)TM_STOP_MSG, &ptr);
 
-    log_msg(LOG_DEBUG, "tm_send_stop_msg_to_me() sending ptr address...");
+    log_msg(LOG_DEBUG, "stm_send_stop_msg_to_me() sending ptr address...");
     
     rv = send(tunnel_mgr->tm_sock_fd, ptr, sizeof(void*), 0);
     free(ptr);
@@ -692,7 +692,7 @@ static int tm_send_stop_msg_to_me(tunnel_manager_t tunnel_mgr)
         return SDP_ERROR_FILESYSTEM_OPERATION;
     }
 
-    log_msg(LOG_DEBUG, "tm_send_stop_msg_to_me() bytes sent: %d", rv);
+    log_msg(LOG_DEBUG, "stm_send_stop_msg_to_me() bytes sent: %d", rv);
 
     return SDP_SUCCESS;
 }
@@ -709,7 +709,7 @@ void stop_tunnel_manager(fko_srv_options_t *opts)
         if(opts->tunnel_mgr_thread > 0)
         {
             log_msg(LOG_WARNING, "Stopping Tunnel Manager thread now...");
-            tm_send_stop_msg_to_me(opts->tunnel_mgr);
+            stm_send_stop_msg_to_me(opts->tunnel_mgr);
             pthread_cancel(opts->tunnel_mgr_thread);
             pthread_join(opts->tunnel_mgr_thread, NULL);
             opts->tunnel_mgr_thread = 0;

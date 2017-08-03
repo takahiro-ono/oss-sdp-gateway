@@ -296,7 +296,7 @@ static void tc_write_to_socket(uv_stream_t *handle, char* buf, size_t len)
 }
 
 
-static void tc_flush_read_bio(tunnel_info_t tunnel_data) 
+static void tc_flush_read_bio(tunnel_record_t tunnel_rec) 
 {
     char buf[SDP_COM_MAX_MSG_LEN];
     int bytes_read = 0;
@@ -305,8 +305,8 @@ static void tc_flush_read_bio(tunnel_info_t tunnel_data)
 
     log_msg(LOG_WARNING, "tc_flush_read_bio()...");
 
-    while((pending = BIO_ctrl_pending(tunnel_data->write_bio)) > 0 &&
-        (bytes_read = BIO_read(tunnel_data->write_bio, buf, sizeof(buf))) > 0) 
+    while((pending = BIO_ctrl_pending(tunnel_rec->write_bio)) > 0 &&
+        (bytes_read = BIO_read(tunnel_rec->write_bio, buf, sizeof(buf))) > 0) 
     {
         log_msg(LOG_WARNING, "tc_flush_read_bio() BIO read gave %d bytes", bytes_read);
 
@@ -321,28 +321,28 @@ static void tc_flush_read_bio(tunnel_info_t tunnel_data)
 
         //log_msg(LOG_DEBUG, "tc_flush_read_bio() Ptr address: %p", ptr);
 
-        tc_write_to_socket((uv_stream_t*)tunnel_data->handle, ptr, bytes_read);
+        tc_write_to_socket((uv_stream_t*)tunnel_rec->handle, ptr, bytes_read);
     }
 }
 
 
-static void tc_handle_error(tunnel_info_t tunnel_data, int result) 
+static void tc_handle_error(tunnel_record_t tunnel_rec, int result) 
 {
     int error = 0;
     char ssl_error_string[SDP_MAX_LINE_LEN];
 
-    error = sdp_com_get_ssl_error(tunnel_data->ssl, result, ssl_error_string);
+    error = sdp_com_get_ssl_error(tunnel_rec->ssl, result, ssl_error_string);
     log_msg(LOG_ERR, "SSL error: %d - %s", error, ssl_error_string);
     ERR_print_errors_fp(stderr);
 
     if(error == SSL_ERROR_WANT_READ)  // wants to read from bio
     {
-        tc_flush_read_bio(tunnel_data);
+        tc_flush_read_bio(tunnel_rec);
     }
 }
 
 
-static void tc_check_outgoing_application_data(tunnel_info_t tunnel_data) 
+static void tc_check_outgoing_application_data(tunnel_record_t tunnel_rec) 
 {
     int rv = 0;
     //char header[SDP_COM_HEADER_LEN];
@@ -357,27 +357,27 @@ static void tc_check_outgoing_application_data(tunnel_info_t tunnel_data)
 
     log_msg(LOG_WARNING, "tc_check_outgoing_application_data()...");
 
-    if(!tunnel_data->ssl || !SSL_is_init_finished(tunnel_data->ssl))
+    if(!tunnel_rec->ssl || !SSL_is_init_finished(tunnel_rec->ssl))
         return;
 
-    while(tunnel_data->outbound_q_len > 0)
+    while(tunnel_rec->outbound_q_len > 0)
     {
 
-        //if(tunnel_data->buffer_out_bytes_pending <= 0)
-        if(tunnel_data->outbound_q == NULL)
+        //if(tunnel_rec->buffer_out_bytes_pending <= 0)
+        if(tunnel_rec->outbound_q == NULL)
         {
             // shouldn't happen, but just in case
-            tunnel_data->outbound_q_len = 0;
+            tunnel_rec->outbound_q_len = 0;
             return;
         }
 
-        if((rv = tc_pop_first_q_msg(&tunnel_data->outbound_q, &msg, &msg_len)) != SDP_SUCCESS)
+        if((rv = tc_pop_first_q_msg(&tunnel_rec->outbound_q, &msg, &msg_len)) != SDP_SUCCESS)
         {
-            tunnel_data->outbound_q_len = 0;
+            tunnel_rec->outbound_q_len = 0;
             return;
         }
 
-        tunnel_data->outbound_q_len--;
+        tunnel_rec->outbound_q_len--;
 
         if(msg == NULL)
         {
@@ -435,7 +435,7 @@ static void tc_check_outgoing_application_data(tunnel_info_t tunnel_data)
         //log_msg(LOG_WARNING, "hdr_obj_ptr  : %s", dump_buf);
 
         //if((rv = SSL_write(
-        //    tunnel_data->ssl, 
+        //    tunnel_rec->ssl, 
         //    header, 
         //    SDP_COM_HEADER_LEN
         //)) != SDP_COM_HEADER_LEN)
@@ -446,11 +446,11 @@ static void tc_check_outgoing_application_data(tunnel_info_t tunnel_data)
         //    );
 //
         //    // try flushing bio
-        //    tc_handle_error(tunnel_data, rv);
+        //    tc_handle_error(tunnel_rec, rv);
 //
         //    // try one more time
         //    if((rv = SSL_write(
-        //        tunnel_data->ssl, 
+        //        tunnel_rec->ssl, 
         //        header, 
         //        SDP_COM_HEADER_LEN
         //    )) != SDP_COM_HEADER_LEN)
@@ -460,18 +460,18 @@ static void tc_check_outgoing_application_data(tunnel_info_t tunnel_data)
         //            "tc_check_outgoing_application_data() header SSL_write failed twice"
         //        );
         //        free(msg);
-        //        tunnel_manager_remove_tunnel_record(tunnel_data);
+        //        tunnel_manager_remove_tunnel_record(tunnel_rec);
         //        return;
         //    }
 //
         //}
 //
-        ////tc_handle_error(tunnel_data, rv);
-        //tc_flush_read_bio(tunnel_data);
+        ////tc_handle_error(tunnel_rec, rv);
+        //tc_flush_read_bio(tunnel_rec);
 
 
         if((rv = SSL_write(
-            tunnel_data->ssl, 
+            tunnel_rec->ssl, 
             msg,
             msg_len
         )) != msg_len)
@@ -482,11 +482,11 @@ static void tc_check_outgoing_application_data(tunnel_info_t tunnel_data)
             );
 
             // try flushing bio
-            tc_handle_error(tunnel_data, rv);
+            tc_handle_error(tunnel_rec, rv);
 
             // try one more time
             if((rv = SSL_write(
-                tunnel_data->ssl, 
+                tunnel_rec->ssl, 
                 msg,
                 msg_len
             )) != msg_len)
@@ -496,23 +496,23 @@ static void tc_check_outgoing_application_data(tunnel_info_t tunnel_data)
                     "tc_check_outgoing_application_data() SSL_write failed twice"
                 );
                 free(msg);
-                tc_handle_error(tunnel_data, rv);
-                tunnel_manager_remove_tunnel_record(tunnel_data);
+                tc_handle_error(tunnel_rec, rv);
+                tunnel_manager_remove_tunnel_record(tunnel_rec);
                 return;
             }
 
         }
-        //memset(tunnel_data->buffer_out, 0, SDP_COM_MAX_MSG_LEN);
-        //tunnel_data->buffer_out_bytes_pending = 0;
-        //tc_handle_error(tunnel_data, rv);
+        //memset(tunnel_rec->buffer_out, 0, SDP_COM_MAX_MSG_LEN);
+        //tunnel_rec->buffer_out_bytes_pending = 0;
+        //tc_handle_error(tunnel_rec, rv);
         log_msg(LOG_WARNING, "SSL_write succeeded");
         free(msg);
-        tc_flush_read_bio(tunnel_data);
+        tc_flush_read_bio(tunnel_rec);
     }
 }
 
 
-void tunnel_com_handle_event(tunnel_info_t tunnel_data)
+void tunnel_com_handle_event(tunnel_record_t tunnel_rec)
 {
     char buf[SDP_COM_MAX_MSG_LEN + 1];
     int rv = 0;
@@ -526,43 +526,43 @@ void tunnel_com_handle_event(tunnel_info_t tunnel_data)
 
     log_msg(LOG_WARNING, "tunnel_com_handle_event() ...");
 
-    if(!tunnel_data->tunnel_mgr || !tunnel_data->tunnel_mgr->tunnel_msg_in_cb)
+    if(!tunnel_rec->tunnel_mgr || !tunnel_rec->tunnel_mgr->tunnel_msg_in_cb)
     {
         log_msg(LOG_ERR, "tunnel_com_handle_event() null context data");
 
     }
 
-    if(!SSL_is_init_finished(tunnel_data->ssl)) 
+    if(!SSL_is_init_finished(tunnel_rec->ssl)) 
     {
         //log_msg(LOG_DEBUG, "tunnel_com_handle_event() SSL handshake not finished");
 
-        rv = SSL_do_handshake(tunnel_data->ssl);
+        rv = SSL_do_handshake(tunnel_rec->ssl);
         if(rv != 1) 
         {
             log_msg(LOG_WARNING, "tunnel_com_handle_event() SSL_do_handshake error");
-            tc_handle_error(tunnel_data, rv);
+            tc_handle_error(tunnel_rec, rv);
         }
         else  // SSL handshake completed
         {
             log_msg(LOG_WARNING, "tunnel_com_handle_event() handshake completed");
-            tunnel_data->con_state = TM_CON_STATE_SECURED;
-            tc_flush_read_bio(tunnel_data);
+            tunnel_rec->con_state = TM_CON_STATE_SECURED;
+            tc_flush_read_bio(tunnel_rec);
         }
-        tc_check_outgoing_application_data(tunnel_data);
+        tc_check_outgoing_application_data(tunnel_rec);
     }
     else 
     {
         // already connected, check if there is encrypted data, or we need to send app data
-        if((rv = SSL_read(tunnel_data->ssl, &header, SDP_COM_HEADER_LEN)) < 0)
+        if((rv = SSL_read(tunnel_rec->ssl, &header, SDP_COM_HEADER_LEN)) < 0)
         {
-            tc_handle_error(tunnel_data, rv);
-            tc_check_outgoing_application_data(tunnel_data);
+            tc_handle_error(tunnel_rec, rv);
+            tc_check_outgoing_application_data(tunnel_rec);
             return;
         }
         else if(rv != SDP_COM_HEADER_LEN)
         {
-            tc_handle_error(tunnel_data, rv);
-            tc_check_outgoing_application_data(tunnel_data);
+            tc_handle_error(tunnel_rec, rv);
+            tc_check_outgoing_application_data(tunnel_rec);
             return;
         }
 
@@ -592,14 +592,14 @@ void tunnel_com_handle_event(tunnel_info_t tunnel_data)
             );
 
             // TODO: bail out because we can't handle this yet
-            tunnel_manager_remove_tunnel_record(tunnel_data);
+            tunnel_manager_remove_tunnel_record(tunnel_rec);
             return;
         }
 
-        rv = SSL_read(tunnel_data->ssl, buf, data_length);
+        rv = SSL_read(tunnel_rec->ssl, buf, data_length);
         if(rv < 0) 
         {
-            tc_handle_error(tunnel_data, rv);
+            tc_handle_error(tunnel_rec, rv);
         }
         else if(rv != data_length) 
         {
@@ -609,19 +609,19 @@ void tunnel_com_handle_event(tunnel_info_t tunnel_data)
         {
             // got the expected number of bytes, process it
             buf[data_length] = '\0';
-            tunnel_data->tunnel_mgr->tunnel_msg_in_cb(tunnel_data, buf);
+            tunnel_rec->tunnel_mgr->tunnel_msg_in_cb(tunnel_rec, buf);
 
-            //memcopy(tunnel_data->buffer_in, buf, rv);
-            //tunnel_data->buffer_in_bytes_pending = rv;
+            //memcopy(tunnel_rec->buffer_in, buf, rv);
+            //tunnel_rec->buffer_in_bytes_pending = rv;
         }
 
-        tc_check_outgoing_application_data(tunnel_data);
+        tc_check_outgoing_application_data(tunnel_rec);
     }
 }
 
 void tunnel_com_read_cb(uv_stream_t* handle, ssize_t nread, const uv_buf_t *buf) 
 {
-    tunnel_info_t tunnel_data = (tunnel_info_t)handle->data;
+    tunnel_record_t tunnel_rec = (tunnel_record_t)handle->data;
     int rv = 0;
     //char plain_buf[SDP_COM_MAX_MSG_LEN] = {0};
 
@@ -632,25 +632,25 @@ void tunnel_com_read_cb(uv_stream_t* handle, ssize_t nread, const uv_buf_t *buf)
         free(buf->base);
         log_msg(LOG_ERR, "tunnel_com_read_cb() called with nread <= 0");
 
-        //rv = SSL_read(tunnel_data->ssl, plain_buf, sizeof(plain_buf));
+        //rv = SSL_read(tunnel_rec->ssl, plain_buf, sizeof(plain_buf));
         //
         //if(rv < 0) 
         //{
-        //    tc_handle_error(tunnel_data, rv);
+        //    tc_handle_error(tunnel_rec, rv);
         //}
         //else if(rv > 0) 
         //{
-        //    memcpy(tunnel_data->buffer_in, plain_buf, rv);
-        //    tunnel_data->buffer_in_bytes_pending = rv;
+        //    memcpy(tunnel_rec->buffer_in, plain_buf, rv);
+        //    tunnel_rec->buffer_in_bytes_pending = rv;
         //}
 
-        tunnel_manager_remove_tunnel_record(tunnel_data);
+        tunnel_manager_remove_tunnel_record(tunnel_rec);
         return;
     }
 
     //log_msg(LOG_DEBUG, "tunnel_com_read_cb() got %d bytes, writing to BIO...", nread);
 
-    if((rv = BIO_write(tunnel_data->read_bio, buf->base, nread)) != nread)
+    if((rv = BIO_write(tunnel_rec->read_bio, buf->base, nread)) != nread)
     {
         log_msg(
             LOG_ERR, 
@@ -660,13 +660,13 @@ void tunnel_com_read_cb(uv_stream_t* handle, ssize_t nread, const uv_buf_t *buf)
         );
     }
     free(buf->base);
-    tunnel_com_handle_event(tunnel_data);
+    tunnel_com_handle_event(tunnel_rec);
 }
 
 
-static void tc_ssl_shutdown(tunnel_info_t tunnel_data) 
+static void tc_ssl_shutdown(tunnel_record_t tunnel_rec) 
 {
-    if(!tunnel_data || !tunnel_data->ssl)  
+    if(!tunnel_rec || !tunnel_rec->ssl)  
     {
         log_msg(
             LOG_ERR, 
@@ -677,28 +677,28 @@ static void tc_ssl_shutdown(tunnel_info_t tunnel_data)
 
     log_msg(LOG_WARNING, "Tearing down SSL object");
 
-    SSL_shutdown(tunnel_data->ssl);
+    SSL_shutdown(tunnel_rec->ssl);
 
-    SSL_free(tunnel_data->ssl);
-    tunnel_data->ssl = NULL;   
+    SSL_free(tunnel_rec->ssl);
+    tunnel_rec->ssl = NULL;   
 }
 
 
 void tunnel_com_disconnect(uv_tcp_t *handle)
 {
-    tunnel_info_t tunnel_data = (tunnel_info_t)handle->data;
+    tunnel_record_t tunnel_rec = (tunnel_record_t)handle->data;
 
-    if(tunnel_data != NULL)
+    if(tunnel_rec != NULL)
     {
-        tc_ssl_shutdown(tunnel_data); 
-        tunnel_data->handle = NULL;
-        tunnel_data->con_state = TM_CON_STATE_DISCONNECTED;
+        tc_ssl_shutdown(tunnel_rec); 
+        tunnel_rec->handle = NULL;
+        tunnel_rec->con_state = TM_CON_STATE_DISCONNECTED;
     }
-    else  // no SSL shutdown without tunnel_data
+    else  // no SSL shutdown without tunnel_rec
     {
         log_msg(
             LOG_WARNING, 
-            "tunnel_com_disconnect() no tunnel_data found, closing socket now"
+            "tunnel_com_disconnect() no tunnel_rec found, closing socket now"
         );
     }
 
@@ -714,84 +714,84 @@ void tunnel_com_alloc_buffer(uv_handle_t *handle, size_t suggested_size, uv_buf_
 
 
 
-int tunnel_com_send_msg(tunnel_info_t tunnel_data, char *msg)
+int tunnel_com_send_msg(tunnel_record_t tunnel_rec, char *msg)
 {
     int rv = SDP_SUCCESS;
     //int msg_len = 0;
 
-    if(tunnel_data->outbound_q_len >= TUNNEL_MAX_Q_LEN)
+    if(tunnel_rec->outbound_q_len >= TUNNEL_MAX_Q_LEN)
     {
         log_msg(
             LOG_ERR, 
             "Failed to send message, %d messages pending.",
-            tunnel_data->outbound_q_len
+            tunnel_rec->outbound_q_len
         );
         return SDP_ERROR;
     }
 
-    if((rv = tc_add_to_msg_q(&tunnel_data->outbound_q, msg)) != SDP_SUCCESS)
+    if((rv = tc_add_to_msg_q(&tunnel_rec->outbound_q, msg)) != SDP_SUCCESS)
     {
         return rv;
     }
-    tunnel_data->outbound_q_len++;
+    tunnel_rec->outbound_q_len++;
 
-    tc_check_outgoing_application_data(tunnel_data);
+    tc_check_outgoing_application_data(tunnel_rec);
     return rv;
 }
 
 
-int tunnel_com_finalize_connection(tunnel_info_t tunnel_data, int is_client)
+int tunnel_com_finalize_connection(tunnel_record_t tunnel_rec, int is_client)
 {
     int rv = SDP_SUCCESS;
 
-    if(!tunnel_data->handle)
+    if(!tunnel_rec->handle)
     {
         log_msg(LOG_ERR, "tunnel_com_secure_connection() handle is null");
         return SDP_ERROR_UNINITIALIZED;
     }
 
-    if(!tunnel_data->tunnel_mgr)
+    if(!tunnel_rec->tunnel_mgr)
     {
         log_msg(LOG_ERR, "tunnel_com_secure_connection() tunnel_mgr is null");
         return SDP_ERROR_UNINITIALIZED;
     }
 
     // socket connection succeeded and we have all the necessary data
-    if((tunnel_data->ssl = SSL_new(tunnel_data->tunnel_mgr->ssl_ctx)) == NULL)
+    if((tunnel_rec->ssl = SSL_new(tunnel_rec->tunnel_mgr->ssl_ctx)) == NULL)
     {
         log_msg(LOG_ERR, "Failed to create SSL object");
         ERR_print_errors_fp(stderr);
         return SDP_ERROR_SSL;
     }
 
-    tunnel_data->read_bio = BIO_new(BIO_s_mem());
-    tunnel_data->write_bio = BIO_new(BIO_s_mem());
+    tunnel_rec->read_bio = BIO_new(BIO_s_mem());
+    tunnel_rec->write_bio = BIO_new(BIO_s_mem());
 
-    if(!tunnel_data->read_bio || !tunnel_data->write_bio)
+    if(!tunnel_rec->read_bio || !tunnel_rec->write_bio)
     {
         log_msg(LOG_ERR, "Failed to create SSL BIO");
         return SDP_ERROR_SSL;
     }
 
-    SSL_set_bio(tunnel_data->ssl, tunnel_data->read_bio, tunnel_data->write_bio);
+    SSL_set_bio(tunnel_rec->ssl, tunnel_rec->read_bio, tunnel_rec->write_bio);
 
     if(is_client)
     {
-        SSL_set_connect_state(tunnel_data->ssl);
+        SSL_set_connect_state(tunnel_rec->ssl);
     }
     else
     {
-        SSL_set_accept_state(tunnel_data->ssl);
+        SSL_set_accept_state(tunnel_rec->ssl);
     }
 
     if((rv = uv_read_start(
-        (uv_stream_t*)tunnel_data->handle, 
+        (uv_stream_t*)tunnel_rec->handle, 
         tunnel_com_alloc_buffer, 
         tunnel_com_read_cb
     )))
     {
         log_msg(LOG_ERR, "uv_read_start error: %s", uv_err_name(rv));
-        tunnel_manager_remove_tunnel_record(tunnel_data);
+        tunnel_manager_remove_tunnel_record(tunnel_rec);
         return SDP_ERROR_CONN_FAIL;
     }
 
@@ -800,7 +800,10 @@ int tunnel_com_finalize_connection(tunnel_info_t tunnel_data, int is_client)
         // this actually gets data moving between BIO
         // and socket, after which the rest of the handshake
         // is event-driven
-        tunnel_com_handle_event(tunnel_data);
+        tunnel_com_handle_event(tunnel_rec);
     }
     return SDP_SUCCESS;
 }
+
+
+

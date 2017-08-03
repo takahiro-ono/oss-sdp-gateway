@@ -18,6 +18,7 @@
 #include "tunnel_manager.h"
 #include "sdp_ctrl_client.h"
 #include "tunnel_com.h"
+#include "tunnel_record.h"
 
 
 static int tm_add_to_pipe_client_list(tunnel_manager_t tunnel_mgr, uv_pipe_t *handle)
@@ -83,122 +84,14 @@ static int tm_remove_from_pipe_client_list(tunnel_manager_t tunnel_mgr, uv_pipe_
 
 
 
-static void tm_print_tunnel_info_item(tunnel_info_t item)
+static int tm_traverse_print_tunnel_recs_cb(hash_table_node_t *node, void *arg)
 {
-    char req_services[100] = {0};
-    char opened_services[100] = {0};
-    tunneled_service_t service_ptr = item->services_requested;
-    int offset = 0;
-    int comma = 0;
-    int remainder = 100;
-
-    while(service_ptr && remainder)
-    {
-        if(comma)
-            snprintf(req_services + offset, remainder, ", %"PRIu32, service_ptr->service_id);
-        else
-        {
-            snprintf(req_services + offset, remainder, "%"PRIu32, service_ptr->service_id);
-            comma = 1;
-        }
-
-        offset = strlen(req_services);
-        remainder = 100 - offset;
-        service_ptr = service_ptr->next;
-    }
-
-    service_ptr = item->services_opened;
-    offset = 0;
-    comma = 0;
-    remainder = 100;
-
-    while(service_ptr && remainder)
-    {
-        if(comma)
-            snprintf(opened_services + offset, remainder, ", %"PRIu32, service_ptr->service_id);
-        else
-        {
-            snprintf(opened_services + offset, remainder, "%"PRIu32, service_ptr->service_id);
-            comma = 1;
-        }
-
-        offset = strlen(opened_services);
-        remainder = 100 - offset;
-        service_ptr = service_ptr->next;
-    }
-
-    log_msg(LOG_WARNING,
-            "\n"
-            "            SDP ID:  %"PRIu32"\n"
-            "  remote public ip:  %s\n"
-            "  remote tunnel ip:  %s\n"
-            "       remote port:  %"PRIu32"\n"
-            "requested services:  %s\n"
-            "   opened services:  %s\n"
-            "              next:  %p\n\n",
-            item->sdp_id,
-            item->remote_public_ip,
-            item->remote_tunnel_ip,
-            item->remote_port,
-            req_services,
-            opened_services,
-            item->next );
-}
-
-
-static void tm_print_tunnel_info_list(tunnel_info_t item)
-{
-    while(item != NULL)
-    {
-        tm_print_tunnel_info_item(item);
-        item = item->next;
-    }
-
-    log_msg(LOG_WARNING, "\n");
-}
-
-
-static int tm_traverse_print_tunnel_items_cb(hash_table_node_t *node, void *arg)
-{
-    tm_print_tunnel_info_list((tunnel_info_t)(node->data));
+    tunnel_record_print((tunnel_record_t)(node->data));
 
     return SDP_SUCCESS;
 }
 
 
-
-static void tm_destroy_tunneled_service_info_item(tunneled_service_t item)
-{
-    free(item);
-}
-
-
-static void tm_destroy_tunneled_service_list(tunneled_service_t list)
-{
-    tunneled_service_t this_node = list;
-    tunneled_service_t next = NULL;
-
-    while(this_node != NULL)
-    {
-        next = this_node->next;
-        tm_destroy_tunneled_service_info_item(this_node);
-        this_node = next;
-    }    
-}
-
-
-//static void tm_destroy_tunnel_info_list(tunnel_info_t list)
-//{
-//    tunnel_info_t this_node = list;
-//    tunnel_info_t next = NULL;
-//
-//    while(this_node != NULL)
-//    {
-//        next = this_node->next;
-//        tunnel_manager_destroy_tunnel_item(this_node);
-//        this_node = next;
-//    }
-//}
 
 
 static void tm_destroy_open_tunnel_hash_node_cb(hash_table_node_t *node)
@@ -216,7 +109,7 @@ static void tm_destroy_requested_tunnel_hash_node_cb(hash_table_node_t *node)
     if(node->key != NULL) bstr_destroy((bstring)(node->key));
     if(node->data != NULL)
     {
-        tunnel_manager_destroy_tunnel_item((tunnel_info_t)(node->data));
+        tunnel_record_destroy((tunnel_record_t)(node->data));
     }
 }
 
@@ -730,341 +623,6 @@ int tunnel_manager_connect_pipe(tunnel_manager_t tunnel_mgr)
 }
 
 
-static int tm_create_tunneled_service_item(
-        uint32_t service_id,
-        uint32_t idp_id,
-        char *id_token,
-        short int request_sent,
-        tunneled_service_t *r_new_guy)
-{
-    tunneled_service_t new_guy = NULL;
-
-    if((new_guy = calloc(1, sizeof *new_guy)) == NULL)
-    {
-        log_msg(LOG_ERR, "Memory allocation error");
-        return SDP_ERROR_MEMORY_ALLOCATION;
-    }
-
-    new_guy->service_id = service_id;
-    new_guy->idp_id = idp_id;
-    if(id_token)
-        strncpy(new_guy->id_token, id_token, ID_TOKEN_BUF_LEN);
-    new_guy->request_sent = request_sent;
-
-    *r_new_guy = new_guy;
-    return SDP_SUCCESS;
-}
-
-
-
-static int tm_add_tunneled_service_to_list(tunneled_service_t *list, tunneled_service_t new_guy)
-{
-    tunneled_service_t ptr = *list;
-    tunneled_service_t prev = NULL;
-
-    if(*list == NULL)
-    {
-        *list = new_guy;
-        return SDP_SUCCESS;
-    }
-
-    if(ptr->service_id == new_guy->service_id)
-    {
-        log_msg(
-            LOG_ERR, 
-            "Attempted to add service ID %"PRIu32" to service list, but it's already there.",
-            new_guy->service_id
-        );
-
-        // not really calling this an error
-        free(new_guy);
-        return SDP_SUCCESS;
-    }
-
-    prev = ptr;
-    ptr = ptr->next;
-
-    while(ptr != NULL)
-    {
-        if(ptr->service_id == new_guy->service_id)
-        {
-            log_msg(
-                LOG_ERR, 
-                "Attempted to add service ID %"PRIu32" to service list, but it's already there.",
-                new_guy->service_id
-            );
-            
-            // not really calling this an error
-            free(new_guy);
-            return SDP_SUCCESS;
-        }
-
-        prev = ptr;
-        ptr = ptr->next;
-    }
-
-    prev->next = new_guy;
-    return SDP_SUCCESS;
-}
-
-
-static int tm_remove_tunneled_service_from_list(tunneled_service_t *list, 
-                                             uint32_t service_id, 
-                                             tunneled_service_t *r_item)
-{
-    tunneled_service_t ptr = *list;
-    tunneled_service_t prev = NULL;
-    
-    if(!ptr)
-        return SDP_ERROR;
-
-    if(ptr->service_id == service_id)
-    {
-        *list = ptr->next;
-        *r_item = ptr;
-        ptr->next = NULL;
-        return SDP_SUCCESS;
-    }
-
-    while(ptr->next)
-    {
-        prev = ptr;
-        ptr = ptr->next;
-
-        if(ptr->service_id == service_id)
-        {
-            prev->next = ptr->next;
-            *r_item = ptr;
-            ptr->next = NULL;
-            return SDP_SUCCESS;
-        }
-    }
-
-    return SDP_ERROR;
-}
-
-
-static int tm_find_tunneled_service_in_list(tunneled_service_t *list, 
-                                             uint32_t service_id, 
-                                             tunneled_service_t *r_item)
-{
-    tunneled_service_t ptr = *list;
-    
-    while(ptr)
-    {
-        if(ptr->service_id == service_id)
-        {
-            *r_item = ptr;
-            return SDP_SUCCESS;
-        }
-
-        ptr = ptr->next;
-    }
-
-    return SDP_ERROR;
-}
-
-
-int tunnel_manager_add_service_to_tunnel(
-        tunnel_info_t tunnel_data,
-        uint32_t service_id,
-        uint32_t idp_id,
-        char *id_token,
-        request_or_opened_type_t which_list,
-        short int request_sent)
-{
-    int rv = SDP_SUCCESS;
-    tunneled_service_t new_guy = NULL;
-
-    if(!tunnel_data)
-    {
-        log_msg(LOG_ERR, "tunnel_manager_add_service_to_tunnel() tunnel not provided");
-        return SDP_ERROR;
-    }
-
-    if(!service_id)
-    {
-        log_msg(LOG_ERR, "tunnel_manager_add_service_to_tunnel() service_id not provided");
-        return SDP_ERROR;
-    }
-
-    if(!which_list)
-    {
-        log_msg(LOG_ERR, "tunnel_manager_add_service_to_tunnel() which list not provided");
-        return SDP_ERROR;
-    }
-
-    if((rv = tm_create_tunneled_service_item(
-            service_id, 
-            idp_id, 
-            id_token, 
-            request_sent, 
-            &new_guy)) != SDP_SUCCESS)
-    {
-        log_msg(LOG_ERR, "tunnel_manager_add_service_to_tunnel() failed to create service item");
-        return rv;
-    }
-
-    if(which_list == REQUEST_OR_OPENED_TYPE_REQUEST)
-        rv = tm_add_tunneled_service_to_list(&(tunnel_data->services_requested), new_guy);
-    else
-        rv = tm_add_tunneled_service_to_list(&(tunnel_data->services_opened), new_guy);
-
-    if(rv != SDP_SUCCESS)
-    {
-        log_msg(LOG_ERR, "tunnel_manager_add_service_to_tunnel() failed to add service to list");
-        free(new_guy);
-        return rv;
-    }
-
-    return SDP_SUCCESS;
-}
-
-
-int tunnel_manager_mark_service_opened(
-        tunnel_info_t tunnel_data,
-        uint32_t service_id)
-{
-    int rv = SDP_SUCCESS;
-    tunneled_service_t item = NULL;
-
-    if(!tunnel_data)
-    {
-        log_msg(LOG_ERR, "tunnel_manager_mark_service_opened() tunnel not provided");
-        return SDP_ERROR;
-    }
-
-    if(!service_id)
-    {
-        log_msg(LOG_ERR, "tunnel_manager_mark_service_opened() service_id not provided");
-        return SDP_ERROR;
-    }
-
-    if((rv = tm_remove_tunneled_service_from_list(
-        &(tunnel_data->services_requested), service_id, &item)) != SDP_SUCCESS)
-    {
-        log_msg(LOG_ERR, "tunnel_manager_mark_service_opened() service not found in request list");
-        return SDP_ERROR;
-    }
-
-    if((rv = tm_add_tunneled_service_to_list(
-        &(tunnel_data->services_opened), item)) != SDP_SUCCESS)
-    {
-        log_msg(LOG_ERR, "tunnel_manager_mark_service_opened() failed to add service to list");
-        return SDP_ERROR;
-    }
-
-    return SDP_SUCCESS;
-}
-
-
-int tunnel_manager_mark_service_rejected(
-        tunnel_info_t tunnel_data,
-        uint32_t service_id)
-{
-    int rv = SDP_SUCCESS;
-    tunneled_service_t item = NULL;
-
-    if(!tunnel_data)
-    {
-        log_msg(LOG_ERR, "tunnel_manager_mark_service_opened() tunnel not provided");
-        return SDP_ERROR;
-    }
-
-    if(!service_id)
-    {
-        log_msg(LOG_ERR, "tunnel_manager_mark_service_opened() service_id not provided");
-        return SDP_ERROR;
-    }
-
-    if((rv = tm_remove_tunneled_service_from_list(
-        &(tunnel_data->services_requested), service_id, &item)) != SDP_SUCCESS)
-    {
-        log_msg(LOG_ERR, "tunnel_manager_mark_service_opened() service not found in request list");
-        return SDP_ERROR;
-    }
-
-    return SDP_SUCCESS;
-}
-
-
-int tunnel_manager_create_tunnel_item(
-        uint32_t sdp_id,
-        char *remote_public_ip,
-        uint32_t remote_port,
-        uv_tcp_t *handle,
-        tunnel_manager_t tunnel_mgr,
-        tunnel_info_t *item)
-{
-    tunnel_info_t tunnel_data = NULL;
-
-    if((tunnel_data = calloc(1, sizeof *tunnel_data)) == NULL)
-    {
-        log_msg(LOG_ERR, "Memory allocation error");
-        return SDP_ERROR_MEMORY_ALLOCATION;
-    }
-
-    tunnel_data->sdp_id = sdp_id;
-    
-    if(remote_public_ip)
-        strncpy(tunnel_data->remote_public_ip, remote_public_ip, MAX_IPV4_STR_LEN);
-
-    tunnel_data->remote_port = remote_port;
-
-    tunnel_data->handle = handle;
-    tunnel_data->tunnel_mgr = tunnel_mgr;
-    tunnel_data->created_time = time(NULL);
-
-    *item = tunnel_data;
-
-    return SDP_SUCCESS;
-}
-
-
-void tunnel_manager_destroy_tunnel_item(tunnel_info_t item)
-{
-    log_msg(
-        LOG_WARNING, 
-        "Destroying tunnel record for %s:%"PRIu32, 
-        item->remote_public_ip, 
-        item->remote_port
-    );
-
-    if(item->services_requested != NULL)
-        tm_destroy_tunneled_service_list(item->services_requested);
-
-    if(item->services_opened != NULL)
-        tm_destroy_tunneled_service_list(item->services_opened);
-
-    if(item->handle != NULL)
-    {
-        //if(item->handle->data != NULL)
-        //    item->handle->data = NULL;
-
-        log_msg(
-            LOG_WARNING, 
-            "Disconnecting tunnel to %s:%"PRIu32, 
-            item->remote_public_ip, 
-            item->remote_port
-        );
-        tunnel_com_disconnect(item->handle);
-    }
-    else
-    {
-        log_msg(
-            LOG_WARNING, 
-            "No handle found in tunnel record to %s:%"PRIu32, 
-            item->remote_public_ip, 
-            item->remote_port
-        );
-    }
-
-    tunnel_com_destroy_msg_q(item->outbound_q);
-
-    free(item);
-}
-
-
 
 static bstring tm_tunnel_key_from_sdpid(uint32_t sdp_id)
 {
@@ -1091,7 +649,7 @@ int tunnel_manager_submit_client_request(
     )
 {
     //tunneled_service_t service_requested = NULL;
-    tunnel_info_t tunnel_data = NULL;
+    tunnel_record_t tunnel_rec = NULL;
     bstring key = NULL;
     int rv = SDP_SUCCESS;
 
@@ -1111,17 +669,17 @@ int tunnel_manager_submit_client_request(
         goto cleanup;
     }
 
-    if( (tunnel_data = hash_table_get(tunnel_mgr->requested_tunnel_hash_tbl, key)) == NULL)
+    if( (tunnel_rec = hash_table_get(tunnel_mgr->requested_tunnel_hash_tbl, key)) == NULL)
     {
 
         if((rv = 
-            tunnel_manager_create_tunnel_item(
+            tunnel_record_create(
                 sdp_id, 
                 ip_str, 
                 0, 
                 NULL, 
                 tunnel_mgr, 
-                &tunnel_data
+                &tunnel_rec
             )) != SDP_SUCCESS)
         {
             log_msg(
@@ -1132,25 +690,25 @@ int tunnel_manager_submit_client_request(
         }
 
         if((rv = 
-            hash_table_set(tunnel_mgr->requested_tunnel_hash_tbl, key, tunnel_data)
+            hash_table_set(tunnel_mgr->requested_tunnel_hash_tbl, key, tunnel_rec)
             ) != SDP_SUCCESS)
         {
             rv = SDP_ERROR;
             goto cleanup;
         }
 
-        tunnel_data->submitted = 1;
+        tunnel_rec->submitted = 1;
 
         pthread_mutex_unlock(&(tunnel_mgr->requested_tunnel_hash_tbl_mutex));
 
-        hash_table_traverse(tunnel_mgr->requested_tunnel_hash_tbl, tm_traverse_print_tunnel_items_cb, NULL);
+        hash_table_traverse(tunnel_mgr->requested_tunnel_hash_tbl, tm_traverse_print_tunnel_recs_cb, NULL);
 
         return SDP_SUCCESS; 
     }
 
     // found a request, update the ip address in case it changed
-    memset(tunnel_data->remote_public_ip, 0, MAX_IPV4_STR_LEN);
-    strncpy(tunnel_data->remote_public_ip, ip_str, MAX_IPV4_STR_LEN);
+    memset(tunnel_rec->remote_public_ip, 0, MAX_IPV4_STR_LEN);
+    strncpy(tunnel_rec->remote_public_ip, ip_str, MAX_IPV4_STR_LEN);
 
     pthread_mutex_unlock(&(tunnel_mgr->requested_tunnel_hash_tbl_mutex));
 
@@ -1162,8 +720,8 @@ cleanup:
 
     if(key)
         bstr_destroy(key);
-    if(tunnel_data)
-        tunnel_manager_destroy_tunnel_item(tunnel_data);
+    if(tunnel_rec)
+        tunnel_record_destroy(tunnel_rec);
 
     return rv;
 }
@@ -1174,7 +732,7 @@ int  tunnel_manager_submit_tunnel_record(
         void *key_data,
         key_data_type_t data_type,
         request_or_opened_type_t which_table,
-        tunnel_info_t tunnel_data)
+        tunnel_record_t tunnel_rec)
 {
     bstring key = NULL;
     int rv = SDP_ERROR;
@@ -1186,13 +744,13 @@ int  tunnel_manager_submit_tunnel_record(
         return SDP_ERROR;
     }
 
-    if(!tunnel_data)
+    if(!tunnel_rec)
     {
         log_msg(LOG_ERR, "[*] tunnel_manager_submit_tunnel_record tunnel data not provided");
         return SDP_ERROR;
     }
 
-    //hash_table_traverse(tunnel_mgr->requested_tunnel_hash_tbl, tm_traverse_print_tunnel_items_cb, NULL);
+    //hash_table_traverse(tunnel_mgr->requested_tunnel_hash_tbl, tm_traverse_print_tunnel_recs_cb, NULL);
 
     if(data_type == KEY_DATA_TYPE_SDP_ID)
     {
@@ -1220,7 +778,7 @@ int  tunnel_manager_submit_tunnel_record(
         tbl = tunnel_mgr->open_tunnel_hash_tbl;
     }
 
-    if( (rv = hash_table_set(tbl, key, tunnel_data)) != SDP_SUCCESS)
+    if( (rv = hash_table_set(tbl, key, tunnel_rec)) != SDP_SUCCESS)
     {
         if(which_table == REQUEST_OR_OPENED_TYPE_REQUEST)
             pthread_mutex_unlock(&(tunnel_mgr->requested_tunnel_hash_tbl_mutex));
@@ -1236,7 +794,7 @@ int  tunnel_manager_submit_tunnel_record(
         return SDP_ERROR;
     }
 
-    tunnel_data->submitted = 1;
+    tunnel_rec->submitted = 1;
 
     if(which_table == REQUEST_OR_OPENED_TYPE_REQUEST)
         pthread_mutex_unlock(&(tunnel_mgr->requested_tunnel_hash_tbl_mutex));
@@ -1256,10 +814,10 @@ int tunnel_manager_find_tunnel_record(
         void *key_data,
         key_data_type_t data_type,
         request_or_opened_type_t which_table,
-        tunnel_info_t *r_tunnel_data
+        tunnel_record_t *r_tunnel_rec
     )
 {
-    tunnel_info_t tunnel_data = NULL;
+    tunnel_record_t tunnel_rec = NULL;
     bstring key = NULL;
     hash_table_t *tbl = NULL;
 
@@ -1271,7 +829,7 @@ int tunnel_manager_find_tunnel_record(
 
     log_msg(LOG_WARNING, "entered tunnel_manager_find_tunnel_record");
     
-    //hash_table_traverse(tunnel_mgr->requested_tunnel_hash_tbl, tm_traverse_print_tunnel_items_cb, NULL);
+    //hash_table_traverse(tunnel_mgr->requested_tunnel_hash_tbl, tm_traverse_print_tunnel_recs_cb, NULL);
 
     if(data_type == KEY_DATA_TYPE_SDP_ID)
     {
@@ -1299,7 +857,7 @@ int tunnel_manager_find_tunnel_record(
         tbl = tunnel_mgr->open_tunnel_hash_tbl;
     }
 
-    if( (tunnel_data = hash_table_get(tbl, key)) == NULL)
+    if( (tunnel_rec = hash_table_get(tbl, key)) == NULL)
     {
         if(which_table == REQUEST_OR_OPENED_TYPE_REQUEST)
             pthread_mutex_unlock(&(tunnel_mgr->requested_tunnel_hash_tbl_mutex));
@@ -1326,13 +884,13 @@ int tunnel_manager_find_tunnel_record(
 
     bstr_destroy(key);
 
-    *r_tunnel_data = tunnel_data;
+    *r_tunnel_rec = tunnel_rec;
     return SDP_SUCCESS;
 }
 
 
 // delete a tunnel record, removes it from all hash tables if necessary
-int tunnel_manager_remove_tunnel_record(tunnel_info_t tunnel_data)
+int tunnel_manager_remove_tunnel_record(tunnel_record_t tunnel_rec)
 {
     bstring requested_key = NULL;
     bstring open_key = NULL;
@@ -1340,48 +898,48 @@ int tunnel_manager_remove_tunnel_record(tunnel_info_t tunnel_data)
     int open_rv = SDP_SUCCESS;
     tunnel_manager_t tunnel_mgr = NULL;
 
-    if(tunnel_data == NULL)
+    if(tunnel_rec == NULL)
     {
-        log_msg(LOG_ERR, "tunnel_manager_remove_tunnel_record() null value tunnel_data submitted");
+        log_msg(LOG_ERR, "tunnel_manager_remove_tunnel_record() null value tunnel_rec submitted");
         return SDP_ERROR;
     }
 
-    if(!tunnel_data->submitted)
+    if(!tunnel_rec->submitted)
     {
         log_msg(LOG_WARNING, "Destroying tunnel item supposedly not in a hash table");
 
         // record is not in a hash table, just destroy
-        tunnel_manager_destroy_tunnel_item(tunnel_data);
+        tunnel_record_destroy(tunnel_rec);
         return SDP_SUCCESS;
     }
     
-    //hash_table_traverse(tunnel_mgr->requested_tunnel_hash_tbl, tm_traverse_print_tunnel_items_cb, NULL);
+    //hash_table_traverse(tunnel_mgr->requested_tunnel_hash_tbl, tm_traverse_print_tunnel_recs_cb, NULL);
 
-    if(tunnel_data->tunnel_mgr == NULL)
+    if(tunnel_rec->tunnel_mgr == NULL)
     {
         log_msg(
             LOG_ERR, 
             "tunnel_manager_remove_tunnel_record() tunnel_mgr not set, "
             "can only delete record, not remove from table"
         );
-        tunnel_manager_destroy_tunnel_item(tunnel_data);
+        tunnel_record_destroy(tunnel_rec);
         return SDP_ERROR;
     }
 
-    tunnel_mgr = tunnel_data->tunnel_mgr;
+    tunnel_mgr = tunnel_rec->tunnel_mgr;
 
     if(tunnel_mgr->is_sdp_client)
     {
-        requested_key = bstr_from_cstr(tunnel_data->remote_public_ip);
+        requested_key = bstr_from_cstr(tunnel_rec->remote_public_ip);
     }
     else
     {
-        requested_key = tm_tunnel_key_from_sdpid(tunnel_data->sdp_id);
+        requested_key = tm_tunnel_key_from_sdpid(tunnel_rec->sdp_id);
     }
 
-    if(tunnel_data->remote_tunnel_ip[0])
+    if(tunnel_rec->remote_tunnel_ip[0])
     {
-        open_key = bstr_from_cstr(tunnel_data->remote_tunnel_ip);
+        open_key = bstr_from_cstr(tunnel_rec->remote_tunnel_ip);
     }
 
     // the request table has a mutex on it, unlike the open tunnel table

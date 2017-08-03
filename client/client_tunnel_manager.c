@@ -9,13 +9,14 @@
 #include "log_msg.h"
 #include "tunnel_manager.h"
 #include "tunnel_com.h"
+#include "tunnel_record.h"
 #include "client_tunnel_manager.h"
 #include "control_client.h"
 #include "config_init.h"
 
-static int tm_connect_tunnel(tunnel_info_t tunnel_data);
+static int ctm_connect_tunnel(tunnel_record_t tunnel_rec);
 
-static void tm_handle_possible_mem_err(int rv)
+static void ctm_handle_possible_mem_err(int rv)
 {
     if(rv == SDP_ERROR_MEMORY_ALLOCATION)
     {
@@ -24,7 +25,7 @@ static void tm_handle_possible_mem_err(int rv)
     }
 }
 
-static int tm_said_yes(char *msg)
+static int ctm_said_yes(char *msg)
 {
     int rv = SDP_SUCCESS;
     int action;
@@ -62,7 +63,7 @@ static int tm_said_yes(char *msg)
 }
 
 
-static int tm_convert_service_id_str(char *slist_str, uint32_t *r_service_id)
+static int ctm_convert_service_id_str(char *slist_str, uint32_t *r_service_id)
 {
     int      is_err = 0;
     char     *ndx, *start;
@@ -152,7 +153,7 @@ int ask_tunnel_manager_for_service(uint32_t sdp_id, char *service_ids_str,
         return SDP_ERROR;        
     }
 
-    if((rv = tm_convert_service_id_str(service_ids_str, &service_id)) != SDP_SUCCESS)
+    if((rv = ctm_convert_service_id_str(service_ids_str, &service_id)) != SDP_SUCCESS)
     {
         log_msg(
             LOG_ERR, 
@@ -236,7 +237,7 @@ int ask_tunnel_manager_for_service(uint32_t sdp_id, char *service_ids_str,
     buf[bytes_rcvd] = '\0';
     log_msg(LOG_ALERT, "Message received from Tunnel Manager: %s", buf);
     
-    if(!tm_said_yes(buf))
+    if(!ctm_said_yes(buf))
         
     {
         log_msg(LOG_ERR, "Service request failed");
@@ -247,19 +248,19 @@ int ask_tunnel_manager_for_service(uint32_t sdp_id, char *service_ids_str,
     return SDP_SUCCESS;
 }
 
-static void tm_got_sigint(uv_signal_t *handle, int sig)
+static void ctm_got_sigint(uv_signal_t *handle, int sig)
 {
     uv_stop(handle->loop);
 }
 
 
-static void tm_signal_close_cb(uv_handle_t *handle)
+static void ctm_signal_close_cb(uv_handle_t *handle)
 {
     free(handle);
 }
 
 
-static int tm_get_service_info(
+static int ctm_get_service_info(
         tunnel_manager_t tunnel_mgr, 
         uint32_t service_id,
         char **r_gateway_ip,
@@ -271,13 +272,13 @@ static int tm_get_service_info(
 
     if(!tunnel_mgr)
     {
-        log_msg(LOG_ERR, "tm_get_service_info() tunnel_mgr arg is NULL");
+        log_msg(LOG_ERR, "ctm_get_service_info() tunnel_mgr arg is NULL");
         return SDP_ERROR;
     }
 
     if(!tunnel_mgr->program_options_ptr)
     {
-        log_msg(LOG_ERR, "tm_get_service_info() tunnel_mgr->program_options_ptr is NULL");
+        log_msg(LOG_ERR, "ctm_get_service_info() tunnel_mgr->program_options_ptr is NULL");
         return SDP_ERROR;
     }
 
@@ -285,7 +286,7 @@ static int tm_get_service_info(
 
     if(!service_id)
     {
-        log_msg(LOG_ERR, "tm_get_service_info() service_id not provided");
+        log_msg(LOG_ERR, "ctm_get_service_info() service_id not provided");
         return SDP_ERROR;
     }
 
@@ -305,28 +306,28 @@ static int tm_get_service_info(
     // so gotta get that first, then rerun over the named stanza 
     if((rv = process_rc_section("default", &tmp_opts, 0)) != SDP_SUCCESS)
     {
-        log_msg(LOG_ERR, "tm_get_service_info() process_rc_section gave an error");
+        log_msg(LOG_ERR, "ctm_get_service_info() process_rc_section gave an error");
         return SDP_ERROR;        
     }
     
     // now run against the named stanza, i.e. service ID
     if((rv = process_rc_section(tmp_opts.use_rc_stanza, &tmp_opts, 0)) != SDP_SUCCESS)
     {
-        log_msg(LOG_ERR, "tm_get_service_info() process_rc_section gave an error");
+        log_msg(LOG_ERR, "ctm_get_service_info() process_rc_section gave an error");
         return SDP_ERROR;        
     }
     
     // got_named_stanza should be set if successful
     if(!tmp_opts.got_named_stanza)
     {
-        log_msg(LOG_ERR, "tm_get_service_info() did not find the named stanza");
+        log_msg(LOG_ERR, "ctm_get_service_info() did not find the named stanza");
         return SDP_ERROR;        
     }
 
     // the gateway IP address should now be set 
     if(tmp_opts.spa_server_str[0] == 0x0)
     {
-        log_msg(LOG_ERR, "tm_get_service_info() did not find the gateway's IP address");
+        log_msg(LOG_ERR, "ctm_get_service_info() did not find the gateway's IP address");
         return SDP_ERROR;        
     }
 
@@ -344,54 +345,54 @@ static int tm_get_service_info(
     return SDP_SUCCESS;
 }
 
-static void tm_connection_retry_cb(uv_timer_t *timer_handle)
+static void ctm_connection_retry_cb(uv_timer_t *timer_handle)
 {
-    tunnel_info_t tunnel_data = (tunnel_info_t)timer_handle->data;
+    tunnel_record_t tunnel_rec = (tunnel_record_t)timer_handle->data;
 
     uv_timer_stop(timer_handle);
     free(timer_handle);
 
-    if(tunnel_data == NULL)
+    if(tunnel_rec == NULL)
     {
         log_msg(
             LOG_ERR, 
-            "tm_connection_retry_cb() given null tunnel_data, cannot retry connection"
+            "ctm_connection_retry_cb() given null tunnel_rec, cannot retry connection"
         );
         return;
     }
 
-    tm_connect_tunnel(tunnel_data);
+    ctm_connect_tunnel(tunnel_rec);
 }
 
 
-static void tm_schedule_connection_retry(tunnel_info_t tunnel_data)
+static void ctm_schedule_connection_retry(tunnel_record_t tunnel_rec)
 {
     int rv = SDP_SUCCESS;
     uv_timer_t *timer_handle = NULL;
     int retry_delay = 0;
 
-    if(tunnel_data == NULL)
+    if(tunnel_rec == NULL)
     {
-        log_msg(LOG_ERR, "tm_schedule_connection_retry() given null tunnel_data");
+        log_msg(LOG_ERR, "ctm_schedule_connection_retry() given null tunnel_rec");
         return;
     }
 
-    if(tunnel_data->tunnel_mgr == NULL || tunnel_data->tunnel_mgr->loop == NULL)
+    if(tunnel_rec->tunnel_mgr == NULL || tunnel_rec->tunnel_mgr->loop == NULL)
     {
-        log_msg(LOG_ERR, "tm_schedule_connection_retry() given incomplete tunnel_data");
+        log_msg(LOG_ERR, "ctm_schedule_connection_retry() given incomplete tunnel_rec");
         return;
     }
 
-    if(tunnel_data->con_attempts >= MAX_TUNNEL_CON_ATTEMPTS)
+    if(tunnel_rec->con_attempts >= MAX_TUNNEL_CON_ATTEMPTS)
     {
         log_msg(
             LOG_ERR, 
             "Giving up attempted tunnel connection to %s after %d attempts", 
-            tunnel_data->remote_public_ip,
-            tunnel_data->con_attempts
+            tunnel_rec->remote_public_ip,
+            tunnel_rec->con_attempts
         );
         
-        tunnel_manager_remove_tunnel_record(tunnel_data);
+        tunnel_manager_remove_tunnel_record(tunnel_rec);
         
         return;
     }
@@ -403,30 +404,30 @@ static void tm_schedule_connection_retry(tunnel_info_t tunnel_data)
         return;
     }
 
-    if((rv = uv_timer_init(tunnel_data->tunnel_mgr->loop, timer_handle)))
+    if((rv = uv_timer_init(tunnel_rec->tunnel_mgr->loop, timer_handle)))
     {
-        log_msg(LOG_ERR, "tm_schedule_connection_retry() uv_timer_init error: %s", uv_err_name(rv));
+        log_msg(LOG_ERR, "ctm_schedule_connection_retry() uv_timer_init error: %s", uv_err_name(rv));
         free(timer_handle);
-        tunnel_manager_remove_tunnel_record(tunnel_data);
+        tunnel_manager_remove_tunnel_record(tunnel_rec);
         return;
     }
 
-    timer_handle->data = tunnel_data;
+    timer_handle->data = tunnel_rec;
 
-    retry_delay = INITIAL_TUNNEL_CON_RETRY_DELAY * tunnel_data->con_attempts * 1000;
+    retry_delay = INITIAL_TUNNEL_CON_RETRY_DELAY * tunnel_rec->con_attempts * 1000;
 
-    if((rv = uv_timer_start(timer_handle, tm_connection_retry_cb, retry_delay, 0)))
+    if((rv = uv_timer_start(timer_handle, ctm_connection_retry_cb, retry_delay, 0)))
     {
-        log_msg(LOG_ERR, "tm_schedule_connection_retry() uv_timer_start error: %s", uv_err_name(rv));
+        log_msg(LOG_ERR, "ctm_schedule_connection_retry() uv_timer_start error: %s", uv_err_name(rv));
         free(timer_handle);
-        tunnel_manager_remove_tunnel_record(tunnel_data);
+        tunnel_manager_remove_tunnel_record(tunnel_rec);
     }
 
     return;
 }
 
 
-static void tm_send_service_request(tunnel_info_t tunnel_data)
+static void ctm_send_service_request(tunnel_record_t tunnel_rec)
 {
     int rv = SDP_SUCCESS;
     char *msg = NULL;
@@ -434,26 +435,26 @@ static void tm_send_service_request(tunnel_info_t tunnel_data)
     tunneled_service_t service = NULL;
     fko_cli_options_t *cli_opts = NULL;
 
-    log_msg(LOG_WARNING, "tm_send_service_request() entered...");
+    log_msg(LOG_WARNING, "ctm_send_service_request() entered...");
 
-    if(tunnel_data == NULL)
+    if(tunnel_rec == NULL)
     {
-        log_msg(LOG_ERR, "tm_send_service_request() tunnel_data is null");
+        log_msg(LOG_ERR, "ctm_send_service_request() tunnel_rec is null");
         return;
     }
 
-    tunnel_mgr = tunnel_data->tunnel_mgr;
-    service = tunnel_data->services_requested;
+    tunnel_mgr = tunnel_rec->tunnel_mgr;
+    service = tunnel_rec->services_requested;
 
     if(tunnel_mgr == NULL)
     {
-        log_msg(LOG_ERR, "tm_send_service_request() tunnel_data->tunnel_mgr is null");
+        log_msg(LOG_ERR, "ctm_send_service_request() tunnel_rec->tunnel_mgr is null");
         return;
     }
 
     if(service == NULL)
     {
-        log_msg(LOG_ERR, "tm_send_service_request() tunnel_data->services_requested is null");
+        log_msg(LOG_ERR, "ctm_send_service_request() tunnel_rec->services_requested is null");
         return;
     }
 
@@ -478,26 +479,26 @@ static void tm_send_service_request(tunnel_info_t tunnel_data)
     {
         log_msg(LOG_ERR, "Failed to create service request message.");
 
-        tm_handle_possible_mem_err(rv);
+        ctm_handle_possible_mem_err(rv);
 
         return;
     }
 
-    if((rv = tunnel_com_send_msg(tunnel_data, msg)) != SDP_SUCCESS)
+    if((rv = tunnel_com_send_msg(tunnel_rec, msg)) != SDP_SUCCESS)
     {
         log_msg(LOG_ERR, "Failed to send service request message.");
 
         free(msg);
-        tm_handle_possible_mem_err(rv);
+        ctm_handle_possible_mem_err(rv);
     }
 }
 
 
-static void tm_socket_connected_cb(uv_connect_t *req, int status)
+static void ctm_socket_connected_cb(uv_connect_t *req, int status)
 {
     int rv = SDP_SUCCESS;
     uv_tcp_t *handle = NULL;
-    tunnel_info_t tunnel_data = NULL;
+    tunnel_record_t tunnel_rec = NULL;
 
     log_msg(LOG_WARNING, "socket connection callback reached...");
 
@@ -515,25 +516,25 @@ static void tm_socket_connected_cb(uv_connect_t *req, int status)
         return;
     }
 
-    tunnel_data = (tunnel_info_t)handle->data;
+    tunnel_rec = (tunnel_record_t)handle->data;
 
     if(status != 0)
     {
         log_msg(LOG_ERR, "Tunnel connection attempt failed");
 
-        if(!tunnel_data)
+        if(!tunnel_rec)
         {
             log_msg(LOG_ERR, "Error, connection callback reached without context data");
             free(handle);
             return;
         }
 
-        tm_schedule_connection_retry(tunnel_data);
+        ctm_schedule_connection_retry(tunnel_rec);
         return;
 
     }
 
-    if(!tunnel_data || !tunnel_data->tunnel_mgr)
+    if(!tunnel_rec || !tunnel_rec->tunnel_mgr)
     {
         log_msg(
             LOG_ERR, 
@@ -545,15 +546,15 @@ static void tm_socket_connected_cb(uv_connect_t *req, int status)
 
     // this handles the initialization of SSL and starts the SSL handshake
     // if any messages are queued up, they'll be sent after the handshake
-    if((rv = tunnel_com_finalize_connection(tunnel_data, 1)) != SDP_SUCCESS)
+    if((rv = tunnel_com_finalize_connection(tunnel_rec, 1)) != SDP_SUCCESS)
     {
         log_msg(LOG_ERR, "failed to secure connection");
-        tm_handle_possible_mem_err(rv);
-        tunnel_manager_remove_tunnel_record(tunnel_data);
+        ctm_handle_possible_mem_err(rv);
+        tunnel_manager_remove_tunnel_record(tunnel_rec);
     }
 }
 
-int tm_connect_tunnel(tunnel_info_t tunnel_data)
+int ctm_connect_tunnel(tunnel_record_t tunnel_rec)
 {
     int rv = SDP_SUCCESS;
     uv_tcp_t *handle = NULL;
@@ -561,13 +562,13 @@ int tm_connect_tunnel(tunnel_info_t tunnel_data)
     uv_connect_t *req = NULL; 
     tunnel_manager_t tunnel_mgr = NULL;
 
-    if(tunnel_data == NULL || tunnel_data->tunnel_mgr == NULL)
+    if(tunnel_rec == NULL || tunnel_rec->tunnel_mgr == NULL)
     {
-        log_msg(LOG_ERR, "tm_connect_tunnel() called with incomplete data");
+        log_msg(LOG_ERR, "ctm_connect_tunnel() called with incomplete data");
         return SDP_ERROR_UNINITIALIZED;
     }
 
-    tunnel_mgr = (tunnel_manager_t)tunnel_data->tunnel_mgr;
+    tunnel_mgr = (tunnel_manager_t)tunnel_rec->tunnel_mgr;
 
     if(tunnel_mgr->loop == NULL)
     {
@@ -585,29 +586,29 @@ int tm_connect_tunnel(tunnel_info_t tunnel_data)
 
     if((rv = uv_tcp_init(tunnel_mgr->loop, handle)))
     {
-        log_msg(LOG_ERR, "tm_connect_tunnel() failed to init handle: %s", uv_err_name(rv));
+        log_msg(LOG_ERR, "ctm_connect_tunnel() failed to init handle: %s", uv_err_name(rv));
         return SDP_ERROR;        
     }
 
-    tunnel_data->handle = handle;
-    handle->data = tunnel_data;
+    tunnel_rec->handle = handle;
+    handle->data = tunnel_rec;
 
-    log_msg(LOG_WARNING, "tm_connect_tunnel() tunnel_data set to %p", tunnel_data);
-    log_msg(LOG_WARNING, "tm_connect_tunnel() handle set to %p", handle);
-    log_msg(LOG_WARNING, "tm_connect_tunnel() handle->data set to %p", handle->data);
+    log_msg(LOG_WARNING, "ctm_connect_tunnel() tunnel_rec set to %p", tunnel_rec);
+    log_msg(LOG_WARNING, "ctm_connect_tunnel() handle set to %p", handle);
+    log_msg(LOG_WARNING, "ctm_connect_tunnel() handle->data set to %p", handle->data);
 
     if((rv = uv_ip4_addr(
-        tunnel_data->remote_public_ip, tunnel_data->remote_port, &conn_addr)))
+        tunnel_rec->remote_public_ip, tunnel_rec->remote_port, &conn_addr)))
     {
-        log_msg(LOG_ERR, "tm_connect_tunnel() failed to set ip addr: %s", uv_err_name(rv));
+        log_msg(LOG_ERR, "ctm_connect_tunnel() failed to set ip addr: %s", uv_err_name(rv));
         return SDP_ERROR;                
     }
 
-    tunnel_data->con_state = TM_CON_STATE_CONNECTING;
-    tunnel_data->con_attempts++;
+    tunnel_rec->con_state = TM_CON_STATE_CONNECTING;
+    tunnel_rec->con_attempts++;
 
     log_msg(LOG_WARNING, 
-        "tm_connect_tunnel() calling uv_tcp_connect...");
+        "ctm_connect_tunnel() calling uv_tcp_connect...");
 
     if((req = calloc(1, sizeof *req)) == NULL)
     {
@@ -619,12 +620,12 @@ int tm_connect_tunnel(tunnel_info_t tunnel_data)
             req, 
             handle, 
             (const struct sockaddr*)&conn_addr, 
-            tm_socket_connected_cb)
+            ctm_socket_connected_cb)
         ))
     {
         log_msg(
             LOG_ERR, 
-            "tm_connect_tunnel() uv_tcp_connect failed: %s", 
+            "ctm_connect_tunnel() uv_tcp_connect failed: %s", 
             uv_err_name(rv)
         );
 
@@ -634,30 +635,30 @@ int tm_connect_tunnel(tunnel_info_t tunnel_data)
     return SDP_SUCCESS;
 }
 
-static int tm_start_new_tunnel(
+static int ctm_start_new_tunnel(
         tunnel_manager_t tunnel_mgr, 
         uint32_t sdp_id, 
         char *gateway_ip,
         uint32_t tunnel_service_port,
-        tunnel_info_t *r_tunnel_data)
+        tunnel_record_t *r_tunnel_rec)
 {
     int rv = SDP_SUCCESS;
-    tunnel_info_t tunnel_data = NULL;
+    tunnel_record_t tunnel_rec = NULL;
 
 
     // create new tunnel record
-    if((rv = tunnel_manager_create_tunnel_item(
+    if((rv = tunnel_record_create(
             sdp_id,
             gateway_ip,
             tunnel_service_port,
             NULL,
             tunnel_mgr,
-            &tunnel_data
+            &tunnel_rec
         )) != SDP_SUCCESS)
     {
-        log_msg(LOG_ERR, "tm_start_new_tunnel() failed to create tunnel info item");
+        log_msg(LOG_ERR, "ctm_start_new_tunnel() failed to create tunnel info item");
         
-        tm_handle_possible_mem_err(rv);
+        ctm_handle_possible_mem_err(rv);
 
         return rv;        
     }
@@ -668,38 +669,38 @@ static int tm_start_new_tunnel(
             (void*)gateway_ip,
             KEY_DATA_TYPE_IP_STRING,
             REQUEST_OR_OPENED_TYPE_REQUEST,
-            tunnel_data
+            tunnel_rec
             )) != SDP_SUCCESS)
     {
-        log_msg(LOG_ERR, "tm_start_new_tunnel() failed to store tunnel info item");
-        tunnel_manager_destroy_tunnel_item(tunnel_data);
+        log_msg(LOG_ERR, "ctm_start_new_tunnel() failed to store tunnel info item");
+        tunnel_record_destroy(tunnel_rec);
         return rv;        
     }
 
     log_msg(LOG_WARNING, 
-        "tm_start_new_tunnel() new tunnel record submitted, time to connect...");
+        "ctm_start_new_tunnel() new tunnel record submitted, time to connect...");
 
     // time to try connecting
-    if((rv = tm_connect_tunnel(tunnel_data)) != SDP_SUCCESS)
+    if((rv = ctm_connect_tunnel(tunnel_rec)) != SDP_SUCCESS)
     {
         log_msg(
             LOG_ERR, 
-            "tm_start_new_tunnel() Failed to start tunnel connection process."
+            "ctm_start_new_tunnel() Failed to start tunnel connection process."
         );
 
-        tunnel_manager_remove_tunnel_record(tunnel_data);
+        tunnel_manager_remove_tunnel_record(tunnel_rec);
 
-        tm_handle_possible_mem_err(rv);
+        ctm_handle_possible_mem_err(rv);
 
         return rv;
     }
 
-    *r_tunnel_data = tunnel_data;
+    *r_tunnel_rec = tunnel_rec;
     return rv;
 }
 
 
-static void tm_handle_service_request(
+static void ctm_handle_service_request(
         tunnel_manager_t tunnel_mgr, 
         uint32_t sdp_id, 
         uint32_t service_id, 
@@ -707,7 +708,7 @@ static void tm_handle_service_request(
         char *id_token)
 {
     int rv = SDP_SUCCESS;
-    tunnel_info_t tunnel_data = NULL;
+    tunnel_record_t tunnel_rec = NULL;
     char *gateway_ip = NULL;
     uint32_t tunnel_service_port = 0;
     short int send_request = 0;
@@ -719,7 +720,7 @@ static void tm_handle_service_request(
     }
 
     // determine where this service is located
-    if((rv = tm_get_service_info(tunnel_mgr, service_id, 
+    if((rv = ctm_get_service_info(tunnel_mgr, service_id, 
             &gateway_ip, &tunnel_service_port)) != SDP_SUCCESS)
     {
         log_msg(LOG_ERR, "Tunnel Manager hit an error while looking up service information");
@@ -740,10 +741,10 @@ static void tm_handle_service_request(
                 (void*)gateway_ip,
                 KEY_DATA_TYPE_IP_STRING,
                 REQUEST_OR_OPENED_TYPE_REQUEST,
-                &tunnel_data
+                &tunnel_rec
         )) == SDP_SUCCESS)
     {
-        if(tunnel_data->con_state == TM_CON_STATE_CONNECTED)
+        if(tunnel_rec->con_state == TM_CON_STATE_CONNECTED)
         {
             log_msg(
                 LOG_WARNING, 
@@ -761,12 +762,12 @@ static void tm_handle_service_request(
         }
 
     }
-    else if((rv = tm_start_new_tunnel(
+    else if((rv = ctm_start_new_tunnel(
             tunnel_mgr, 
             sdp_id, 
             gateway_ip,
             tunnel_service_port, 
-            &tunnel_data
+            &tunnel_rec
         )) != SDP_SUCCESS)
     {
         log_msg(LOG_ERR, "Could not start new tunnel to %s", gateway_ip);
@@ -777,8 +778,8 @@ static void tm_handle_service_request(
     free(gateway_ip);
 
     // create a new record of the service to be requested
-    if((rv = tunnel_manager_add_service_to_tunnel(
-            tunnel_data,
+    if((rv = tunnel_record_add_service(
+            tunnel_rec,
             service_id,
             idp_id,
             id_token,
@@ -788,21 +789,21 @@ static void tm_handle_service_request(
     {
         log_msg(LOG_ERR, "Failed to add requested service to tunnel data.");
 
-        tm_handle_possible_mem_err(rv);
+        ctm_handle_possible_mem_err(rv);
 
         return;
     }
 
     // this either sends or queues the request
     // depending on connection state
-    tm_send_service_request(tunnel_data);
+    ctm_send_service_request(tunnel_rec);
 
     return;
 }
 
 
-static void tm_handle_service_granted(
-        tunnel_info_t tunnel_data, 
+static void ctm_handle_service_granted(
+        tunnel_record_t tunnel_rec, 
         uint32_t sdp_id, 
         uint32_t service_id, 
         uint32_t idp_id, 
@@ -812,8 +813,8 @@ static void tm_handle_service_granted(
 
 }
 
-static void tm_handle_service_denied(
-        tunnel_info_t tunnel_data, 
+static void ctm_handle_service_denied(
+        tunnel_record_t tunnel_rec, 
         uint32_t sdp_id, 
         uint32_t service_id)
 {
@@ -821,7 +822,7 @@ static void tm_handle_service_denied(
 
 }
 
-static void tm_handle_authn_request(
+static void ctm_handle_authn_request(
         tunnel_manager_t tunnel_mgr, 
         uint32_t sdp_id, 
         uint32_t service_id, 
@@ -832,8 +833,8 @@ static void tm_handle_authn_request(
 
 }
 
-static void tm_handle_authn_accepted(
-        tunnel_info_t tunnel_data, 
+static void ctm_handle_authn_accepted(
+        tunnel_record_t tunnel_rec, 
         uint32_t sdp_id, 
         char *tunnel_ip)
 {
@@ -841,23 +842,23 @@ static void tm_handle_authn_accepted(
 
 }
 
-static void tm_handle_authn_rejected(
-        tunnel_info_t tunnel_data, 
+static void ctm_handle_authn_rejected(
+        tunnel_record_t tunnel_rec, 
         uint32_t sdp_id)
 {
     return;
 
 }
 
-static void tm_handle_tunnel_traffic_in(
-        tunnel_info_t tunnel_data, 
+static void ctm_handle_tunnel_traffic_in(
+        tunnel_record_t tunnel_rec, 
         uint32_t sdp_id, 
         char *packet)
 {
     return;
 }
 
-void tm_handle_pipe_msg(tunnel_manager_t tunnel_mgr, void *msg, int data_type)
+void ctm_handle_pipe_msg(tunnel_manager_t tunnel_mgr, void *msg, int data_type)
 {
     int rv = SDP_SUCCESS;
     int action = 0;
@@ -870,7 +871,7 @@ void tm_handle_pipe_msg(tunnel_manager_t tunnel_mgr, void *msg, int data_type)
 
     if(tunnel_mgr == NULL)
     {
-        log_msg(LOG_ERR, "tm_handle_pipe_msg() Error, tunnel_mgr is NULL");
+        log_msg(LOG_ERR, "ctm_handle_pipe_msg() Error, tunnel_mgr is NULL");
         return;
     }
 
@@ -913,13 +914,13 @@ void tm_handle_pipe_msg(tunnel_manager_t tunnel_mgr, void *msg, int data_type)
     switch(action)
     {
         case CTRL_ACTION_SERVICE_REQUEST:
-            tm_handle_service_request(tunnel_mgr, sdp_id, service_id, idp_id, id_token);
+            ctm_handle_service_request(tunnel_mgr, sdp_id, service_id, idp_id, id_token);
 
             // definitely free allocated memory in this case
             break;
 
         case CTRL_ACTION_AUTHN_REQUEST:
-            tm_handle_authn_request(tunnel_mgr, sdp_id, service_id, idp_id, id_token);
+            ctm_handle_authn_request(tunnel_mgr, sdp_id, service_id, idp_id, id_token);
             break;
 
         case CTRL_ACTION_BAD_MESSAGE:
@@ -940,7 +941,7 @@ cleanup:
 }
 
 
-void client_handle_tunnel_msg(tunnel_info_t tunnel_data, char *msg)
+void client_handle_tunnel_msg(tunnel_record_t tunnel_rec, char *msg)
 {
     int rv = SDP_SUCCESS;
     int action = 0;
@@ -951,7 +952,7 @@ void client_handle_tunnel_msg(tunnel_info_t tunnel_data, char *msg)
     char *tunnel_ip = NULL;
     char *packet = NULL;
     
-    if(!tunnel_data || !tunnel_data->tunnel_mgr)
+    if(!tunnel_rec || !tunnel_rec->tunnel_mgr)
     {
         log_msg(LOG_ERR, "client_handle_tunnel_msg() Error, context data missing");
         return;
@@ -976,23 +977,23 @@ void client_handle_tunnel_msg(tunnel_info_t tunnel_data, char *msg)
     switch(action)
     {
         case CTRL_ACTION_SERVICE_GRANTED:
-            tm_handle_service_granted(tunnel_data, sdp_id, service_id, idp_id, id_token);
+            ctm_handle_service_granted(tunnel_rec, sdp_id, service_id, idp_id, id_token);
             break;
 
         case CTRL_ACTION_SERVICE_DENIED:
-            tm_handle_service_denied(tunnel_data, sdp_id, service_id);
+            ctm_handle_service_denied(tunnel_rec, sdp_id, service_id);
             break;
 
         case CTRL_ACTION_AUTHN_ACCEPTED:
-            tm_handle_authn_accepted(tunnel_data, sdp_id, tunnel_ip);
+            ctm_handle_authn_accepted(tunnel_rec, sdp_id, tunnel_ip);
             break;
 
         case CTRL_ACTION_AUTHN_REJECTED:
-            tm_handle_authn_rejected(tunnel_data, sdp_id);
+            ctm_handle_authn_rejected(tunnel_rec, sdp_id);
             break;
 
         case CTRL_ACTION_TUNNEL_TRAFFIC:
-            tm_handle_tunnel_traffic_in(tunnel_data, sdp_id, packet);
+            ctm_handle_tunnel_traffic_in(tunnel_rec, sdp_id, packet);
             break;
 
         case CTRL_ACTION_BAD_MESSAGE:
@@ -1019,11 +1020,11 @@ static void client_pipe_read_cb(uv_stream_t *client, ssize_t nread, const uv_buf
     {
         log_msg(LOG_WARNING, "Tunnel manager received pipe message: %s", buf->base);
 
-        tm_handle_pipe_msg((tunnel_manager_t)client->data, buf->base, PTR_TO_STR);
+        ctm_handle_pipe_msg((tunnel_manager_t)client->data, buf->base, PTR_TO_STR);
 
         //write_req_t *req = calloc(1, sizeof *req);
         //req->buf = uv_buf_init(buf->base, nread);
-        //uv_write((uv_write_t*) req, client, &req->buf, 1, tm_write_cb);
+        //uv_write((uv_write_t*) req, client, &req->buf, 1, ctm_write_cb);
 
         free(buf->base);
         return;
@@ -1084,7 +1085,7 @@ int be_tunnel_manager(fko_cli_options_t *opts)
         return SDP_ERROR;
     }
 
-    if((rv = uv_signal_start(signal_handle, tm_got_sigint, SIGINT)))
+    if((rv = uv_signal_start(signal_handle, ctm_got_sigint, SIGINT)))
     {
         log_msg(LOG_ERR, "uv_signal_start error: %s", uv_err_name(rv));
         return SDP_ERROR;
@@ -1102,7 +1103,7 @@ int be_tunnel_manager(fko_cli_options_t *opts)
     //start tunnel manager
     uv_run(tunnel_mgr->loop, UV_RUN_DEFAULT);
 
-    uv_close((uv_handle_t*)signal_handle, tm_signal_close_cb);
+    uv_close((uv_handle_t*)signal_handle, ctm_signal_close_cb);
 
     return SDP_SUCCESS;
 }
