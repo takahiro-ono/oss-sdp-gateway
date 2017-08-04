@@ -75,6 +75,12 @@ struct sdp_com{
 
 typedef struct sdp_com *sdp_com_t;
 
+int sdp_com_send_spa(
+        char *stanza,
+        char *fwknoprc_file,
+        char *fwknop_path,
+        struct timespec *post_spa_delay);
+
 int sdp_com_get_ssl_error(SSL *ssl, int rv, char *r_ssl_error);
 int sdp_com_init(sdp_com_t com);
 int sdp_com_new(sdp_com_t *r_com);

@@ -108,7 +108,15 @@ static int sdp_com_strtoargv(char *args_str, char **argv_new, int *argc_new)
     return SDP_SUCCESS;
 }
 
-static int sdp_com_default_send_spa(sdp_com_t com)
+
+// this function is used for both client to controller connection
+// when a tunnel is not being used, and client to gateway when
+// starting a new tunnel
+int sdp_com_send_spa(
+        char *stanza,
+        char *fwknoprc_file,
+        char *fwknop_path,
+        struct timespec *post_spa_delay)
 {
     char    fwknop_cmd[SDP_COM_MAX_FWKNOP_CMD_LEN] = {0};
     char   *fwknop_argv[SDP_COM_MAX_FWKNOP_ARGS];
@@ -116,14 +124,11 @@ static int sdp_com_default_send_spa(sdp_com_t com)
     pid_t   pid=0;
     int     status;
 
-    log_msg(LOG_DEBUG, "Entered sdp_com_default_send_spa function");
+    log_msg(LOG_DEBUG, "sdp_com_send_spa() entered...");
 
-    if(com == NULL || !com->initialized)
-        return SDP_ERROR_UNINITIALIZED;
-
-    if(com->fwknoprc_file == NULL)
+    if(!fwknoprc_file || !fwknop_path || !stanza)
     {
-        log_msg(LOG_ERR, "Attempting to send SPA, but fwknoprc file not set.");
+        log_msg(LOG_ERR, "sdp_com_send_spa() null stanza parameter given");
         return SDP_ERROR_SPA;
     }
 
@@ -131,7 +136,7 @@ static int sdp_com_default_send_spa(sdp_com_t com)
 
     // set up fwknop options
     snprintf(fwknop_cmd, SDP_COM_MAX_FWKNOP_CMD_LEN, "%s --disable-ctrl-client --rc-file %s -n %s",
-             com->fwknop_path, com->fwknoprc_file, com->ctrl_stanza);
+             fwknop_path, fwknoprc_file, stanza);
 
     log_msg(LOG_DEBUG, "fwknop command string: %s", fwknop_cmd);
 
@@ -172,9 +177,32 @@ static int sdp_com_default_send_spa(sdp_com_t com)
     }
 
     // delay X nanoseconds so gateway has chance to open the door
-    nanosleep(&(com->post_spa_delay), NULL);
+    if(post_spa_delay)
+        nanosleep(post_spa_delay, NULL);
 
     return SDP_SUCCESS;
+}
+
+
+static int sdp_com_default_send_spa(sdp_com_t com)
+{
+    log_msg(LOG_DEBUG, "Entered sdp_com_default_send_spa function");
+
+    if(com == NULL || !com->initialized)
+        return SDP_ERROR_UNINITIALIZED;
+
+    if(com->fwknoprc_file == NULL)
+    {
+        log_msg(LOG_ERR, "Attempting to send SPA, but fwknoprc file not set.");
+        return SDP_ERROR_SPA;
+    }
+
+    return sdp_com_send_spa(
+        com->ctrl_stanza,
+        com->fwknoprc_file, 
+        com->fwknop_path, 
+        &com->post_spa_delay
+    );
 }
 
 int sdp_com_get_ssl_error(SSL *ssl, int rv, char *r_ssl_error)
