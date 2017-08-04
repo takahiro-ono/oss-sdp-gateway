@@ -17,7 +17,7 @@
 void tunnel_com_ssl_info_callback(const SSL* ssl, int where, int ret);
 int  tunnel_com_ssl_verify_callback(int ok, X509_STORE_CTX* store);
 void tunnel_com_destroy_msg_q(outbound_msg_t q);
-int  tunnel_com_ssl_ctx_init(SSL_CTX **ssl_ctx, char* cert_file, char* key_file);
+int  tunnel_com_ssl_ctx_init(SSL_CTX **ssl_ctx, char *ca_cert_file, char* cert_file, char* key_file);
 void tunnel_com_handle_event(tunnel_record_t tunnel_rec);
 void tunnel_com_read_cb(uv_stream_t* handle, ssize_t nread, const uv_buf_t *buf);
 void tunnel_com_disconnect(uv_tcp_t *handle);

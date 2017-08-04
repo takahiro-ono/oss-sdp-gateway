@@ -124,6 +124,10 @@ int  sdp_ctrl_client_consider_access_refresh(sdp_ctrl_client_t client);
 int  sdp_ctrl_client_send_data_ack(sdp_ctrl_client_t client, int action);
 int  sdp_ctrl_client_send_data_error(sdp_ctrl_client_t client);
 int  sdp_ctrl_client_send_message(sdp_ctrl_client_t client, char *action, json_object *data);
-int  sdp_ctrl_client_get_cred_files(sdp_ctrl_client_t client, char **cert_file, char **key_file);
+int  sdp_ctrl_client_get_cred_files(
+        sdp_ctrl_client_t client, 
+        char **ca_cert_file, 
+        char **cert_file, 
+        char **key_file);
 
 #endif /* SDP_CTRL_CLIENT_H_ */

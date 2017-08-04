@@ -353,6 +353,9 @@ void tunnel_manager_destroy(tunnel_manager_t tunnel_mgr)
         }
     }
 
+    if(tunnel_mgr->ca_cert_file != NULL)
+        free(tunnel_mgr->ca_cert_file);
+
     if(tunnel_mgr->cert_file != NULL)
         free(tunnel_mgr->cert_file);
 
@@ -379,6 +382,7 @@ static int tm_ssl_ctx_init(tunnel_manager_t tunnel_mgr)
     // retrieve the paths to the cred files from the ctrl client
     if((rv = sdp_ctrl_client_get_cred_files(
             tunnel_mgr->ctrl_client,
+            &tunnel_mgr->ca_cert_file,
             &tunnel_mgr->cert_file,
             &tunnel_mgr->key_file
         )) != SDP_SUCCESS)
@@ -388,6 +392,7 @@ static int tm_ssl_ctx_init(tunnel_manager_t tunnel_mgr)
 
     return tunnel_com_ssl_ctx_init(
             &tunnel_mgr->ssl_ctx, 
+            tunnel_mgr->ca_cert_file,
             tunnel_mgr->cert_file,
             tunnel_mgr->key_file);
 }

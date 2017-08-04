@@ -58,6 +58,7 @@ struct sdp_com{
 
 	char *key_file;
 	char *cert_file;
+	char *ca_cert_file;
 	SSL_CTX *ssl_ctx;
 	SSL *ssl;
 	int socket_descriptor;

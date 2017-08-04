@@ -207,15 +207,29 @@ static int tc_ssl_ctx_init(SSL_CTX **ssl_ctx)
         return SDP_ERROR_SSL;
     }
 
-    SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER, tunnel_com_ssl_verify_callback); 
     SSL_CTX_set_info_callback(ctx, tunnel_com_ssl_info_callback);  // for debugging
 
     *ssl_ctx = ctx;
     return SDP_SUCCESS;
 }
 
-static int tc_ssl_load_certs(SSL_CTX* ctx, char* cert_file, char* key_file)
+static int tc_ssl_load_certs(SSL_CTX* ctx, char * ca_cert_file, char* cert_file, char* key_file)
 {
+    // load the CA cert for verification of peer certs
+    if(ca_cert_file)
+    {
+        log_msg(LOG_WARNING, "Setting CA cert for peer cert verification.");
+        if ( SSL_CTX_load_verify_locations(ctx, ca_cert_file, NULL) <= 0)
+        {
+            ERR_print_errors_fp(stderr);
+            return SDP_ERROR_CERT;
+        }
+        SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER, NULL); //tunnel_com_ssl_verify_callback); 
+    }
+    else
+    {
+        log_msg(LOG_WARNING, "WARNING: CA cert not provided for peer cert verification.");
+    }
     // set the local certificate from CertFile
     if ( SSL_CTX_use_certificate_file(ctx, cert_file, SSL_FILETYPE_PEM) <= 0 )
     {
@@ -239,7 +253,7 @@ static int tc_ssl_load_certs(SSL_CTX* ctx, char* cert_file, char* key_file)
 }
 
 
-int tunnel_com_ssl_ctx_init(SSL_CTX **ssl_ctx, char* cert_file, char* key_file)
+int tunnel_com_ssl_ctx_init(SSL_CTX **ssl_ctx, char * ca_cert_file, char* cert_file, char* key_file)
 {
     int rv = SDP_SUCCESS;
     SSL_CTX *ctx = NULL;
@@ -247,7 +261,7 @@ int tunnel_com_ssl_ctx_init(SSL_CTX **ssl_ctx, char* cert_file, char* key_file)
     if((rv = tc_ssl_ctx_init(&ctx)) != SDP_SUCCESS)
         return rv;
 
-    if((rv = tc_ssl_load_certs(ctx, cert_file, key_file)) != SDP_SUCCESS)
+    if((rv = tc_ssl_load_certs(ctx, ca_cert_file, cert_file, key_file)) != SDP_SUCCESS)
     {
         SSL_CTX_free(ctx);
         return rv;
@@ -327,7 +341,7 @@ static void tc_flush_read_bio(tunnel_record_t tunnel_rec)
 }
 
 
-static void tc_handle_error(tunnel_record_t tunnel_rec, int result) 
+static int tc_handle_error(tunnel_record_t tunnel_rec, int result) 
 {
     int error = 0;
     char ssl_error_string[SDP_MAX_LINE_LEN];
@@ -339,7 +353,16 @@ static void tc_handle_error(tunnel_record_t tunnel_rec, int result)
     if(error == SSL_ERROR_WANT_READ)  // wants to read from bio
     {
         tc_flush_read_bio(tunnel_rec);
+        return SDP_SUCCESS;
     }
+    else if(error == SSL_ERROR_WANT_WRITE)
+    {
+        return SDP_SUCCESS;
+    }
+
+    log_msg(LOG_ERR, "SSL error. Disconnecting.");
+    tunnel_manager_remove_tunnel_record(tunnel_rec);
+    return SDP_ERROR_SSL;
 }
 
 
@@ -483,7 +506,11 @@ static void tc_check_outgoing_application_data(tunnel_record_t tunnel_rec)
             );
 
             // try flushing bio
-            tc_handle_error(tunnel_rec, rv);
+            if((rv = tc_handle_error(tunnel_rec, rv)) != SDP_SUCCESS)
+            {
+                free(msg);
+                return;
+            }
 
             // try one more time
             if((rv = SSL_write(
@@ -497,15 +524,12 @@ static void tc_check_outgoing_application_data(tunnel_record_t tunnel_rec)
                     "tc_check_outgoing_application_data() SSL_write failed twice"
                 );
                 free(msg);
-                tc_handle_error(tunnel_rec, rv);
                 tunnel_manager_remove_tunnel_record(tunnel_rec);
                 return;
             }
 
         }
-        //memset(tunnel_rec->buffer_out, 0, SDP_COM_MAX_MSG_LEN);
-        //tunnel_rec->buffer_out_bytes_pending = 0;
-        //tc_handle_error(tunnel_rec, rv);
+
         log_msg(LOG_WARNING, "SSL_write succeeded");
         free(msg);
         tc_flush_read_bio(tunnel_rec);
@@ -749,7 +773,10 @@ void tunnel_com_handle_event(tunnel_record_t tunnel_rec)
         if(rv != 1) 
         {
             log_msg(LOG_WARNING, "tunnel_com_handle_event() SSL_do_handshake error");
-            tc_handle_error(tunnel_rec, rv);
+            if((rv = tc_handle_error(tunnel_rec, rv)) != SDP_SUCCESS)
+            {
+                return;
+            }
         }
         else  // SSL handshake completed
         {
@@ -773,13 +800,19 @@ void tunnel_com_handle_event(tunnel_record_t tunnel_rec)
         // already connected, check if there is encrypted data, or we need to send app data
         if((rv = SSL_read(tunnel_rec->ssl, &header, SDP_COM_HEADER_LEN)) < 0)
         {
-            tc_handle_error(tunnel_rec, rv);
+            if((rv = tc_handle_error(tunnel_rec, rv)) != SDP_SUCCESS)
+            {
+                return;
+            }
             tc_check_outgoing_application_data(tunnel_rec);
             return;
         }
         else if(rv != SDP_COM_HEADER_LEN)
         {
-            tc_handle_error(tunnel_rec, rv);
+            if((rv = tc_handle_error(tunnel_rec, rv)) != SDP_SUCCESS)
+            {
+                return;
+            }
             tc_check_outgoing_application_data(tunnel_rec);
             return;
         }
@@ -817,7 +850,10 @@ void tunnel_com_handle_event(tunnel_record_t tunnel_rec)
         rv = SSL_read(tunnel_rec->ssl, buf, data_length);
         if(rv < 0) 
         {
-            tc_handle_error(tunnel_rec, rv);
+            if((rv = tc_handle_error(tunnel_rec, rv)) != SDP_SUCCESS)
+            {
+                return;
+            }
         }
         else if(rv != data_length) 
         {
@@ -905,6 +941,9 @@ static void tc_ssl_shutdown(tunnel_record_t tunnel_rec)
 void tunnel_com_disconnect(uv_tcp_t *handle)
 {
     tunnel_record_t tunnel_rec = (tunnel_record_t)handle->data;
+
+    // prevent the read callback from firing during shutdown
+    uv_read_stop((uv_stream_t*)handle);
 
     if(tunnel_rec != NULL)
     {

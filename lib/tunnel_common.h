@@ -88,6 +88,7 @@ struct tunnel_manager{
     SSL_CTX *ssl_ctx;
     void *program_options_ptr;
     sdp_ctrl_client_t ctrl_client;
+    char *ca_cert_file;
     char *cert_file;
     char *key_file;
     //uv_pipe_t *pipe_to_tm;
