@@ -14,7 +14,7 @@
 #include "control_client.h"
 #include "config_init.h"
 
-static int ctm_connect_tunnel(tunnel_record_t tunnel_rec);
+static int ctm_start_tunnel_connect(tunnel_record_t tunnel_rec);
 
 static void ctm_handle_possible_mem_err(int rv)
 {
@@ -347,10 +347,10 @@ static int ctm_get_service_info(
 
 static void ctm_connection_retry_cb(uv_timer_t *timer_handle)
 {
+    int rv = SDP_SUCCESS;
     tunnel_record_t tunnel_rec = (tunnel_record_t)timer_handle->data;
 
-    uv_timer_stop(timer_handle);
-    free(timer_handle);
+    uv_close((uv_handle_t*)timer_handle, (uv_close_cb)free);
 
     if(tunnel_rec == NULL)
     {
@@ -361,7 +361,12 @@ static void ctm_connection_retry_cb(uv_timer_t *timer_handle)
         return;
     }
 
-    ctm_connect_tunnel(tunnel_rec);
+    if((rv = ctm_start_tunnel_connect(tunnel_rec)) != SDP_SUCCESS)
+    {
+        tunnel_manager_remove_tunnel_record(tunnel_rec);
+
+        ctm_handle_possible_mem_err(rv);
+    }
 }
 
 
@@ -534,37 +539,143 @@ static void ctm_socket_connected_cb(uv_connect_t *req, int status)
 
     }
 
-    if(!tunnel_rec || !tunnel_rec->tunnel_mgr)
+    if(!tunnel_rec)
     {
         log_msg(
             LOG_ERR, 
-            "Connection callback reached with successful connection, but no context data"
+            "Connection callback reached with successful connection, but no tunnel_rec"
         );
         uv_close((uv_handle_t*)handle, (uv_close_cb)free);
         return;
     }
+
+    if(!tunnel_rec->tunnel_mgr)
+    {
+        log_msg(
+            LOG_ERR, 
+            "Connection callback reached with successful connection, but no tunnel_mgr"
+        );
+        tunnel_record_destroy(tunnel_rec);
+        return;
+    }
+
 
     // this handles the initialization of SSL and starts the SSL handshake
     // if any messages are queued up, they'll be sent after the handshake
     if((rv = tunnel_com_finalize_connection(tunnel_rec, 1)) != SDP_SUCCESS)
     {
         log_msg(LOG_ERR, "failed to secure connection");
+        tunnel_manager_remove_tunnel_record(tunnel_rec);
         ctm_handle_possible_mem_err(rv);
+    }
+}
+
+static void ctm_spa_sent_cb(uv_timer_t *timer_handle)
+{
+    int rv = SDP_SUCCESS;
+    uv_tcp_t *handle = NULL;
+    struct sockaddr_in conn_addr; 
+    uv_connect_t *req = NULL; 
+    tunnel_manager_t tunnel_mgr = NULL;
+    tunnel_record_t tunnel_rec = (tunnel_record_t)timer_handle->data;
+
+    uv_close((uv_handle_t*)timer_handle, (uv_close_cb)free);
+
+    if(tunnel_rec == NULL)
+    {
+        log_msg(LOG_ERR, "ctm_spa_sent_cb() called with null tunnel_rec");
+        return;
+    }
+
+    if((tunnel_mgr = tunnel_rec->tunnel_mgr) == NULL)
+    {
+        log_msg(LOG_ERR, "ctm_spa_sent_cb() tunnel_rec->tunnel_mgr is null");
+        tunnel_record_destroy(tunnel_rec);
+        return;
+    }
+
+    if(tunnel_mgr->loop == NULL)
+    {
+        log_msg(LOG_ERR, "ctm_spa_sent_cb() loop is null!");
+        tunnel_manager_remove_tunnel_record(tunnel_rec);
+        return;
+    }
+
+    // if this is a retry, the handle already exists
+    if(tunnel_rec->handle == NULL)
+    {
+        // create new handle
+        if((handle = calloc(1, sizeof *handle)) == NULL)
+        {
+            log_msg(LOG_ERR, "ctm_spa_sent_cb() Fatal memory error. Aborting.");
+            kill(getpid(), SIGINT);
+            return;
+        }
+
+
+        if((rv = uv_tcp_init(tunnel_mgr->loop, handle)))
+        {
+            log_msg(LOG_ERR, "ctm_spa_sent_cb() failed to init handle: %s", uv_err_name(rv));
+            free(handle);
+            tunnel_manager_remove_tunnel_record(tunnel_rec);
+            return;        
+        }
+
+        tunnel_rec->handle = handle;
+        handle->data = tunnel_rec;
+    }
+
+    if((rv = uv_ip4_addr(
+        tunnel_rec->remote_public_ip, tunnel_rec->remote_port, &conn_addr)))
+    {
+        log_msg(LOG_ERR, "ctm_spa_sent_cb() failed to set ip addr: %s", uv_err_name(rv));
+        tunnel_manager_remove_tunnel_record(tunnel_rec);
+        return;                
+    }
+
+    tunnel_rec->con_state = TM_CON_STATE_CONNECTING;
+    tunnel_rec->con_attempts++;
+
+    log_msg(LOG_WARNING, 
+        "ctm_spa_sent_cb() calling uv_tcp_connect...");
+
+    if((req = calloc(1, sizeof *req)) == NULL)
+    {
+        log_msg(LOG_ERR, "ctm_spa_sent_cb() Fatal memory error. Aborting.");
+        kill(getpid(), SIGINT);
+        return;
+    }
+
+    if((rv = uv_tcp_connect(
+            req, 
+            tunnel_rec->handle, 
+            (const struct sockaddr*)&conn_addr, 
+            ctm_socket_connected_cb)
+        ))
+    {
+        log_msg(
+            LOG_ERR, 
+            "ctm_spa_sent_cb() uv_tcp_connect failed: %s", 
+            uv_err_name(rv)
+        );
+
+        free(req);
         tunnel_manager_remove_tunnel_record(tunnel_rec);
     }
 }
 
-int ctm_connect_tunnel(tunnel_record_t tunnel_rec)
+
+
+int ctm_start_tunnel_connect(tunnel_record_t tunnel_rec)
 {
     int rv = SDP_SUCCESS;
-    uv_tcp_t *handle = NULL;
-    struct sockaddr_in conn_addr;  // not clear if this needs to be on heap
-    uv_connect_t *req = NULL; 
     tunnel_manager_t tunnel_mgr = NULL;
+    char stanza[SDP_MAX_SERVICE_ID_STR_LEN] = {0};
+    uv_timer_t *timer_handle = NULL;
 
-    if(tunnel_rec == NULL || tunnel_rec->tunnel_mgr == NULL)
+    if(!tunnel_rec || !tunnel_rec->tunnel_mgr || !tunnel_rec->services_requested)
     {
-        log_msg(LOG_ERR, "ctm_connect_tunnel() called with incomplete data");
+        log_msg(LOG_ERR, "ctm_start_tunnel_connect() called with incomplete data");
         return SDP_ERROR_UNINITIALIZED;
     }
 
@@ -576,66 +687,54 @@ int ctm_connect_tunnel(tunnel_record_t tunnel_rec)
         return SDP_ERROR_UNINITIALIZED;
     }
 
-    // create new handle
-    if((handle = calloc(1, sizeof *handle)) == NULL)
+    // sdp_com_send_spa needs a string for the stanza name
+    snprintf(
+        stanza, 
+        SDP_MAX_SERVICE_ID_STR_LEN, 
+        "%"PRIu32, 
+        tunnel_rec->services_requested->service_id
+    );
+
+    if((rv = sdp_com_send_spa(
+            stanza, 
+            tunnel_mgr->fwknoprc_file, 
+            tunnel_mgr->fwknop_path, 
+            NULL
+        )) != SDP_SUCCESS)
     {
-        log_msg(LOG_ERR, "Fatal memory error. Aborting.");
+        log_msg(LOG_ERR, "ERROR: Failed to send SPA for stanza %s", stanza);
+        return rv;
+    }
+
+    // gateway needs time to react to SPA
+    // start timer to delay before attempting socket connection
+    if((timer_handle = calloc(1, sizeof *timer_handle)) == NULL)
+    {
+        log_msg(LOG_ERR, "Fatal memory error");
         return SDP_ERROR_MEMORY_ALLOCATION;
     }
 
-
-    if((rv = uv_tcp_init(tunnel_mgr->loop, handle)))
+    if((rv = uv_timer_init(tunnel_mgr->loop, timer_handle)))
     {
-        log_msg(LOG_ERR, "ctm_connect_tunnel() failed to init handle: %s", uv_err_name(rv));
-        return SDP_ERROR;        
+        log_msg(LOG_ERR, "ctm_start_tunnel_connect() uv_timer_init error: %s", uv_err_name(rv));
+        free(timer_handle);
+        return SDP_ERROR_SPA;
     }
 
-    tunnel_rec->handle = handle;
-    handle->data = tunnel_rec;
+    timer_handle->data = tunnel_rec;
 
-    log_msg(LOG_WARNING, "ctm_connect_tunnel() tunnel_rec set to %p", tunnel_rec);
-    log_msg(LOG_WARNING, "ctm_connect_tunnel() handle set to %p", handle);
-    log_msg(LOG_WARNING, "ctm_connect_tunnel() handle->data set to %p", handle->data);
-
-    if((rv = uv_ip4_addr(
-        tunnel_rec->remote_public_ip, tunnel_rec->remote_port, &conn_addr)))
+    if((rv = uv_timer_start(timer_handle, ctm_spa_sent_cb, TUNNEL_POST_SPA_DELAY_MS, 0)))
     {
-        log_msg(LOG_ERR, "ctm_connect_tunnel() failed to set ip addr: %s", uv_err_name(rv));
-        return SDP_ERROR;                
-    }
-
-    tunnel_rec->con_state = TM_CON_STATE_CONNECTING;
-    tunnel_rec->con_attempts++;
-
-    log_msg(LOG_WARNING, 
-        "ctm_connect_tunnel() calling uv_tcp_connect...");
-
-    if((req = calloc(1, sizeof *req)) == NULL)
-    {
-        log_msg(LOG_ERR, "Fatal memory error. Aborting.");
-        return SDP_ERROR_MEMORY_ALLOCATION;
-    }
-
-    if((rv = uv_tcp_connect(
-            req, 
-            handle, 
-            (const struct sockaddr*)&conn_addr, 
-            ctm_socket_connected_cb)
-        ))
-    {
-        log_msg(
-            LOG_ERR, 
-            "ctm_connect_tunnel() uv_tcp_connect failed: %s", 
-            uv_err_name(rv)
-        );
-
-        return SDP_ERROR_SOCKET;
+        log_msg(LOG_ERR, "ctm_start_tunnel_connect() uv_timer_start error: %s", uv_err_name(rv));
+        free(timer_handle);
+        return SDP_ERROR_SPA;
     }
 
     return SDP_SUCCESS;
 }
 
-static int ctm_start_new_tunnel(
+
+static int ctm_create_new_tunnel_rec(
         tunnel_manager_t tunnel_mgr, 
         uint32_t sdp_id, 
         char *gateway_ip,
@@ -656,7 +755,7 @@ static int ctm_start_new_tunnel(
             &tunnel_rec
         )) != SDP_SUCCESS)
     {
-        log_msg(LOG_ERR, "ctm_start_new_tunnel() failed to create tunnel info item");
+        log_msg(LOG_ERR, "ctm_create_new_tunnel_rec() failed to create tunnel info item");
         
         ctm_handle_possible_mem_err(rv);
 
@@ -672,28 +771,13 @@ static int ctm_start_new_tunnel(
             tunnel_rec
             )) != SDP_SUCCESS)
     {
-        log_msg(LOG_ERR, "ctm_start_new_tunnel() failed to store tunnel info item");
+        log_msg(LOG_ERR, "ctm_create_new_tunnel_rec() failed to store tunnel info item");
         tunnel_record_destroy(tunnel_rec);
         return rv;        
     }
 
     log_msg(LOG_WARNING, 
-        "ctm_start_new_tunnel() new tunnel record submitted, time to connect...");
-
-    // time to try connecting
-    if((rv = ctm_connect_tunnel(tunnel_rec)) != SDP_SUCCESS)
-    {
-        log_msg(
-            LOG_ERR, 
-            "ctm_start_new_tunnel() Failed to start tunnel connection process."
-        );
-
-        tunnel_manager_remove_tunnel_record(tunnel_rec);
-
-        ctm_handle_possible_mem_err(rv);
-
-        return rv;
-    }
+        "ctm_create_new_tunnel_rec() new tunnel record submitted");
 
     *r_tunnel_rec = tunnel_rec;
     return rv;
@@ -711,7 +795,7 @@ static void ctm_handle_service_request(
     tunnel_record_t tunnel_rec = NULL;
     char *gateway_ip = NULL;
     uint32_t tunnel_service_port = 0;
-    short int send_request = 0;
+    short int do_connect = 0;
 
     if(tunnel_mgr == NULL)
     {
@@ -746,45 +830,53 @@ static void ctm_handle_service_request(
     {
         if(tunnel_rec->con_state == TM_CON_STATE_CONNECTED)
         {
-            log_msg(
-                LOG_WARNING, 
-                "An open tunnel exists to %s",
-                gateway_ip
-            );
+            log_msg(LOG_WARNING, "An open tunnel exists to %s", gateway_ip);
         }
         else
         {
-            log_msg(
-                LOG_WARNING, 
-                "A tunnel request exists to %s",
-                gateway_ip
-            );
+            log_msg( LOG_WARNING, "A tunnel request exists to %s", gateway_ip);
         }
 
+        // check if the service is already connected, 
+        // respond and return if so
+
+
+        // check if the service is already requested,
+        // just return if so, response will happen on its own???
+
     }
-    else if((rv = ctm_start_new_tunnel(
-            tunnel_mgr, 
-            sdp_id, 
-            gateway_ip,
-            tunnel_service_port, 
-            &tunnel_rec
-        )) != SDP_SUCCESS)
+    else 
     {
-        log_msg(LOG_ERR, "Could not start new tunnel to %s", gateway_ip);
-        free(gateway_ip);
-        return;
+        if((rv = ctm_create_new_tunnel_rec(
+                tunnel_mgr, 
+                sdp_id, 
+                gateway_ip,
+                tunnel_service_port, 
+                &tunnel_rec
+            )) != SDP_SUCCESS)
+        {
+            log_msg(LOG_ERR, "Could not create new tunnel to %s", gateway_ip);
+            free(gateway_ip);
+            return;
+        }
+
+        do_connect = 1;
     }
 
     free(gateway_ip);
 
-    // create a new record of the service to be requested
+    // add a new record of the service to be requested
+    // regarding new tunnels, in order to send SPA and connect the tunnel
+    // there must be at least one service record in tunnel record
+    // because, when the SPA call is made, the service ID is used as the 
+    // stanza name for configuring the SPA packet
     if((rv = tunnel_record_add_service(
             tunnel_rec,
             service_id,
             idp_id,
             id_token,
             REQUEST_OR_OPENED_TYPE_REQUEST,
-            send_request
+            1
         )) != SDP_SUCCESS)
     {
         log_msg(LOG_ERR, "Failed to add requested service to tunnel data.");
@@ -792,6 +884,25 @@ static void ctm_handle_service_request(
         ctm_handle_possible_mem_err(rv);
 
         return;
+    }
+
+    if(do_connect)
+    {
+        // time to try connecting
+        if((rv = ctm_start_tunnel_connect(tunnel_rec)) != SDP_SUCCESS)
+        {
+            log_msg(
+                LOG_ERR, 
+                "ctm_create_new_tunnel_rec() Failed to start tunnel connection process."
+            );
+
+            tunnel_manager_remove_tunnel_record(tunnel_rec);
+
+            ctm_handle_possible_mem_err(rv);
+
+            return;
+        }
+
     }
 
     // this either sends or queues the request

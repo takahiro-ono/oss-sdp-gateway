@@ -362,6 +362,12 @@ void tunnel_manager_destroy(tunnel_manager_t tunnel_mgr)
     if(tunnel_mgr->key_file != NULL)
         free(tunnel_mgr->key_file);
     
+    if(tunnel_mgr->fwknop_path != NULL)
+        free(tunnel_mgr->fwknop_path);
+    
+    if(tunnel_mgr->fwknoprc_file != NULL)
+        free(tunnel_mgr->fwknoprc_file);
+    
     if(tunnel_mgr->ssl_ctx != NULL)
         SSL_CTX_free(tunnel_mgr->ssl_ctx);
 
@@ -435,6 +441,13 @@ int tunnel_manager_new(
         return SDP_ERROR;
     }
 
+    if(!ctrl_client)
+    {
+        log_msg(LOG_ERR, "tunnel_manager_new() ctrl client pointer not provided");
+        return SDP_ERROR;
+    }
+
+
 
     // allocate memory
     if((tunnel_mgr = calloc(1, sizeof *tunnel_mgr)) == NULL)
@@ -446,6 +459,7 @@ int tunnel_manager_new(
     tunnel_mgr->pipe_name = (is_sdp_client ? NAME_TM_CLIENT_PIPE : NAME_TM_GATEWAY_PIPE);
     tunnel_mgr->pipe_read_cb_ptr = pipe_read_cb_ptr;
     tunnel_mgr->tunnel_msg_in_cb = tunnel_msg_in_cb;
+
 
     log_msg(LOG_WARNING, "Tunnel Manager pipe name set to %s", tunnel_mgr->pipe_name);
 
@@ -517,6 +531,34 @@ int tunnel_manager_new(
 
     // init the SSL_CTX which is used for all tunnel connections
     if((rv = tm_ssl_ctx_init(tunnel_mgr)) != SDP_SUCCESS)
+    {
+        tunnel_manager_destroy(tunnel_mgr);
+        return rv;
+    }
+
+
+    //if((rv = sdp_ctrl_client_should_use_spa(
+    //        ctrl_client, 
+    //        &tunnel_mgr->use_spa
+    //    )) != SDP_SUCCESS)
+    //{
+    //    tunnel_manager_destroy(tunnel_mgr);
+    //    return rv;
+    //}
+
+    if((rv = sdp_ctrl_client_get_rc_path(
+            ctrl_client, 
+            &tunnel_mgr->fwknoprc_file
+        )) != SDP_SUCCESS)
+    {
+        tunnel_manager_destroy(tunnel_mgr);
+        return rv;
+    }
+
+    if((rv = sdp_ctrl_client_get_fwknop_path(
+            ctrl_client, 
+            &tunnel_mgr->fwknop_path
+        )) != SDP_SUCCESS)
     {
         tunnel_manager_destroy(tunnel_mgr);
         return rv;

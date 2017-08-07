@@ -236,7 +236,7 @@ int sdp_ctrl_client_config_init(sdp_ctrl_client_t client, const char *config_fil
     if(fwknoprc_file != NULL && stat(fwknoprc_file, &st) != 0)
     {
         log_msg(LOG_ERR, ".fwknoprc file: '%s' was not found.",
-            config_file);
+            fwknoprc_file);
 
         // get the working dir
         if((getcwd(current_dir, PATH_MAX+1)) == NULL)

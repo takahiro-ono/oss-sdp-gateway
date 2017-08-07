@@ -123,20 +123,30 @@ int sdp_com_send_spa(
     int     fwknop_argc=0;
     pid_t   pid=0;
     int     status;
+    char   *rc_arg = "";
+    char   *rc_param = "";
 
     log_msg(LOG_DEBUG, "sdp_com_send_spa() entered...");
 
-    if(!fwknoprc_file || !fwknop_path || !stanza)
+    if(!fwknop_path || !stanza)
     {
-        log_msg(LOG_ERR, "sdp_com_send_spa() null stanza parameter given");
+        log_msg(LOG_ERR, "sdp_com_send_spa() required parameter is NULL");
         return SDP_ERROR_SPA;
+    }
+
+    // if fwknoprc file was set, fix up command line args
+    // if not set, fwknop uses a default file path
+    if(fwknoprc_file)
+    {
+        rc_param = "--rc-file";
+        rc_arg = fwknoprc_file;
     }
 
     memset(fwknop_argv, 0x0, sizeof(fwknop_argv));
 
     // set up fwknop options
-    snprintf(fwknop_cmd, SDP_COM_MAX_FWKNOP_CMD_LEN, "%s --disable-ctrl-client --rc-file %s -n %s",
-             fwknop_path, fwknoprc_file, stanza);
+    snprintf(fwknop_cmd, SDP_COM_MAX_FWKNOP_CMD_LEN, "%s --disable-ctrl-client %s %s -n %s",
+             fwknop_path, rc_param, rc_arg, stanza);
 
     log_msg(LOG_DEBUG, "fwknop command string: %s", fwknop_cmd);
 

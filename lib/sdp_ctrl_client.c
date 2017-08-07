@@ -2204,28 +2204,82 @@ int sdp_ctrl_client_get_cred_files(
        client->com == NULL || !client->com->initialized)
         return SDP_ERROR_UNINITIALIZED;
 
-    if((ca_file = strndup(client->com->ca_cert_file, SDP_COM_MAX_PATH_LEN)) == NULL)
+    if(client->com->ca_cert_file)
     {
-        log_msg(LOG_ERR, "Memory allocation error");
-        return SDP_ERROR_MEMORY_ALLOCATION;
+        if((ca_file = strndup(client->com->ca_cert_file, SDP_COM_MAX_PATH_LEN)) == NULL)
+        {
+            log_msg(LOG_ERR, "Memory allocation error");
+            return SDP_ERROR_MEMORY_ALLOCATION;
+        }
     }
 
-    if((c_file = strndup(client->com->cert_file, SDP_COM_MAX_PATH_LEN)) == NULL)
+    if(client->com->cert_file)
     {
-        log_msg(LOG_ERR, "Memory allocation error");
-        return SDP_ERROR_MEMORY_ALLOCATION;
+        if((c_file = strndup(client->com->cert_file, SDP_COM_MAX_PATH_LEN)) == NULL)
+        {
+            log_msg(LOG_ERR, "Memory allocation error");
+            return SDP_ERROR_MEMORY_ALLOCATION;
+        }
     }
 
-    if((k_file = strndup(client->com->key_file, SDP_COM_MAX_PATH_LEN)) == NULL)
+    if(client->com->key_file)
     {
-        log_msg(LOG_ERR, "Memory allocation error");
-        free(c_file);
-        return SDP_ERROR_MEMORY_ALLOCATION;
+        if((k_file = strndup(client->com->key_file, SDP_COM_MAX_PATH_LEN)) == NULL)
+        {
+            log_msg(LOG_ERR, "Memory allocation error");
+            free(c_file);
+            return SDP_ERROR_MEMORY_ALLOCATION;
+        }
     }
 
     *ca_cert_file = ca_file;
     *cert_file = c_file;
     *key_file = k_file;
+    return SDP_SUCCESS;
+}
+
+
+int  sdp_ctrl_client_get_rc_path(sdp_ctrl_client_t client, char **r_path)
+{
+    char *fc_path = NULL;
+
+    // This should never happen, but just to be safe
+    if(client == NULL || !client->initialized ||
+       client->com == NULL || !client->com->initialized)
+        return SDP_ERROR_UNINITIALIZED;
+
+    if(client->com->fwknoprc_file)
+    {
+        if((fc_path = strndup(client->com->fwknoprc_file, SDP_COM_MAX_PATH_LEN)) == NULL)
+        {
+            log_msg(LOG_ERR, "Memory allocation error");
+            return SDP_ERROR_MEMORY_ALLOCATION;
+        }
+    }
+
+    *r_path = fc_path;
+    return SDP_SUCCESS;
+}
+
+int  sdp_ctrl_client_get_fwknop_path(sdp_ctrl_client_t client, char **r_path)
+{
+    char *fwknop_path = NULL;
+
+    // This should never happen, but just to be safe
+    if(client == NULL || !client->initialized ||
+       client->com == NULL || !client->com->initialized)
+        return SDP_ERROR_UNINITIALIZED;
+
+    if(client->com->fwknop_path)
+    {
+        if((fwknop_path = strndup(client->com->fwknop_path, SDP_COM_MAX_PATH_LEN)) == NULL)
+        {
+            log_msg(LOG_ERR, "Memory allocation error");
+            return SDP_ERROR_MEMORY_ALLOCATION;
+        }
+    }
+    
+    *r_path = fwknop_path;
     return SDP_SUCCESS;
 }
 

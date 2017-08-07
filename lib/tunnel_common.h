@@ -19,6 +19,7 @@
 
 #define MAX_TUNNEL_CON_ATTEMPTS 5
 #define INITIAL_TUNNEL_CON_RETRY_DELAY 1
+#define TUNNEL_POST_SPA_DELAY_MS 500
 
 #define TUNNEL_PORT 8282
 #define TUNNEL_BACKLOG 10
@@ -91,6 +92,9 @@ struct tunnel_manager{
     char *ca_cert_file;
     char *cert_file;
     char *key_file;
+    int use_spa;
+    char *fwknoprc_file;
+    char *fwknop_path;
     //uv_pipe_t *pipe_to_tm;
     //int read_pipe_to_tunnel_manager;
     //int write_pipe_to_tunnel_manager;

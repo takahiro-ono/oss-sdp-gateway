@@ -129,5 +129,7 @@ int  sdp_ctrl_client_get_cred_files(
         char **ca_cert_file, 
         char **cert_file, 
         char **key_file);
+int  sdp_ctrl_client_get_rc_path(sdp_ctrl_client_t client, char **r_path);
+int  sdp_ctrl_client_get_fwknop_path(sdp_ctrl_client_t client, char **r_path);
 
 #endif /* SDP_CTRL_CLIENT_H_ */
