@@ -5,7 +5,7 @@
         'detail'   => 'server gets access data from ctrl',
         'function' => \&controller_cycle,
         # 'cmdline'  => $default_client_args_sdp,
-        'fwknopd_cmdline'  => "$fwknopdCmd $default_server_conf_args_sdp $intf_str",
+        'fwknopd_cmdline'  => "$fwknopdCmd --disable-tunnel $default_server_conf_args_sdp $intf_str",
         # 'server_sending_spa' => 1,
         # 'fw_rule_created' => $NEW_RULE_REQUIRED,
         # 'fw_rule_removed' => $NEW_RULE_REMOVED,
@@ -26,7 +26,7 @@
         'detail'   => 'add client to mix',
         'function' => \&controller_cycle,
         'cmdline'  => $default_client_args_sdp,
-        'fwknopd_cmdline'  => "$fwknopdCmd $default_server_conf_args_sdp $intf_str",
+        'fwknopd_cmdline'  => "$fwknopdCmd --disable-tunnel $default_server_conf_args_sdp $intf_str",
         'fw_rule_created' => $NEW_RULE_REQUIRED,
         'no_ip_check' => 1,
         'wait_for_conn_close' => 1,
@@ -56,7 +56,7 @@
         'detail'   => 'request unpermitted service',
         'function' => \&controller_cycle,
         'cmdline'  => $default_client_args_sdp,
-        'fwknopd_cmdline'  => "$fwknopdCmd $default_server_conf_args_sdp $intf_str",
+        'fwknopd_cmdline'  => "$fwknopdCmd --disable-tunnel $default_server_conf_args_sdp $intf_str",
         'fw_rule_created' => $NEW_RULE_REQUIRED,
         'no_ip_check' => 1,
         'delete_service_access_first' => 1,
@@ -86,7 +86,7 @@
         'detail'   => 'request unpermitted service 2',
         'function' => \&controller_cycle,
         'cmdline'  => $default_client_args_sdp,
-        'fwknopd_cmdline'  => "$fwknopdCmd $default_server_conf_args_sdp $intf_str",
+        'fwknopd_cmdline'  => "$fwknopdCmd --disable-tunnel $default_server_conf_args_sdp $intf_str",
         'fw_rule_created' => $NEW_RULE_REQUIRED,
         'no_ip_check' => 1,
         'disable_service_access_first' => 1,
@@ -116,7 +116,7 @@
         'detail'   => 'request disabled service',
         'function' => \&controller_cycle,
         'cmdline'  => $default_client_args_sdp,
-        'fwknopd_cmdline'  => "$fwknopdCmd $default_server_conf_args_sdp $intf_str",
+        'fwknopd_cmdline'  => "$fwknopdCmd --disable-tunnel $default_server_conf_args_sdp $intf_str",
         'fw_rule_created' => $NEW_RULE_REQUIRED,
         'no_ip_check' => 1,
         'disable_service_first' => 1,
@@ -146,7 +146,7 @@
         'detail'   => 'disable sdp id',
         'function' => \&controller_cycle,
         'cmdline'  => $default_client_args_sdp,
-        'fwknopd_cmdline'  => "$fwknopdCmd $default_server_conf_args_sdp $intf_str",
+        'fwknopd_cmdline'  => "$fwknopdCmd --disable-tunnel $default_server_conf_args_sdp $intf_str",
         'fw_rule_created' => $NEW_RULE_REQUIRED,
         'no_ip_check' => 1,
         'disable_sdp_id' => 1,
@@ -177,7 +177,7 @@
         'detail'   => 'disable service access',
         'function' => \&controller_cycle,
         'cmdline'  => $default_client_args_sdp,
-        'fwknopd_cmdline'  => "$fwknopdCmd $default_server_conf_args_sdp $intf_str",
+        'fwknopd_cmdline'  => "$fwknopdCmd --disable-tunnel $default_server_conf_args_sdp $intf_str",
         'fw_rule_created' => $NEW_RULE_REQUIRED,
         'no_ip_check' => 1,
         'disable_service_access' => 1,
@@ -208,7 +208,7 @@
         'detail'   => 'disable service completely',
         'function' => \&controller_cycle,
         'cmdline'  => $default_client_args_sdp,
-        'fwknopd_cmdline'  => "$fwknopdCmd $default_server_conf_args_sdp $intf_str",
+        'fwknopd_cmdline'  => "$fwknopdCmd --disable-tunnel $default_server_conf_args_sdp $intf_str",
         'fw_rule_created' => $NEW_RULE_REQUIRED,
         'no_ip_check' => 1,
         'disable_service' => 1,
@@ -239,7 +239,7 @@
         'detail'   => 'delete service completely',
         'function' => \&controller_cycle,
         'cmdline'  => $default_client_args_sdp,
-        'fwknopd_cmdline'  => "$fwknopdCmd $default_server_conf_args_sdp $intf_str",
+        'fwknopd_cmdline'  => "$fwknopdCmd --disable-tunnel $default_server_conf_args_sdp $intf_str",
         'fw_rule_created' => $NEW_RULE_REQUIRED,
         'no_ip_check' => 1,
         'delete_service' => 1,
@@ -270,7 +270,7 @@
         'detail'   => 'remove service access',
         'function' => \&controller_cycle,
         'cmdline'  => $default_client_args_sdp,
-        'fwknopd_cmdline'  => "$fwknopdCmd $default_server_conf_args_sdp $intf_str",
+        'fwknopd_cmdline'  => "$fwknopdCmd --disable-tunnel $default_server_conf_args_sdp $intf_str",
         'fw_rule_created' => $NEW_RULE_REQUIRED,
         'no_ip_check' => 1,
         'delete_service_access' => 1,
@@ -301,7 +301,7 @@
         'detail'   => 'bad ctrl client path',
         'function' => \&controller_cycle,
         'skip_controller' => 1,
-        'fwknopd_cmdline'  => "$fwknopdCmd $default_server_conf_args_sdp $intf_str " .
+        'fwknopd_cmdline'  => "$fwknopdCmd --disable-tunnel $default_server_conf_args_sdp $intf_str " .
             "--ctrl-client-conf ./bad/path/server_sdp_ctrl_client.conf",
         'server_exec_err' => 1,
         'server_positive_output_matches' => 
@@ -314,7 +314,7 @@
         'detail'   => 'bad fwknoprc path',
         'function' => \&controller_cycle,
         'skip_controller' => 1,
-        'fwknopd_cmdline'  => "$fwknopdCmd $default_server_conf_args_sdp $intf_str " .
+        'fwknopd_cmdline'  => "$fwknopdCmd --disable-tunnel $default_server_conf_args_sdp $intf_str " .
             "--fwknop-client-conf ./bad/path/server.fwknoprc",
         'server_exec_err' => 1,
         'server_positive_output_matches' => 
@@ -326,7 +326,7 @@
         'subcategory' => 'server config',
         'detail'   => 'min acc wait',
         'function' => \&controller_cycle,
-        'fwknopd_cmdline'  => "$fwknopdCmd $default_server_conf_args_sdp $intf_str " .
+        'fwknopd_cmdline'  => "$fwknopdCmd --disable-tunnel $default_server_conf_args_sdp $intf_str " .
             "--max-acc-wait 1",
         'server_exec_err_possible' => 1,
         'server_positive_output_matches' => 
@@ -338,7 +338,7 @@
         'detail'   => 'zero acc wait',
         'function' => \&controller_cycle,
         'skip_controller' => 1,
-        'fwknopd_cmdline'  => "$fwknopdCmd $default_server_conf_args_sdp $intf_str " .
+        'fwknopd_cmdline'  => "$fwknopdCmd --disable-tunnel $default_server_conf_args_sdp $intf_str " .
             "--max-acc-wait 0",
         'server_exec_err' => 1,
         'server_positive_output_matches' => 
@@ -350,7 +350,7 @@
         'detail'   => 'acc wait too big',
         'function' => \&controller_cycle,
         'skip_controller' => 1,
-        'fwknopd_cmdline'  => "$fwknopdCmd $default_server_conf_args_sdp $intf_str " .
+        'fwknopd_cmdline'  => "$fwknopdCmd --disable-tunnel $default_server_conf_args_sdp $intf_str " .
             "--max-acc-wait 61",
         'server_exec_err' => 1,
         'server_positive_output_matches' => 
@@ -363,7 +363,7 @@
         'function' => \&controller_cycle,
         'cmdline'  => $default_client_args_sdp,
         'client_ctrl_conf' => $cf{'client_ctrl_conf_bad_fwknop_path'},
-        'fwknopd_cmdline'  => "$fwknopdCmd $default_server_conf_args_sdp $intf_str",
+        'fwknopd_cmdline'  => "$fwknopdCmd --disable-tunnel $default_server_conf_args_sdp $intf_str",
         'no_ip_check' => 1,
         'fw_rule_created' => $NEW_RULE_REQUIRED,
         'fw_rule_removed' => $REQUIRE_NO_NEW_REMOVED,

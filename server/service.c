@@ -13,15 +13,24 @@
 #include "sdp_ctrl_client.h"
 #include "bstr_lib.h"
 #include "service.h"
+#include "tunnel_common.h"
 
 
 #define MAX_REVERSE_SERVICE_KEY_LEN  MAX_PORT_STR_LEN + MAX_IPV4_STR_LEN + MAX_PORT_STR_LEN + 2
 
 
-//static void free_service_data(service_data_t *data)
-//{
-//
-//}
+static service_data_t TUNNEL_SERVICE_DATA = {
+    0,
+    PROTO_TCP,
+    TUNNEL_PORT,
+    {'\0'},
+    0
+};
+
+static service_data_list_t TUNNEL_SERVICE_DATA_LIST = {
+    &TUNNEL_SERVICE_DATA,
+    NULL
+};
 
 
 static void destroy_service_hash_node_cb(hash_table_node_t *node)
@@ -615,6 +624,11 @@ void free_service_data_list(service_data_list_t *service_data_list)
     }
 }
 
+int get_tunnel_service_data_list(service_data_list_t **r_service_data_list)
+{
+    *r_service_data_list = &TUNNEL_SERVICE_DATA_LIST;
+    return FWKNOPD_SUCCESS;
+}
 
 int get_service_data_list(fko_srv_options_t *opts, char *service_str, service_data_list_t **r_service_data_list)
 {

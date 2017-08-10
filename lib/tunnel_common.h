@@ -35,9 +35,11 @@ typedef enum {
 
 
 typedef enum {
-    REQUEST_OR_OPENED_TYPE_REQUEST = 1,
-    REQUEST_OR_OPENED_TYPE_OPENED
-} request_or_opened_type_t;
+    WHICH_TABLE_REQUEST = 0x1,
+    WHICH_TABLE_NEW = 0x2,
+    WHICH_TABLE_SECURE = 0x4,
+    WHICH_TABLE_ALL = (WHICH_TABLE_REQUEST | WHICH_TABLE_NEW | WHICH_TABLE_SECURE)
+} which_table_t;
 
 typedef enum {
     TM_CON_STATE_DISCONNECTED = 0,
@@ -95,12 +97,8 @@ struct tunnel_manager{
     int use_spa;
     char *fwknoprc_file;
     char *fwknop_path;
-    //uv_pipe_t *pipe_to_tm;
-    //int read_pipe_to_tunnel_manager;
-    //int write_pipe_to_tunnel_manager;
-    //int read_pipe_from_tunnel_manager;
-    //int write_pipe_from_tunnel_manager;
-    hash_table_t *open_tunnel_hash_tbl;
+    hash_table_t *secure_tunnel_hash_tbl;
+    hash_table_t *new_tunnel_hash_tbl;
     hash_table_t *requested_tunnel_hash_tbl;
     pthread_mutex_t requested_tunnel_hash_tbl_mutex;
 };

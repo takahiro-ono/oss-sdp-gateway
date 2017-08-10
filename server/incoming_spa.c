@@ -964,6 +964,25 @@ check_service_access(acc_stanza_t *acc, spa_data_t *spadat)
 }
 
 
+static int 
+get_tunnel_service_information(spa_data_t *spadat)
+{
+    int rv = FWKNOPD_SUCCESS;
+
+    // no longer need the list of services requested by the SPA packet
+    if(spadat->service_data_list != NULL)
+    {
+        free_service_data_list(spadat->service_data_list);
+    }
+
+    if((rv = get_tunnel_service_data_list(&spadat->service_data_list)) != FWKNOPD_SUCCESS)
+    {
+        log_msg(LOG_ERR, "Failed to gather necessary data for tunnel service");
+        return 0;
+    }
+
+    return 1;
+}
 
 static int
 gather_service_information(fko_srv_options_t *opts, spa_data_t *spadat)
@@ -1264,7 +1283,62 @@ process_spa_data(fko_srv_options_t *opts, fko_ctx_t *ctx, acc_stanza_t *acc, spa
         }
         else
         {
+            if(opts->tunnel_mgr && 
+                spadat->service_data_list->service_data->service_id != CONTROLLER_SERVICE_ID)
+            {
+                // submit notice to tunnel manager that 
+                // a client tunnel connection is coming 
+                if((res = tunnel_manager_submit_client_request(
+                    opts->tunnel_mgr, 
+                    spa_pkt->sdp_id, 
+                    spadat->spa_message_src_ip
+                    )) != SDP_SUCCESS)
+                {
+                    log_msg(
+                        LOG_ERR, 
+                        "[SDP ID %"PRIu32"] (%s) Error notifying tunnel "
+                        "manager of incoming client tunnel",
+                        spa_pkt->sdp_id, 
+                        spadat->spa_message_src_ip
+                    );
+
+                    if(res == SDP_ERROR_MEMORY_ALLOCATION)
+                    {
+                        log_msg(LOG_ERR, "[*] Fatal memory error. Aborting.");
+                        clean_exit(opts, NO_FW_CLEANUP, EXIT_FAILURE);
+                    }
+
+                    return STOP_SEARCHING;
+                }
+
+                log_msg(
+                    LOG_WARNING, 
+                    "[SDP ID %"PRIu32"] (%s) Successfully stored tunnel request",
+                    spa_pkt->sdp_id, 
+                    spadat->spa_message_src_ip
+                );
+
+                // modify the spadat so that we open the tunnel port
+                // not the port(s) for service(s) requested
+                if(!get_tunnel_service_information(spadat))
+                {
+                    log_msg(LOG_ERR, "Failed to retrieve tunnel service data");
+                    return STOP_SEARCHING;
+                }
+
+            }
+
+            // following function is specific to the firewall
+            // manipulates the firewall to open the service(s) for that 
+            // specific client 
             process_spa_request(opts, acc, spadat);
+
+            if(opts->tunnel_mgr && 
+                spadat->service_data_list->service_data->service_id != CONTROLLER_SERVICE_ID)
+            {
+                // don't try to free const tunnel service data struct
+                spadat->service_data_list = NULL;
+            }
         }
     }
 

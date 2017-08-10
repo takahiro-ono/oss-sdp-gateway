@@ -171,7 +171,7 @@ int tunnel_record_add_service(
         uint32_t service_id,
         uint32_t idp_id,
         char *id_token,
-        request_or_opened_type_t which_list,
+        //request_or_opened_type_t which_list,
         short int request_sent)
 {
     int rv = SDP_SUCCESS;
@@ -189,11 +189,11 @@ int tunnel_record_add_service(
         return SDP_ERROR;
     }
 
-    if(!which_list)
-    {
-        log_msg(LOG_ERR, "tunnel_record_add_service() which list not provided");
-        return SDP_ERROR;
-    }
+    //if(!which_list)
+    //{
+    //    log_msg(LOG_ERR, "tunnel_record_add_service() which list not provided");
+    //    return SDP_ERROR;
+    //}
 
     if((rv = tr_create_tunneled_service_item(
             service_id, 
@@ -206,10 +206,10 @@ int tunnel_record_add_service(
         return rv;
     }
 
-    if(which_list == REQUEST_OR_OPENED_TYPE_REQUEST)
+    //if(which_list == REQUEST_OR_OPENED_TYPE_REQUEST)
         rv = tr_add_tunneled_service_to_list(&(tunnel_rec->services_requested), new_guy);
-    else
-        rv = tr_add_tunneled_service_to_list(&(tunnel_rec->services_opened), new_guy);
+    //else
+    //    rv = tr_add_tunneled_service_to_list(&(tunnel_rec->services_opened), new_guy);
 
     if(rv != SDP_SUCCESS)
     {

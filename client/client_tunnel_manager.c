@@ -363,7 +363,7 @@ static void ctm_connection_retry_cb(uv_timer_t *timer_handle)
 
     if((rv = ctm_start_tunnel_connect(tunnel_rec)) != SDP_SUCCESS)
     {
-        tunnel_manager_remove_tunnel_record(tunnel_rec);
+        tunnel_manager_remove_tunnel_record(tunnel_rec, WHICH_TABLE_ALL);
 
         ctm_handle_possible_mem_err(rv);
     }
@@ -397,7 +397,7 @@ static void ctm_schedule_connection_retry(tunnel_record_t tunnel_rec)
             tunnel_rec->con_attempts
         );
         
-        tunnel_manager_remove_tunnel_record(tunnel_rec);
+        tunnel_manager_remove_tunnel_record(tunnel_rec, WHICH_TABLE_ALL);
         
         return;
     }
@@ -413,7 +413,7 @@ static void ctm_schedule_connection_retry(tunnel_record_t tunnel_rec)
     {
         log_msg(LOG_ERR, "ctm_schedule_connection_retry() uv_timer_init error: %s", uv_err_name(rv));
         free(timer_handle);
-        tunnel_manager_remove_tunnel_record(tunnel_rec);
+        tunnel_manager_remove_tunnel_record(tunnel_rec, WHICH_TABLE_ALL);
         return;
     }
 
@@ -425,7 +425,7 @@ static void ctm_schedule_connection_retry(tunnel_record_t tunnel_rec)
     {
         log_msg(LOG_ERR, "ctm_schedule_connection_retry() uv_timer_start error: %s", uv_err_name(rv));
         free(timer_handle);
-        tunnel_manager_remove_tunnel_record(tunnel_rec);
+        tunnel_manager_remove_tunnel_record(tunnel_rec, WHICH_TABLE_ALL);
     }
 
     return;
@@ -565,7 +565,7 @@ static void ctm_socket_connected_cb(uv_connect_t *req, int status)
     if((rv = tunnel_com_finalize_connection(tunnel_rec, 1)) != SDP_SUCCESS)
     {
         log_msg(LOG_ERR, "failed to secure connection");
-        tunnel_manager_remove_tunnel_record(tunnel_rec);
+        tunnel_manager_remove_tunnel_record(tunnel_rec, WHICH_TABLE_ALL);
         ctm_handle_possible_mem_err(rv);
     }
 }
@@ -597,7 +597,7 @@ static void ctm_spa_sent_cb(uv_timer_t *timer_handle)
     if(tunnel_mgr->loop == NULL)
     {
         log_msg(LOG_ERR, "ctm_spa_sent_cb() loop is null!");
-        tunnel_manager_remove_tunnel_record(tunnel_rec);
+        tunnel_manager_remove_tunnel_record(tunnel_rec, WHICH_TABLE_ALL);
         return;
     }
 
@@ -617,7 +617,7 @@ static void ctm_spa_sent_cb(uv_timer_t *timer_handle)
         {
             log_msg(LOG_ERR, "ctm_spa_sent_cb() failed to init handle: %s", uv_err_name(rv));
             free(handle);
-            tunnel_manager_remove_tunnel_record(tunnel_rec);
+            tunnel_manager_remove_tunnel_record(tunnel_rec, WHICH_TABLE_ALL);
             return;        
         }
 
@@ -629,7 +629,7 @@ static void ctm_spa_sent_cb(uv_timer_t *timer_handle)
         tunnel_rec->remote_public_ip, tunnel_rec->remote_port, &conn_addr)))
     {
         log_msg(LOG_ERR, "ctm_spa_sent_cb() failed to set ip addr: %s", uv_err_name(rv));
-        tunnel_manager_remove_tunnel_record(tunnel_rec);
+        tunnel_manager_remove_tunnel_record(tunnel_rec, WHICH_TABLE_ALL);
         return;                
     }
 
@@ -660,7 +660,7 @@ static void ctm_spa_sent_cb(uv_timer_t *timer_handle)
         );
 
         free(req);
-        tunnel_manager_remove_tunnel_record(tunnel_rec);
+        tunnel_manager_remove_tunnel_record(tunnel_rec, WHICH_TABLE_ALL);
     }
 }
 
@@ -764,12 +764,9 @@ static int ctm_create_new_tunnel_rec(
 
     // if all went well, put it in the hash table
     if((rv = tunnel_manager_submit_tunnel_record(
-            tunnel_mgr, 
-            (void*)gateway_ip,
-            KEY_DATA_TYPE_IP_STRING,
-            REQUEST_OR_OPENED_TYPE_REQUEST,
-            tunnel_rec
-            )) != SDP_SUCCESS)
+            tunnel_rec,
+            WHICH_TABLE_REQUEST
+        )) != SDP_SUCCESS)
     {
         log_msg(LOG_ERR, "ctm_create_new_tunnel_rec() failed to store tunnel info item");
         tunnel_record_destroy(tunnel_rec);
@@ -821,11 +818,12 @@ static void ctm_handle_service_request(
     log_msg(LOG_WARNING, "Service ID mapped to %s:%"PRIu32, gateway_ip, tunnel_service_port);
 
     if((rv = tunnel_manager_find_tunnel_record(
-                tunnel_mgr, 
-                (void*)gateway_ip,
-                KEY_DATA_TYPE_IP_STRING,
-                REQUEST_OR_OPENED_TYPE_REQUEST,
-                &tunnel_rec
+            tunnel_mgr, 
+            0,
+            gateway_ip,
+            0,
+            WHICH_TABLE_REQUEST,
+            &tunnel_rec
         )) == SDP_SUCCESS)
     {
         if(tunnel_rec->con_state == TM_CON_STATE_CONNECTED)
@@ -875,7 +873,6 @@ static void ctm_handle_service_request(
             service_id,
             idp_id,
             id_token,
-            REQUEST_OR_OPENED_TYPE_REQUEST,
             1
         )) != SDP_SUCCESS)
     {
@@ -896,7 +893,7 @@ static void ctm_handle_service_request(
                 "ctm_create_new_tunnel_rec() Failed to start tunnel connection process."
             );
 
-            tunnel_manager_remove_tunnel_record(tunnel_rec);
+            tunnel_manager_remove_tunnel_record(tunnel_rec, WHICH_TABLE_ALL);
 
             ctm_handle_possible_mem_err(rv);
 

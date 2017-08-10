@@ -94,18 +94,27 @@ static int tm_traverse_print_tunnel_recs_cb(hash_table_node_t *node, void *arg)
 
 
 
-static void tm_destroy_open_tunnel_hash_node_cb(hash_table_node_t *node)
+static void tm_destroy_secure_tunnel_hash_node_cb(hash_table_node_t *node)
 {
-    log_msg(LOG_WARNING, "Found an open tunnel info hash table node to destroy.");
+    log_msg(LOG_WARNING, "Found a secure_tunnel info hash table node to destroy.");
     if(node->key != NULL) bstr_destroy((bstring)(node->key));
 
-    // don't destroy the data, open table and request table point to the 
+    // don't destroy the data, request table points to the 
+    // same data, so the request table handles actual data clean up
+}
+
+static void tm_destroy_new_tunnel_hash_node_cb(hash_table_node_t *node)
+{
+    log_msg(LOG_WARNING, "Found a new_tunnel info hash table node to destroy.");
+    if(node->key != NULL) bstr_destroy((bstring)(node->key));
+
+    // don't destroy the data, secure table and request table point to the 
     // same data, so the request table handles actual data clean up
 }
 
 static void tm_destroy_requested_tunnel_hash_node_cb(hash_table_node_t *node)
 {
-    log_msg(LOG_WARNING, "Found a requested tunnel info hash table node to destroy.");
+    log_msg(LOG_WARNING, "Found a requested_tunnel info hash table node to destroy.");
     if(node->key != NULL) bstr_destroy((bstring)(node->key));
     if(node->data != NULL)
     {
@@ -323,6 +332,11 @@ void tunnel_manager_destroy(tunnel_manager_t tunnel_mgr)
 
     if(tunnel_mgr->loop != NULL)
     {
+        if(tunnel_mgr->tm_tcp_server)
+        {
+            uv_close((uv_handle_t*)tunnel_mgr->tm_tcp_server, (uv_close_cb)free);
+        }
+
         tm_close_all_pipe_clients(tunnel_mgr);
         
         tm_remove_sock(tunnel_mgr);
@@ -336,8 +350,11 @@ void tunnel_manager_destroy(tunnel_manager_t tunnel_mgr)
         //free(tunnel_mgr->loop);
     }
 
-    if(tunnel_mgr->open_tunnel_hash_tbl != NULL)
-        hash_table_destroy(tunnel_mgr->open_tunnel_hash_tbl);
+    if(tunnel_mgr->secure_tunnel_hash_tbl != NULL)
+        hash_table_destroy(tunnel_mgr->secure_tunnel_hash_tbl);
+
+    if(tunnel_mgr->new_tunnel_hash_tbl != NULL)
+        hash_table_destroy(tunnel_mgr->new_tunnel_hash_tbl);
 
     if(tunnel_mgr->requested_tunnel_hash_tbl != NULL)
     {
@@ -502,17 +519,33 @@ int tunnel_manager_new(
     }
 
 
-    tunnel_mgr->open_tunnel_hash_tbl = hash_table_create(tbl_len,
-        NULL, NULL, tm_destroy_open_tunnel_hash_node_cb);
+    if(!is_sdp_client)
+    {
+        tunnel_mgr->new_tunnel_hash_tbl = hash_table_create(tbl_len,
+            NULL, NULL, tm_destroy_new_tunnel_hash_node_cb);
 
-    if(tunnel_mgr->open_tunnel_hash_tbl == NULL)
+        if(tunnel_mgr->new_tunnel_hash_tbl == NULL)
+        {
+            log_msg(LOG_ERR,
+                "[*] Fatal memory allocation error creating new_tunnel tracking hash table"
+            );
+            tunnel_manager_destroy(tunnel_mgr);
+            return SDP_ERROR_MEMORY_ALLOCATION;
+        }
+    }
+
+    tunnel_mgr->secure_tunnel_hash_tbl = hash_table_create(tbl_len,
+        NULL, NULL, tm_destroy_secure_tunnel_hash_node_cb);
+
+    if(tunnel_mgr->secure_tunnel_hash_tbl == NULL)
     {
         log_msg(LOG_ERR,
-            "[*] Fatal memory allocation error creating tunnel tracking hash table"
+            "[*] Fatal memory allocation error creating secure_tunnel tracking hash table"
         );
         tunnel_manager_destroy(tunnel_mgr);
         return SDP_ERROR_MEMORY_ALLOCATION;
     }
+
 
     tunnel_mgr->requested_tunnel_hash_tbl = hash_table_create(tbl_len,
         NULL, NULL, tm_destroy_requested_tunnel_hash_node_cb);
@@ -520,7 +553,7 @@ int tunnel_manager_new(
     if(tunnel_mgr->requested_tunnel_hash_tbl == NULL)
     {
         log_msg(LOG_ERR,
-            "[*] Fatal memory allocation error creating waiting tunnel tracking hash table"
+            "[*] Fatal memory allocation error creating requested_tunnel tracking hash table"
         );
         tunnel_manager_destroy(tunnel_mgr);
         return SDP_ERROR_MEMORY_ALLOCATION;
@@ -535,16 +568,6 @@ int tunnel_manager_new(
         tunnel_manager_destroy(tunnel_mgr);
         return rv;
     }
-
-
-    //if((rv = sdp_ctrl_client_should_use_spa(
-    //        ctrl_client, 
-    //        &tunnel_mgr->use_spa
-    //    )) != SDP_SUCCESS)
-    //{
-    //    tunnel_manager_destroy(tunnel_mgr);
-    //    return rv;
-    //}
 
     if((rv = sdp_ctrl_client_get_rc_path(
             ctrl_client, 
@@ -775,19 +798,18 @@ cleanup:
 
 
 int  tunnel_manager_submit_tunnel_record(
-        tunnel_manager_t tunnel_mgr, 
-        void *key_data,
-        key_data_type_t data_type,
-        request_or_opened_type_t which_table,
-        tunnel_record_t tunnel_rec)
+        tunnel_record_t tunnel_rec, 
+        which_table_t which_table)
 {
     bstring key = NULL;
     int rv = SDP_ERROR;
     hash_table_t *tbl = NULL;
+    char key_str[SDP_COM_MAX_IPV4_LEN + SDP_COM_MAX_PORT_STRING_BUFFER_LEN + 1] = {0};
+    tunnel_manager_t tunnel_mgr = NULL;
 
-    if(key_data == NULL)
+    if(!which_table || which_table == WHICH_TABLE_ALL)
     {
-        log_msg(LOG_ERR, "[*] tunnel_manager_submit_tunnel_record null value key_data submitted");
+        log_msg(LOG_ERR, "[*] tunnel_manager_submit_tunnel_record table not specified");
         return SDP_ERROR;
     }
 
@@ -797,22 +819,39 @@ int  tunnel_manager_submit_tunnel_record(
         return SDP_ERROR;
     }
 
-    //hash_table_traverse(tunnel_mgr->requested_tunnel_hash_tbl, tm_traverse_print_tunnel_recs_cb, NULL);
-
-    if(data_type == KEY_DATA_TYPE_SDP_ID)
+    if(!tunnel_rec->tunnel_mgr)
     {
-        key = tm_tunnel_key_from_sdpid(*(uint32_t*)key_data);
-    }
-    else
-    {
-        key = bstr_from_cstr((char*)key_data);
+        log_msg(LOG_ERR, "[*] tunnel_manager_submit_tunnel_record tunnel_mgr not set");
+        return SDP_ERROR;
     }
 
-    if(which_table == REQUEST_OR_OPENED_TYPE_REQUEST)
+    tunnel_mgr = tunnel_rec->tunnel_mgr;
+
+    if(which_table == WHICH_TABLE_REQUEST)
     {
+        if(tunnel_mgr->is_sdp_client)
+        {
+            if(tunnel_rec->remote_public_ip[0] == 0)
+            {
+                log_msg(LOG_ERR, "Cannot submit record to requested table. Public IP is null.");
+                return SDP_ERROR;
+            }
+
+            key = bstr_from_cstr(tunnel_rec->remote_public_ip);
+        }
+        else
+        {
+            if(tunnel_rec->sdp_id == 0)
+            {
+                log_msg(LOG_ERR, "Cannot submit record to requested table. SDP ID is zero.");
+                return SDP_ERROR;
+            }
+
+            key = tm_tunnel_key_from_sdpid(tunnel_rec->sdp_id);
+        }
+        
         tbl = tunnel_mgr->requested_tunnel_hash_tbl;
 
-        // the request table has a mutex on it, unlike the open tunnel table
         if(pthread_mutex_lock(&(tunnel_mgr->requested_tunnel_hash_tbl_mutex)))
         {
             log_msg(LOG_ERR, "[*] tunnel_manager_submit_tunnel_record Mutex lock error.");
@@ -820,14 +859,55 @@ int  tunnel_manager_submit_tunnel_record(
             return SDP_ERROR;
         }
     }
+    else if(which_table == WHICH_TABLE_SECURE)
+    {
+        if(tunnel_rec->remote_tunnel_ip[0] == 0)
+        {
+            log_msg(LOG_ERR, "Cannot submit record to secure table. Tunnel IP is null.");
+            return SDP_ERROR;
+        }
+        key = bstr_from_cstr(tunnel_rec->remote_tunnel_ip);
+        tbl = tunnel_mgr->secure_tunnel_hash_tbl;
+    }
     else
     {
-        tbl = tunnel_mgr->open_tunnel_hash_tbl;
+        if(tunnel_mgr->is_sdp_client)
+        {
+            log_msg(LOG_ERR, "Cannot submit record to new_tunnel table. "
+                " Clients do not use this table.");
+            return SDP_ERROR;
+        }
+        if(tunnel_rec->remote_public_ip[0] == 0)
+        {
+            log_msg(LOG_ERR, "Cannot submit record to new_tunnel table. Public IP is null.");
+            return SDP_ERROR;
+        }
+        if(tunnel_rec->remote_port == 0)
+        {
+            log_msg(LOG_ERR, "Cannot submit record to new_tunnel table. Port is null.");
+            return SDP_ERROR;
+        }
+        snprintf(
+            key_str, 
+            SDP_COM_MAX_IPV4_LEN + SDP_COM_MAX_PORT_STRING_BUFFER_LEN + 1,
+            "%s:%"PRIu32,
+            tunnel_rec->remote_public_ip,
+            tunnel_rec->remote_port
+        );
+
+        key = bstr_from_cstr(key_str);
+        tbl = tunnel_mgr->new_tunnel_hash_tbl;
+    }
+
+    if(key == NULL)
+    {
+        log_msg(LOG_ERR, "Cannot submit record. Resultant table key is null.");
+        return SDP_ERROR;
     }
 
     if( (rv = hash_table_set(tbl, key, tunnel_rec)) != SDP_SUCCESS)
     {
-        if(which_table == REQUEST_OR_OPENED_TYPE_REQUEST)
+        if(which_table == WHICH_TABLE_REQUEST)
             pthread_mutex_unlock(&(tunnel_mgr->requested_tunnel_hash_tbl_mutex));
 
         log_msg(
@@ -843,7 +923,7 @@ int  tunnel_manager_submit_tunnel_record(
 
     tunnel_rec->submitted = 1;
 
-    if(which_table == REQUEST_OR_OPENED_TYPE_REQUEST)
+    if(which_table == WHICH_TABLE_REQUEST)
         pthread_mutex_unlock(&(tunnel_mgr->requested_tunnel_hash_tbl_mutex));
 
     log_msg(
@@ -858,60 +938,97 @@ int  tunnel_manager_submit_tunnel_record(
 
 int tunnel_manager_find_tunnel_record(
         tunnel_manager_t tunnel_mgr, 
-        void *key_data,
-        key_data_type_t data_type,
-        request_or_opened_type_t which_table,
+        uint32_t sdp_id,
+        char *ip_str,
+        uint32_t port,
+        which_table_t which_table,
         tunnel_record_t *r_tunnel_rec
     )
 {
     tunnel_record_t tunnel_rec = NULL;
     bstring key = NULL;
     hash_table_t *tbl = NULL;
+    char key_str[SDP_COM_MAX_IPV4_LEN + SDP_COM_MAX_PORT_STRING_BUFFER_LEN + 1] = {0};
 
-    if(key_data == NULL)
+    if(!which_table || which_table == WHICH_TABLE_ALL)
     {
-        log_msg(LOG_ERR, "[*] tunnel_manager_find_tunnel_record null value key_data submitted");
+        log_msg(LOG_ERR, "[*] tunnel_manager_find_tunnel_record() table not specified");
+        return SDP_ERROR;
+    }
+
+    if(!tunnel_mgr)
+    {
+        log_msg(LOG_ERR, "[*] tunnel_manager_find_tunnel_record() tunnel_mgr not provided");
         return SDP_ERROR;
     }
 
     log_msg(LOG_WARNING, "entered tunnel_manager_find_tunnel_record");
     
-    //hash_table_traverse(tunnel_mgr->requested_tunnel_hash_tbl, tm_traverse_print_tunnel_recs_cb, NULL);
+    if(which_table == WHICH_TABLE_REQUEST)
+    {
+        if(tunnel_mgr->is_sdp_client)
+        {
+            if(ip_str)
+            {
+                key = bstr_from_cstr(ip_str);
+            }
+        }
+        else
+        {
+            if(sdp_id != 0)
+            {
+                key = tm_tunnel_key_from_sdpid(sdp_id);
+            }
+        }
 
-    if(data_type == KEY_DATA_TYPE_SDP_ID)
-    {
-        key = tm_tunnel_key_from_sdpid(*(uint32_t*)key_data);
-    }
-    else
-    {
-        key = bstr_from_cstr((char*)key_data);
-    }
-
-    if(which_table == REQUEST_OR_OPENED_TYPE_REQUEST)
-    {
         tbl = tunnel_mgr->requested_tunnel_hash_tbl;
 
-        // the request table has a mutex on it, unlike the open tunnel table
         if(pthread_mutex_lock(&(tunnel_mgr->requested_tunnel_hash_tbl_mutex)))
         {
-            log_msg(LOG_ERR, "[*] tunnel_manager_find_tunnel_record Mutex lock error.");
-            bstr_destroy(key);
+            log_msg(LOG_ERR, "[*] tunnel_manager_submit_tunnel_record Mutex lock error.");
+            if(key) bstr_destroy(key);
             return SDP_ERROR;
         }
     }
-    else
+    else if(which_table == WHICH_TABLE_SECURE)
     {
-        tbl = tunnel_mgr->open_tunnel_hash_tbl;
+        if(ip_str)
+        {
+            key = bstr_from_cstr(ip_str);
+        }
+        tbl = tunnel_mgr->secure_tunnel_hash_tbl;
+    }
+    else  // new_tunnel_hash_tbl, use public IP:port
+    {
+        snprintf(
+            key_str, 
+            SDP_COM_MAX_IPV4_LEN + SDP_COM_MAX_PORT_STRING_BUFFER_LEN + 1,
+            "%s:%"PRIu32,
+            ip_str,
+            port
+        );
+
+        key = bstr_from_cstr(key_str);
+        tbl = tunnel_mgr->new_tunnel_hash_tbl;
     }
 
-    if( (tunnel_rec = hash_table_get(tbl, key)) == NULL)
+    if(!key)
     {
-        if(which_table == REQUEST_OR_OPENED_TYPE_REQUEST)
-            pthread_mutex_unlock(&(tunnel_mgr->requested_tunnel_hash_tbl_mutex));
+        log_msg(LOG_ERR, "Unable to create hash key from provided data");
+        return SDP_ERROR;
+    }
+
+    tunnel_rec = hash_table_get(tbl, key);
+
+    if(which_table == WHICH_TABLE_REQUEST)
+        pthread_mutex_unlock(&(tunnel_mgr->requested_tunnel_hash_tbl_mutex));
+
+    if(tunnel_rec == NULL)
+    {
 
         log_msg(
             LOG_WARNING, 
-            "[*] tunnel_manager_find_tunnel_record() tunnel record not found for %s",
+            "[*] tunnel_manager_find_tunnel_record() tunnel record not found for %s \n",
             bstr_data(key)
         );
 
@@ -920,12 +1037,9 @@ int tunnel_manager_find_tunnel_record(
         return SDP_ERROR;
     }
 
-    if(which_table == REQUEST_OR_OPENED_TYPE_REQUEST)
-        pthread_mutex_unlock(&(tunnel_mgr->requested_tunnel_hash_tbl_mutex));
-
     log_msg(
         LOG_WARNING, 
-        "[+] tunnel_manager_find_tunnel_record() found tunnel record for %s",
+        "[+] tunnel_manager_find_tunnel_record() found tunnel record for %s \n",
         bstr_data(key)
     );
 
@@ -936,31 +1050,26 @@ int tunnel_manager_find_tunnel_record(
 }
 
 
-// delete a tunnel record, removes it from all hash tables if necessary
-int tunnel_manager_remove_tunnel_record(tunnel_record_t tunnel_rec)
+// delete a tunnel record, removes it from all hash tables 
+// unless one table is specified
+int tunnel_manager_remove_tunnel_record(
+        tunnel_record_t tunnel_rec,
+        which_table_t which_table
+    )
 {
     bstring requested_key = NULL;
-    bstring open_key = NULL;
-    int requested_rv = SDP_SUCCESS;
-    int open_rv = SDP_SUCCESS;
+    bstring new_key = NULL;
+    bstring secure_key = NULL;
+    int requested_rv = -1;
     tunnel_manager_t tunnel_mgr = NULL;
+    char key_str[SDP_COM_MAX_IPV4_LEN + SDP_COM_MAX_PORT_STRING_BUFFER_LEN + 1] = {0};
+    int rv = SDP_SUCCESS;
 
     if(tunnel_rec == NULL)
     {
         log_msg(LOG_ERR, "tunnel_manager_remove_tunnel_record() null value tunnel_rec submitted");
         return SDP_ERROR;
     }
-
-    if(!tunnel_rec->submitted)
-    {
-        log_msg(LOG_WARNING, "Destroying tunnel item supposedly not in a hash table");
-
-        // record is not in a hash table, just destroy
-        tunnel_record_destroy(tunnel_rec);
-        return SDP_SUCCESS;
-    }
-    
-    //hash_table_traverse(tunnel_mgr->requested_tunnel_hash_tbl, tm_traverse_print_tunnel_recs_cb, NULL);
 
     if(tunnel_rec->tunnel_mgr == NULL)
     {
@@ -973,71 +1082,90 @@ int tunnel_manager_remove_tunnel_record(tunnel_record_t tunnel_rec)
         return SDP_ERROR;
     }
 
+    if(!tunnel_rec->submitted)
+    {
+        log_msg(LOG_WARNING, "Deleting tunnel_rec supposedly not in any hash table");
+        tunnel_record_destroy(tunnel_rec);
+        return SDP_SUCCESS;
+    }
+
     tunnel_mgr = tunnel_rec->tunnel_mgr;
 
-    if(tunnel_mgr->is_sdp_client)
+    if(which_table & WHICH_TABLE_REQUEST)
     {
-        requested_key = bstr_from_cstr(tunnel_rec->remote_public_ip);
-    }
-    else
-    {
-        requested_key = tm_tunnel_key_from_sdpid(tunnel_rec->sdp_id);
-    }
-
-    if(tunnel_rec->remote_tunnel_ip[0])
-    {
-        open_key = bstr_from_cstr(tunnel_rec->remote_tunnel_ip);
-    }
-
-    // the request table has a mutex on it, unlike the open tunnel table
-    if(pthread_mutex_lock(&(tunnel_mgr->requested_tunnel_hash_tbl_mutex)))
-    {
-        log_msg(LOG_ERR, "[*] tunnel_manager_remove_tunnel_record() Mutex lock error.");
-        bstr_destroy(requested_key);
-        if(open_key) bstr_destroy(open_key);
-        return SDP_ERROR;
+        if(tunnel_mgr->is_sdp_client == 1)
+        {
+            if(tunnel_rec->remote_public_ip[0])
+            {
+                requested_key = bstr_from_cstr(tunnel_rec->remote_public_ip);
+            }
+        }
+        else
+        {
+            if(tunnel_rec->sdp_id != 0)
+            {
+                requested_key = tm_tunnel_key_from_sdpid(tunnel_rec->sdp_id);
+            }
+        }
     }
 
-    log_msg(LOG_WARNING, "Removing tunnel record from requested_tunnel_hash_tbl...");
-    requested_rv = hash_table_delete(tunnel_mgr->requested_tunnel_hash_tbl, requested_key);
-
-    if(open_key != NULL)
+    if(which_table & WHICH_TABLE_NEW && tunnel_mgr->is_sdp_client == 0)
     {
-        log_msg(LOG_WARNING, "Removing tunnel record from open_tunnel_hash_tbl as well...");
-        open_rv = hash_table_delete(tunnel_mgr->open_tunnel_hash_tbl, open_key);
+        if(tunnel_rec->remote_public_ip[0] && tunnel_rec->remote_port)
+        {
+            snprintf(
+                key_str, 
+                SDP_COM_MAX_IPV4_LEN + SDP_COM_MAX_PORT_STRING_BUFFER_LEN + 1,
+                "%s:%"PRIu32,
+                tunnel_rec->remote_public_ip,
+                tunnel_rec->remote_port
+            );
+
+            new_key = bstr_from_cstr(key_str);
+        }
+    }
+    
+    if(which_table & WHICH_TABLE_SECURE)
+    {
+        if(tunnel_rec->remote_tunnel_ip[0])
+        {
+            secure_key = bstr_from_cstr(tunnel_rec->remote_tunnel_ip);
+        }
     }
 
-    log_msg(
-        LOG_WARNING, 
-        "Removal return values - requested: %d, opened: %d", 
-        requested_rv, 
-        open_rv
-    );
-
-    pthread_mutex_unlock(&(tunnel_mgr->requested_tunnel_hash_tbl_mutex));
-
-    if( requested_rv != SDP_SUCCESS || open_rv != SDP_SUCCESS)
+    if(new_key != NULL)
     {
-        log_msg(
-            LOG_WARNING, 
-            "[*] tunnel_manager_remove_tunnel_record() tunnel record not removed for %s",
-            bstr_data(requested_key)
-        );
-
-        bstr_destroy(requested_key);
-        if(open_key) bstr_destroy(open_key);
-        return SDP_ERROR;
+        hash_table_delete(tunnel_mgr->new_tunnel_hash_tbl, new_key);
     }
 
-    log_msg(
-        LOG_WARNING, 
-        "[+] tunnel_manager_remove_tunnel_record() removed tunnel record for %s",
-        bstr_data(requested_key)
-    );
+    if(secure_key != NULL)
+    {
+        hash_table_delete(tunnel_mgr->secure_tunnel_hash_tbl, secure_key);
+    }
 
-    bstr_destroy(requested_key);
-    if(open_key) bstr_destroy(open_key);
-    return SDP_SUCCESS;
+    if(requested_key != NULL)
+    {
+        if(pthread_mutex_lock(&(tunnel_mgr->requested_tunnel_hash_tbl_mutex)))
+        {
+            log_msg(LOG_ERR, "[*] tunnel_manager_remove_tunnel_record() Mutex lock error.");
+            rv = SDP_ERROR;
+            goto cleanup;
+        }
+
+        requested_rv = hash_table_delete(tunnel_mgr->requested_tunnel_hash_tbl, requested_key);
+
+        pthread_mutex_unlock(&(tunnel_mgr->requested_tunnel_hash_tbl_mutex));
+    }
+
+cleanup:
+    // only requested table can delete the actual record,
+    // others just delete the hash node
+    if(which_table & WHICH_TABLE_REQUEST && requested_rv != SDP_SUCCESS)
+        tunnel_record_destroy(tunnel_rec);
+    if(new_key) bstr_destroy(new_key);
+    if(secure_key) bstr_destroy(secure_key);
+    if(requested_key) bstr_destroy(requested_key);
+    return rv;
 }
 
 

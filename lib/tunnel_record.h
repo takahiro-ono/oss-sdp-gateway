@@ -16,7 +16,7 @@ int tunnel_record_add_service(
         uint32_t service_id,
         uint32_t idp_id,
         char *id_token,
-        request_or_opened_type_t which_list,
+        //request_or_opened_type_t which_list,
         short int request_sent);
 
 int tunnel_record_mark_service_opened(

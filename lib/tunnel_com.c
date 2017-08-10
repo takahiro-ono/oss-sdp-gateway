@@ -361,7 +361,7 @@ static int tc_handle_error(tunnel_record_t tunnel_rec, int result)
     }
 
     log_msg(LOG_ERR, "SSL error. Disconnecting.");
-    tunnel_manager_remove_tunnel_record(tunnel_rec);
+    tunnel_manager_remove_tunnel_record(tunnel_rec, WHICH_TABLE_ALL);
     return SDP_ERROR_SSL;
 }
 
@@ -524,7 +524,7 @@ static void tc_check_outgoing_application_data(tunnel_record_t tunnel_rec)
                     "tc_check_outgoing_application_data() SSL_write failed twice"
                 );
                 free(msg);
-                tunnel_manager_remove_tunnel_record(tunnel_rec);
+                tunnel_manager_remove_tunnel_record(tunnel_rec, WHICH_TABLE_ALL);
                 return;
             }
 
@@ -646,33 +646,33 @@ static int tc_extract_cert_commonname(SSL *ssl, unsigned char **r_cn)
 
     if(ssl == NULL)
     {
-        log_msg(LOG_ERR, "tc_extract_cert_id() ssl is null");
+        log_msg(LOG_ERR, "tc_extract_cert_commonname() ssl is null");
         return SDP_ERROR_UNINITIALIZED;
     }
 
     if((cert = SSL_get_peer_certificate(ssl)) == NULL)
     {
-        log_msg(LOG_ERR, "tc_extract_cert_id() SSL_get_peer_certificate failed");
+        log_msg(LOG_ERR, "tc_extract_cert_commonname() SSL_get_peer_certificate failed");
         return SDP_ERROR_CERT;
     }
 
     if((name = X509_get_subject_name(cert)) == NULL)
     {
-        log_msg(LOG_ERR, "tc_extract_cert_id() X509_get_subject_name failed");
+        log_msg(LOG_ERR, "tc_extract_cert_commonname() X509_get_subject_name failed");
         X509_free(cert);
         return SDP_ERROR_CERT;
     }
 
     if((idx = X509_NAME_get_index_by_NID(name, NID_commonName, idx)) < 0)
     {
-        log_msg(LOG_ERR, "tc_extract_cert_id() X509_NAME_get_index_by_NID failed");
+        log_msg(LOG_ERR, "tc_extract_cert_commonname() X509_NAME_get_index_by_NID failed");
         X509_free(cert);
         return SDP_ERROR_CERT;
     }
 
     if((entry = X509_NAME_get_entry(name, idx)) == NULL)
     {
-        log_msg(LOG_ERR, "tc_extract_cert_id() X509_NAME_get_entry failed");
+        log_msg(LOG_ERR, "tc_extract_cert_commonname() X509_NAME_get_entry failed");
         X509_free(cert);
         return SDP_ERROR_CERT;
     }
@@ -682,12 +682,12 @@ static int tc_extract_cert_commonname(SSL *ssl, unsigned char **r_cn)
             X509_NAME_ENTRY_get_data(entry)
         )) < 1)
     {
-        log_msg(LOG_ERR, "tc_extract_cert_id() ASN1_STRING_to_UTF8 failed");
+        log_msg(LOG_ERR, "tc_extract_cert_commonname() ASN1_STRING_to_UTF8 failed");
         X509_free(cert);
         return SDP_ERROR_CERT;
     }
 
-    log_msg(LOG_WARNING, "tc_extract_cert_id() got common name: %s", cn);
+    log_msg(LOG_WARNING, "tc_extract_cert_commonname() got common name: %s", cn);
     X509_free(cert);
     *r_cn = cn;
     return SDP_SUCCESS;
@@ -699,6 +699,14 @@ static int tc_verify_cert_id(tunnel_record_t tunnel_rec)
     int rv = SDP_SUCCESS;
     unsigned char *cn = NULL;
     uint32_t cert_id = 0;
+    tunnel_record_t requested_tunnel_rec = NULL;
+
+    if(!tunnel_rec || !tunnel_rec->tunnel_mgr)
+    {
+        log_msg(LOG_ERR, "tunnel_com_handle_event() null context data");
+
+    }
+
 
     if((rv = tc_extract_cert_commonname(tunnel_rec->ssl, &cn)) != SDP_SUCCESS)
     {
@@ -721,24 +729,79 @@ static int tc_verify_cert_id(tunnel_record_t tunnel_rec)
         return SDP_ERROR_CERT;
     }
 
-    if(cert_id != tunnel_rec->sdp_id)
+
+    // TODO: what do we do if sdp id already has a tunnel connection
+    // yet sent another SPA, disconnect old one?
+    // if this one checks out, probably should kill the old one
+
+    // check if we were expecting this connection
+    if((rv = tunnel_manager_find_tunnel_record(
+                tunnel_rec->tunnel_mgr, 
+                cert_id,
+                NULL,
+                0,
+                WHICH_TABLE_REQUEST,
+                &requested_tunnel_rec
+        )) != SDP_SUCCESS)
     {
         log_msg(
             LOG_ERR, 
-            "tc_verify_cert_id() cert commonname %"PRIu32" does not match "
-            "expected SDP ID %"PRIu32,
-            cert_id,
-            tunnel_rec->sdp_id
+            "[*] ALERT: Attempted tunnel connection by unexpected sdp id %"PRIu32
+            " from address %s:%d!",
+            cert_id, 
+            tunnel_rec->remote_public_ip, 
+            tunnel_rec->remote_port
         );
+
         return SDP_ERROR_CERT;
     }
 
+    if(strncmp(
+        requested_tunnel_rec->remote_public_ip, 
+        tunnel_rec->remote_public_ip, 
+        MAX_IPV4_STR_LEN))
+    {
+        log_msg(
+            LOG_ERR, 
+            "[*] ALERT: Attempted tunnel connection by sdp id %"PRIu32
+            " from wrong address %s:%"PRIu32"! Expected %s",
+            cert_id, 
+            tunnel_rec->remote_public_ip, 
+            tunnel_rec->remote_port,
+            requested_tunnel_rec->remote_public_ip
+        );
+
+        return SDP_ERROR;            
+    }
+
+    tunnel_rec->sdp_id = cert_id;
+
+    // replace the partial record in the requested_tunnel table
+    // with this new, more complete record. The old request
+    // record is destroyed in the process
+    if((rv = tunnel_manager_submit_tunnel_record(
+            tunnel_rec,
+            WHICH_TABLE_REQUEST
+        )) != SDP_SUCCESS)
+    {
+        log_msg(
+            LOG_ERR, 
+            "[*] ERROR: Failed to update requested_tunnel record for SDP ID: %"PRIu32,
+            cert_id
+        );
+        return SDP_ERROR;
+    }
+
+    // remove the tunnel record from the new_tunnel table
+    tunnel_manager_remove_tunnel_record(tunnel_rec, WHICH_TABLE_NEW);
+
     log_msg(
         LOG_WARNING, 
-        "tc_verify_cert_id() cert commonname %"PRIu32" matches "
-        "expected SDP ID %"PRIu32,
-        cert_id,
-        tunnel_rec->sdp_id
+        "tc_verify_cert_id() Tunnel connection by sdp id %"PRIu32 
+        " from %s:%"PRIu32" was expected!",
+        tunnel_rec->sdp_id,
+        tunnel_rec->remote_public_ip,
+        tunnel_rec->remote_port
     );
 
     return SDP_SUCCESS;
@@ -787,7 +850,7 @@ void tunnel_com_handle_event(tunnel_record_t tunnel_rec)
             if( !tunnel_rec->tunnel_mgr->is_sdp_client && 
                 (rv = tc_verify_cert_id(tunnel_rec)) != SDP_SUCCESS)
             {
-                tunnel_manager_remove_tunnel_record(tunnel_rec);
+                tunnel_manager_remove_tunnel_record(tunnel_rec, WHICH_TABLE_ALL);
                 return;
             }
             tunnel_rec->con_state = TM_CON_STATE_SECURED;
@@ -843,7 +906,7 @@ void tunnel_com_handle_event(tunnel_record_t tunnel_rec)
             );
 
             // TODO: bail out because we can't handle this yet
-            tunnel_manager_remove_tunnel_record(tunnel_rec);
+            tunnel_manager_remove_tunnel_record(tunnel_rec, WHICH_TABLE_ALL);
             return;
         }
 
@@ -898,7 +961,7 @@ void tunnel_com_read_cb(uv_stream_t* handle, ssize_t nread, const uv_buf_t *buf)
         //    tunnel_rec->buffer_in_bytes_pending = rv;
         //}
 
-        tunnel_manager_remove_tunnel_record(tunnel_rec);
+        tunnel_manager_remove_tunnel_record(tunnel_rec, WHICH_TABLE_ALL);
         return;
     }
 
@@ -1048,7 +1111,7 @@ int tunnel_com_finalize_connection(tunnel_record_t tunnel_rec, int is_client)
     )))
     {
         log_msg(LOG_ERR, "uv_read_start error: %s", uv_err_name(rv));
-        tunnel_manager_remove_tunnel_record(tunnel_rec);
+        tunnel_manager_remove_tunnel_record(tunnel_rec, WHICH_TABLE_ALL);
         return SDP_ERROR_CONN_FAIL;
     }
 

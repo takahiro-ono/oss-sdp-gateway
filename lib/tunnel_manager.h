@@ -46,20 +46,20 @@ int  tunnel_manager_submit_client_request(tunnel_manager_t tunnel_mgr,
         uint32_t sdp_id, char *ip_str);
 
 int  tunnel_manager_submit_tunnel_record(
-        tunnel_manager_t tunnel_mgr, 
-        void *key_data,
-        key_data_type_t data_type,
-        request_or_opened_type_t which_table,
-        tunnel_record_t r_tunnel_rec);
+        tunnel_record_t r_tunnel_rec, 
+        which_table_t which_table);
 
 int  tunnel_manager_find_tunnel_record(
         tunnel_manager_t tunnel_mgr, 
-        void *key_data,
-        key_data_type_t data_type,
-        request_or_opened_type_t which_table,
+        uint32_t sdp_id,
+        char *ip_str,
+        uint32_t port,
+        which_table_t which_table,
         tunnel_record_t *r_tunnel_rec);
 
-int tunnel_manager_remove_tunnel_record(tunnel_record_t tunnel_rec);
+int tunnel_manager_remove_tunnel_record(
+        tunnel_record_t tunnel_rec,
+        which_table_t which_table);
 
 int  tunnel_manager_get_peer_addr_and_port(uv_tcp_t *peer, 
         char **ip_str, uint32_t *ip_num, uint32_t *port_num);

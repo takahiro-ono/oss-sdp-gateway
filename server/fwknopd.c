@@ -221,11 +221,14 @@ main(int argc, char **argv)
 
         if(strncasecmp(opts.config[CONF_DISABLE_SDP_CTRL_CLIENT], "N", 1) == 0)
         {
-            // start the tunnel manager
-            if(start_tunnel_manager(&opts) != SDP_SUCCESS)
+            if(strncasecmp(opts.config[CONF_DISABLE_TUNNEL_SERVICE], "N", 1) == 0)
             {
-                log_msg(LOG_ERR, "Failed to start Tunnel Manager Thread. Aborting.");
-                clean_exit(&opts, FW_CLEANUP, EXIT_FAILURE);
+                // start the tunnel manager
+                if(start_tunnel_manager(&opts) != SDP_SUCCESS)
+                {
+                    log_msg(LOG_ERR, "Failed to start Tunnel Manager Thread. Aborting.");
+                    clean_exit(&opts, FW_CLEANUP, EXIT_FAILURE);
+                }
             }
 
             // arriving here means the server received access data

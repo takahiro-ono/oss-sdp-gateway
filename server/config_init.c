@@ -1052,6 +1052,18 @@ validate_options(fko_srv_options_t *opts)
         }
     }
 
+    if(opts->config[CONF_DISABLE_TUNNEL_SERVICE] == NULL)
+    {
+        if(strncmp(opts->config[CONF_DISABLE_SDP_CTRL_CLIENT], "N", 1) == 0)
+        {
+            set_config_entry(opts, CONF_DISABLE_TUNNEL_SERVICE, DEF_DISABLE_TUNNEL_SERVICE);
+        }
+        else
+        {
+            set_config_entry(opts, CONF_DISABLE_TUNNEL_SERVICE, "Y");
+        }
+    }
+
     if(opts->config[CONF_MAX_WAIT_ACC_DATA] == NULL)
     {
         set_config_entry(opts, CONF_MAX_WAIT_ACC_DATA, DEF_MAX_WAIT_ACC_DATA);
@@ -1381,6 +1393,9 @@ config_init(fko_srv_options_t *opts, int argc, char **argv)
                 break;
             case DISABLE_CONNECTION_TRACKING:
                 set_config_entry(opts, CONF_DISABLE_CONNECTION_TRACKING, "Y");
+                break;
+            case DISABLE_TUNNEL_SERVICE:
+                set_config_entry(opts, CONF_DISABLE_TUNNEL_SERVICE, "Y");
                 break;
             case CONN_ID_FILE:
                 set_config_entry(opts, CONF_CONN_ID_FILE, optarg);

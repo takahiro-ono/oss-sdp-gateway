@@ -87,7 +87,7 @@ static int finalize_config(sdp_ctrl_client_t client)
     if(!(client->com->ca_cert_file))
     {
         log_msg(LOG_WARNING, "WARNING: CA cert file not specified; "
-            " peer certificate verification will not performed");
+            " peer certificate verification will not be performed");
     }
 
     if(!(client->com->key_file))

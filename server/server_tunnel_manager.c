@@ -9,6 +9,7 @@
 #include "log_msg.h"
 #include "tunnel_manager.h"
 #include "tunnel_com.h"
+#include "tunnel_record.h"
 #include "server_tunnel_manager.h"
 
 const char *TM_STOP_MSG = "STOP_TM";
@@ -60,10 +61,6 @@ const char *TM_STOP_MSG = "STOP_TM";
 //    free(req);
 //}
 
-static void stm_server_close_cb(uv_handle_t *handle)
-{
-    free(handle);
-}
 
 // Callback for new connections
 static void stm_new_tunnel_connection_cb(uv_stream_t *server, int status) 
@@ -74,12 +71,7 @@ static void stm_new_tunnel_connection_cb(uv_stream_t *server, int status)
     char *ip_str = NULL;
     uint32_t ip_num = 0;
     uint32_t port_num = 0;
-
     tunnel_record_t tunnel_rec = NULL;
-    uint32_t sdp_id = 55555;
-
-    //char *s = "Hello, World!\n";
-    //uv_buf_t bufs[] = {uv_buf_init(s, (unsigned int)strnlen(s, 20))};
 
     // Check status code, anything under 0 means an error.
     if(status < 0) {
@@ -115,92 +107,54 @@ static void stm_new_tunnel_connection_cb(uv_stream_t *server, int status)
     if((rv = tunnel_manager_get_peer_addr_and_port(
         client, &ip_str, &ip_num, &port_num)) != SDP_SUCCESS)
     {
-        log_msg(LOG_ERR, "[*] Failed to get peer connection info. Closing connection.");
+        log_msg(LOG_ERR, "Failed to get peer connection info. Closing connection.");
 
         //closing client handle
         uv_close((uv_handle_t*)client, (uv_close_cb)free);
 
     }
 
-    //client->data = ip_str;
-
     log_msg(
-        LOG_INFO, "[+] New tunnel connection received from %s:%d", 
+        LOG_INFO, "New tunnel connection received from %s:%d", 
         ip_str, port_num
     );
 
-    // TODO: putting this call here for now to test, function is meant to call
-    // when a good SPA packet arrives
-    if((rv = tunnel_manager_submit_client_request(
-        (tunnel_manager_t)server->data, sdp_id, ip_str
+    if((rv = tunnel_record_create(
+            0,
+            ip_str,
+            port_num,
+            client,
+            (tunnel_manager_t)server->data,
+            &tunnel_rec
         )) != SDP_SUCCESS)
     {
-        log_msg(LOG_ERR, "[*] stm_new_tunnel_connection_cb failed to create tunnel request");
-
+        log_msg(LOG_ERR, "Failed to create tunnel record from new connection");
+        uv_close((uv_handle_t*)client, (uv_close_cb)free);
         if(rv == SDP_ERROR_MEMORY_ALLOCATION)
         {
-            log_msg(LOG_ERR, "[*] Fatal memory error. Aborting.");
-            uv_close((uv_handle_t*)client, (uv_close_cb)free);
-            free(ip_str);
             kill(getpid(), SIGTERM);
-            return;
+            return; 
         }
     }
 
-    log_msg(LOG_WARNING, "[+] stm_new_tunnel_connection_cb Successfully stored tunnel request");
-
-    // TODO: perform SSL handshake, that's async so code below will need
-    // to become part of the callback for that
-
-    // TODO: what do we do if sdp id already has a tunnel connection
-    // yet sent another SPA, disconnect old one?
-    // if this one checks out, probably should kill the old one
-
-    // check if we were expecting this connection
-    if((rv = tunnel_manager_find_tunnel_record(
-                (tunnel_manager_t)server->data, 
-                (void*)&sdp_id,
-                KEY_DATA_TYPE_SDP_ID,
-                REQUEST_OR_OPENED_TYPE_REQUEST,
-                &tunnel_rec
+    if((rv = tunnel_manager_submit_tunnel_record(
+            tunnel_rec,
+            WHICH_TABLE_NEW
         )) != SDP_SUCCESS)
     {
-        log_msg(
-            LOG_ERR, 
-            "[*] ALERT: Attempted tunnel connection by unexpected sdp id %"PRIu32
-            " from address %s:%d!",
-            sdp_id, ip_str, port_num
-        );
-
-        uv_close((uv_handle_t*)client, (uv_close_cb)free);
-        free(ip_str);
+        log_msg(LOG_ERR, "Failed to submit new tunnel record.");
+        tunnel_record_destroy(tunnel_rec);
         return;
-    }
-
-    if(strncmp(ip_str, tunnel_rec->remote_public_ip, MAX_IPV4_STR_LEN))
-    {
-        log_msg(
-            LOG_ERR, 
-            "[*] ALERT: Attempted tunnel connection by sdp id %"PRIu32
-            " from wrong address %s:%d!",
-            sdp_id, ip_str, port_num
-        );
-
-        tunnel_manager_remove_tunnel_record(tunnel_rec);
-        free(ip_str);
-        return;            
     }
 
     free(ip_str);
 
     client->data = tunnel_rec;
-    tunnel_rec->handle = client;
-    tunnel_rec->remote_port = (uint32_t)port_num;
+    tunnel_rec->remote_port = port_num;
 
     log_msg(
         LOG_WARNING, 
-        "[+] Tunnel connection by sdp id %"PRIu32" from %s:%"PRIu32" was expected!",
-        tunnel_rec->sdp_id, 
+        "[+] Tunnel connection from %s:%"PRIu32" was submitted to new_tunnel table!",
         tunnel_rec->remote_public_ip,
         tunnel_rec->remote_port
     );
@@ -210,7 +164,7 @@ static void stm_new_tunnel_connection_cb(uv_stream_t *server, int status)
     if((rv = tunnel_com_finalize_connection(tunnel_rec, 0)) != SDP_SUCCESS)
     {
         log_msg(LOG_ERR, "failed to secure connection");
-        tunnel_manager_remove_tunnel_record(tunnel_rec);
+        tunnel_manager_remove_tunnel_record(tunnel_rec, WHICH_TABLE_ALL);
     }
 
 }
@@ -477,7 +431,7 @@ cleanup:
 void *stm_thread_func(void *arg)
 {
     fko_srv_options_t *opts = (fko_srv_options_t*)arg;
-    uv_tcp_t server;
+    uv_tcp_t *server = NULL;
     struct sockaddr_in addr;
     int rv = 0;
 
@@ -499,31 +453,34 @@ void *stm_thread_func(void *arg)
     // ip address '0.0.0.0' means listen on any interface
     uv_ip4_addr("0.0.0.0", TUNNEL_PORT, &addr);
 
-    // Set up tcp handle
-    uv_tcp_init(opts->tunnel_mgr->loop, &server);
+    if((server = calloc(1, sizeof *server)) == NULL)
+    {
+        log_msg(LOG_ERR, "Memory allocation error");
 
-    server.data = opts->tunnel_mgr;
+        // send kill signal for main thread to catch and exit safely
+        kill(getpid(), SIGTERM);
+        return NULL;
+    }
+
+    // Set up tcp handle
+    uv_tcp_init(opts->tunnel_mgr->loop, server);
+
+    server->data = opts->tunnel_mgr;
 
     // Bind to socket
-    uv_tcp_bind(&server, (const struct sockaddr*)&addr, 0);
+    uv_tcp_bind(server, (const struct sockaddr*)&addr, 0);
 
     // Listen on socket, run stm_new_tunnel_connection_cb() on every new connection
-    if((rv = uv_listen((uv_stream_t*) &server, TUNNEL_BACKLOG, stm_new_tunnel_connection_cb)) != 0)
+    if((rv = uv_listen((uv_stream_t*) server, TUNNEL_BACKLOG, stm_new_tunnel_connection_cb)) != 0)
     {
         log_msg(LOG_ERR, "uv_listen error: %s", uv_strerror(rv));
         return NULL;
     }
     
-    opts->tunnel_mgr->tm_tcp_server = &server;
+    opts->tunnel_mgr->tm_tcp_server = server;
 
     // Start the loop
     uv_run(opts->tunnel_mgr->loop, UV_RUN_DEFAULT);
-
-    uv_close((uv_handle_t*)&server, stm_server_close_cb);
-
-    // Close loop and shutdown
-    //uv_loop_close(opts->tunnel_mgr->loop);
-    //opts->tunnel_mgr->loop = NULL;
 
     return NULL;
 }
