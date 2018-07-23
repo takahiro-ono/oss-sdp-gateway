@@ -407,8 +407,24 @@ static int sdp_com_ssl_ctx_init(SSL_CTX **ssl_ctx)
     return SDP_SUCCESS;
 }
 
-static int sdp_com_load_certs(SSL_CTX* ctx, char* cert_file, char* key_file)
+static int sdp_com_load_certs(SSL_CTX* ctx, char *ca_cert_file, char* cert_file, char* key_file)
 {
+    // load the CA cert for verification of peer certs
+    if(ca_cert_file)
+    {
+        log_msg(LOG_WARNING, "Setting CA cert for peer cert verification.");
+        if ( SSL_CTX_load_verify_locations(ctx, ca_cert_file, NULL) <= 0)
+        {
+            ERR_print_errors_fp(stderr);
+            return SDP_ERROR_CERT;
+        }
+        SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER, NULL); //tunnel_com_ssl_verify_callback); 
+    }
+    else
+    {
+        log_msg(LOG_WARNING, "WARNING: CA cert not provided for peer cert verification.");
+    }
+
     // set the local certificate from CertFile
     if ( SSL_CTX_use_certificate_file(ctx, cert_file, SSL_FILETYPE_PEM) <= 0 )
     {
@@ -480,7 +496,12 @@ int sdp_com_init(sdp_com_t com)
     if((rv = sdp_com_ssl_ctx_init(&(com->ssl_ctx))) != SDP_SUCCESS)
         return rv;
 
-    if((rv = sdp_com_load_certs(com->ssl_ctx, com->cert_file, com->key_file)) != SDP_SUCCESS)
+    if((rv = sdp_com_load_certs(
+            com->ssl_ctx, 
+            com->ca_cert_file, 
+            com->cert_file, 
+            com->key_file
+        )) != SDP_SUCCESS)
         return rv;
 
     // disable the SIGPIPE signal and handle dropped connections as needed
@@ -525,6 +546,9 @@ void sdp_com_destroy(sdp_com_t com)
 
     if(com->cert_file != NULL)
         free(com->cert_file);
+
+    if(com->ca_cert_file != NULL)
+        free(com->ca_cert_file);
 
     if(com->spa_encryption_key != NULL)
         free(com->spa_encryption_key);

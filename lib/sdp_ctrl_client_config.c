@@ -29,6 +29,7 @@ const char *sdp_ctrl_client_config_map[SDP_CTRL_CLIENT_CONFIG_ENTRIES] = {
     "FOREGROUND",
     "USE_SYSLOG",
     "VERBOSITY",
+    "CA_CERT_FILE",
     "KEY_FILE",
     "CERT_FILE",
     "SPA_ENCRYPTION_KEY",
@@ -81,6 +82,12 @@ static int finalize_config(sdp_ctrl_client_t client)
     {
         log_msg(LOG_ERR, "Controller address not specified");
         return SDP_ERROR_CONFIG;
+    }
+
+    if(!(client->com->ca_cert_file))
+    {
+        log_msg(LOG_WARNING, "WARNING: CA cert file not specified; "
+            " peer certificate verification will not performed");
     }
 
     if(!(client->com->key_file))
@@ -405,6 +412,13 @@ int sdp_ctrl_client_set_config_entry(sdp_ctrl_client_t client, int var, const ch
 
         case SDP_CTRL_CLIENT_CONFIG_VERBOSITY:
             client->verbosity = sdp_strtol_wrapper(val, 0, 7, &rv);
+            break;
+
+        case SDP_CTRL_CLIENT_CONFIG_CA_CERT_FILE:
+            if((rv = sdp_make_absolute_path(val, &(client->com->ca_cert_file))) != SDP_SUCCESS)
+            {
+                log_msg(LOG_ERR, "Error storing TLS cert file path");
+            }
             break;
 
         case SDP_CTRL_CLIENT_CONFIG_KEY_FILE:
