@@ -296,35 +296,28 @@ static int make_service_data_from_json(fko_srv_options_t *opts, json_object *jda
 
     if((rv = sdp_get_json_string_field("nat_ip", jdata, &tmp)) != SDP_SUCCESS)
     {
-        // this service stanza has no NAT info, that's no problem
-        rv = FWKNOPD_SUCCESS;
+        log_msg(LOG_ERR, "Did not find service nat ip in service data stanza (should at least be empty string), invalid service data entry");
+        goto cleanup;
     }
-    else
+
+    // for now, allowing empty strings, but don't bother trying to copy 
+    // in that case
+    if(is_valid_ipv4_addr(tmp))
     {
-        if((str_len = strnlen(tmp, MAX_IPV4_STR_LEN+1)) > MAX_IPV4_STR_LEN)
-        {
-            log_msg(LOG_ERR, "Service NAT IP string too long, invalid service data entry");
-            rv = FWKNOPD_ERROR_BAD_SERVICE_DATA;
-            goto cleanup;
-        }
-
-        if(str_len < MIN_IPV4_STR_LEN)
-        {
-            log_msg(LOG_ERR, "Service NAT IP string too short, invalid service data entry");
-            rv = FWKNOPD_ERROR_BAD_SERVICE_DATA;
-            goto cleanup;
-        }
-
+        str_len = strnlen(tmp, MAX_IPV4_STR_LEN);
         memcpy(service_data->nat_ip_str, tmp, str_len);
-        free(tmp);
-        tmp = NULL;
-
-        if((rv = sdp_get_json_int_field("nat_port", jdata, (int*)&(service_data->nat_port))) != SDP_SUCCESS)
-        {
-            log_msg(LOG_ERR, "Found service NAT IP string, but did not find service nat port in service data stanza, invalid stanza entry");
-            goto cleanup;
-        }
     }
+
+    free(tmp);
+    tmp = NULL;
+
+    if((rv = sdp_get_json_int_field("nat_port", jdata, (int*)&(service_data->nat_port))) != SDP_SUCCESS)
+    {
+        log_msg(LOG_ERR, "Did not find service nat port in service data stanza (should at least be zero), invalid service data entry");
+        goto cleanup;
+    }
+
+
 
 
 cleanup:

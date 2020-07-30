@@ -382,10 +382,17 @@ static int create_connection_item_from_line(fko_srv_options_t *opts,
     this_conn->start_time = now;
 
     // if dest address does not match returning source address
-    // then NAT is in use
+    // then NAT to another machine is in use
     if(strncmp(this_conn->dst_ip_str, return_src_ip_str, MAX_IPV4_STR_LEN) != 0)
     {
         strncpy(this_conn->nat_dst_ip_str, return_src_ip_str, MAX_IPV4_STR_LEN);
+        this_conn->nat_dst_port = return_src_port;
+    }
+    else if(this_conn->dst_port != return_src_port)
+    {
+        // if dest port does not match returning source port
+        // yet dest IP matched returning source IP (previous check)
+        // then it's local NAT
         this_conn->nat_dst_port = return_src_port;
     }
 
