@@ -384,7 +384,11 @@ static int sdp_com_ssl_ctx_init(SSL_CTX **ssl_ctx)
     const SSL_METHOD *method;
     SSL_CTX *ctx;
 
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
     SSL_library_init();
+#else
+    OPENSSL_init_ssl(0, NULL);
+#endif
 
     // Load cryptos, et.al.
     OpenSSL_add_all_algorithms();
@@ -393,7 +397,11 @@ static int sdp_com_ssl_ctx_init(SSL_CTX **ssl_ctx)
     SSL_load_error_strings();
 
     // Create new client-method instance
-    method = TLSv1_2_client_method();
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
+    method = TLSv1_2_method();
+#else
+    method = TLS_method();
+#endif
 
     // Create new context
     ctx = SSL_CTX_new(method);

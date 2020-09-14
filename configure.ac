@@ -529,9 +529,16 @@ AS_IF([test "x$WGET_EXE" != x],
 dnl Check for ssl
 dnl
 AC_CHECK_HEADER(openssl/ssl.h, , [ AC_MSG_ERROR( [did not find openssl/ssl.h] ) ] )
-AC_SEARCH_LIBS([SSL_library_init], [ssl],
+AC_SEARCH_LIBS(
+  [OPENSSL_init_ssl], 
+  [ssl],
   ,
-  [ AC_MSG_ERROR([libfko needs ssl])]
+  [AC_SEARCH_LIBS(
+    [SSL_library_init], 
+    [ssl],
+    ,
+    [ AC_MSG_ERROR( [libfko needs ssl] ) ]
+  )]
 )
 
 dnl Check for crypto
