@@ -158,8 +158,8 @@ enum {
 #define MAX_GPG_KEY_ID      128
 #define MAX_USERNAME_LEN    30
 
-#define MAX_KEY_LEN                 128
-#define MAX_B64_KEY_LEN             180
+#define MAX_KEY_LEN                 256
+#define MAX_B64_KEY_LEN             360
 
 /* Command line argument / argv handling
 */

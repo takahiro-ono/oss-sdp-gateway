@@ -42,9 +42,9 @@
  * the ssh protocols, 256 bits is the default.
  */
 #define RIJNDAEL_BLOCKSIZE 16
-#define RIJNDAEL_KEYSIZE   32
-#define RIJNDAEL_MIN_KEYSIZE 16
-#define RIJNDAEL_MAX_KEYSIZE 32
+#define RIJNDAEL_KEYSIZE   64
+#define RIJNDAEL_MIN_KEYSIZE 64
+#define RIJNDAEL_MAX_KEYSIZE 256
 #define SALT_LEN 8
 
 #define     MODE_ECB        1    /*  Are we ciphering in ECB mode?   */

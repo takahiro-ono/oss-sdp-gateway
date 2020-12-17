@@ -1234,7 +1234,7 @@ get_keys(fko_ctx_t ctx, fko_cli_options_t *options,
     {
         *key_len = fko_base64_decode(options->key_base64,
                 (unsigned char *) options->key);
-        if(*key_len > 0 && *key_len < MAX_KEY_LEN)
+        if(*key_len > 0 && *key_len <= MAX_KEY_LEN)
         {
             memcpy(key, options->key, *key_len);
         }

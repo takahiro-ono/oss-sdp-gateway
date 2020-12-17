@@ -55,7 +55,10 @@ _rijndael_encrypt(fko_ctx_t ctx, const char *enc_key, const int enc_key_len)
     int             zero_free_rv = FKO_SUCCESS;
 
     if(enc_key_len < 0 || enc_key_len > RIJNDAEL_MAX_KEYSIZE)
+    {
+        debug("_rijndael_encrypt() : bad key len");
         return(FKO_ERROR_INVALID_KEY_LEN);
+    }
 
     if (! is_valid_encoded_msg_len(ctx->encoded_msg_len))
         return(FKO_ERROR_INVALID_DATA_ENCRYPT_MSGLEN_VALIDFAIL);
@@ -597,7 +600,10 @@ fko_encrypt_spa_data(fko_ctx_t ctx, const char * const enc_key,
         return(FKO_ERROR_CTX_NOT_INITIALIZED);
 
     if(enc_key_len < 0)
+    {
+        debug("fko_encrypt_spa_data() : enc_key_len < 0");
         return(FKO_ERROR_INVALID_KEY_LEN);
+    }
 
     /* If there is no encoded data or the SPA data has been modified,
      * go ahead and re-encode here.
@@ -611,7 +617,10 @@ fko_encrypt_spa_data(fko_ctx_t ctx, const char * const enc_key,
     }
 
     if(res != FKO_SUCCESS)
+    {
+        debug("fko_encrypt_spa_data() : fko_encode_[sdp_]spa_data returned error");
         return(res);
+    }
 
     /* Croak on invalid encoded message as well. At present this is a
      * check for a somewhat arbitrary minimum length for the encoded
@@ -626,6 +635,7 @@ fko_encrypt_spa_data(fko_ctx_t ctx, const char * const enc_key,
     {
         if(enc_key == NULL)
             return(FKO_ERROR_INVALID_KEY_LEN);
+        debug("fko_encrypt_spa_data() : calling _rijndael_encrypt...");
         res = _rijndael_encrypt(ctx, enc_key, enc_key_len);
     }
     else if(ctx->encryption_type == FKO_ENCRYPTION_GPG)

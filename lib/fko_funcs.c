@@ -652,7 +652,10 @@ fko_spa_data_final(fko_ctx_t ctx,
     debug("fko_spa_data_final() : calling fko_encrypt_spa_data...");
     res = fko_encrypt_spa_data(ctx, enc_key, enc_key_len);
     if(res != FKO_SUCCESS)
-    	return res;
+    {
+        debug("fko_spa_data_final() : fko_encrypt_spa_data returned error");
+        return res;
+    }
     debug("fko_spa_data_final() : returned from fko_encrypt_spa_data");
 
     /* Notice we omit the first 10 bytes if Rijndael encryption is

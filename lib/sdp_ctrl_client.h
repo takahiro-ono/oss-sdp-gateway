@@ -31,8 +31,8 @@ extern sig_atomic_t sdp_ctrl_client_got_sigchld;
 enum {
     SDP_MAX_SERVER_STR_LEN  = 50,
     SDP_MAX_LINE_LEN        = 1024,
-    SDP_MAX_KEY_LEN         = 128,
-    SDP_MAX_B64_KEY_LEN     = 180,
+    SDP_MAX_KEY_LEN         = 256,
+    SDP_MAX_B64_KEY_LEN     = 360,
     SDP_MAX_MSG_Q_LEN       = 100,
     SDP_MAX_POST_SPA_DELAY  = 10,
     SDP_MAX_CLIENT_ID_STR_LEN = 11,
