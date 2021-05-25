@@ -466,14 +466,15 @@ int process_service_msg(fko_srv_options_t *opts, int action, json_object *jdata)
     }
 
     service_array_len = json_object_array_length(jdata);
+    
     if(service_array_len <= 0)
     {
-        log_msg(LOG_ERR, "Received service message with zero length data array.");
-        return FWKNOPD_ERROR_BAD_MSG;
+        log_msg(LOG_ERR, "Received service message with zero length data array. I have no purpose.");
     }
-
-    log_msg(LOG_DEBUG, "jdata contains %d objects", service_array_len);
-
+    else
+    {
+        log_msg(LOG_DEBUG, "jdata contains %d objects", service_array_len);
+    }
 
     // lock the hash table mutex
     if(pthread_mutex_lock(&(opts->service_hash_tbl_mutex)))
