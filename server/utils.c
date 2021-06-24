@@ -162,7 +162,7 @@ verify_file_perms_ownership(const char *file)
         }
 
         caller_uid = getuid();
-        if(st.st_uid != caller_uid)
+        if(caller_uid > 0 && st.st_uid != caller_uid)
         {
             log_msg(LOG_WARNING, "[-] file: %s (owner: %llu) not owned by current effective user id: %llu",
                 file, (unsigned long long)st.st_uid, (unsigned long long)caller_uid);

@@ -17,6 +17,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <sys/socket.h>
+#include <fcntl.h>
 
 const char *BACKUP_PATH_POSTFIX = "_previous";
 #define POSTFIX_LEN 10
@@ -153,6 +154,49 @@ long double sdp_strtold_wrapper(const char * const str, const int min,
 }
 
 
+// Set ownership and permissions for file using info from stat_buf
+static int sdp_set_file_info(const char *file_path, struct stat *stat_buf)
+{
+    int rv = 0;
+
+    if(!stat_buf)
+    {
+        log_msg(LOG_ERR, "File stat info not provided");
+        return SDP_ERROR_BAD_ARG;
+    }
+
+    if((rv = chown(file_path, stat_buf->st_uid, stat_buf->st_gid)) != 0)
+    {
+        log_msg(
+            LOG_ERR, 
+            "Failed to set owner/group to %d:%d for file: %s", 
+            stat_buf->st_uid,
+            stat_buf->st_gid,
+            file_path
+        );
+
+        return SDP_ERROR_FILESYSTEM_OPERATION;
+    }
+
+
+    if((rv = chmod(file_path, stat_buf->st_mode)) != 0)
+    {
+        log_msg(
+            LOG_ERR, 
+            "Failed to set mode to %d for file: %s", 
+            stat_buf->st_mode,
+            file_path
+        );
+
+        return SDP_ERROR_FILESYSTEM_OPERATION;
+    }
+
+    return SDP_SUCCESS;
+}
+
+
+
+
 int sdp_move_file_to_backup(const char *file_path)
 {
     struct stat stat_buf;
@@ -206,10 +250,17 @@ int sdp_save_to_file(const char *file_path, const char *data)
     FILE *fp = NULL;
     int num_bytes = 0;
     size_t data_len = strnlen(data, SDP_MSG_MAX_LEN);
+    struct stat stat_buf;
 
     if( !(data && file_path))
     {
         log_msg(LOG_ERR, "Passed null argument to function");
+        return SDP_ERROR_BAD_ARG;
+    }
+
+    if((stat(file_path, &stat_buf)) != 0)
+    {
+        log_msg(LOG_ERR, "File not found: %s", file_path);
         return SDP_ERROR_BAD_ARG;
     }
 
@@ -254,6 +305,13 @@ int sdp_save_to_file(const char *file_path, const char *data)
                    num_bytes, (int)data_len, file_path);
         goto cleanup;
     }
+
+    fclose(fp);
+    fp = NULL;
+
+    // copy file ownership/permissions to new file
+    if((rv = sdp_set_file_info(file_path, &stat_buf)) != SDP_SUCCESS)
+        goto cleanup;
 
     // arriving here means all is well
     rv = SDP_SUCCESS;
@@ -338,6 +396,7 @@ int  sdp_replace_spa_keys(const char *file_path,
     int count2 = 0;
     char backup_path[PATH_MAX + 1] = {0};
     int rv = SDP_SUCCESS;
+    struct stat stat_buf;
 
 
     if( !(file_path &&
@@ -373,6 +432,12 @@ int  sdp_replace_spa_keys(const char *file_path,
         return SDP_ERROR_BAD_ARG;
     }
 
+    if((stat(file_path, &stat_buf)) != 0)
+    {
+        log_msg(LOG_ERR, "File not found: %s", file_path);
+        return SDP_ERROR_BAD_ARG;
+    }
+
     // rename the original file to be the backup
     if((rv = sdp_move_file_to_backup(file_path)) != SDP_SUCCESS)
     {
@@ -381,7 +446,7 @@ int  sdp_replace_spa_keys(const char *file_path,
     }
 
     // open the 'old' file for reading
-    if ((old_file = fopen(backup_path, "r")) == NULL)
+    if((old_file = fopen(backup_path, "r")) == NULL)
     {
         log_msg(LOG_ERR, "Could not open file for read: %s", backup_path);
         perror(NULL);
@@ -390,7 +455,7 @@ int  sdp_replace_spa_keys(const char *file_path,
     }
 
     // open the 'new' file for writing
-    if ((new_file = fopen(file_path, "w")) == NULL)
+    if((new_file = fopen(file_path, "w")) == NULL)
     {
         log_msg(LOG_ERR, "Could not open file for writing: %s", file_path);
         perror(NULL);
@@ -483,10 +548,15 @@ int  sdp_replace_spa_keys(const char *file_path,
     }
     else
     {
-        rv = SDP_SUCCESS;
         log_msg(LOG_DEBUG, "Minimum match requirement successfully met:");
         log_msg(LOG_DEBUG, "  Key 1 - Required: %d, Matched: %d", min_key1_matches, count1);
         log_msg(LOG_DEBUG, "  Key 2 - Required: %d, Matched: %d", min_key2_matches, count2);
+
+        fclose(new_file);
+        new_file = NULL;
+
+        // copy file ownership/permissions to new file
+        rv = sdp_set_file_info(file_path, &stat_buf);
     }
 
 
