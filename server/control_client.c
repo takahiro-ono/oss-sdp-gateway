@@ -176,12 +176,23 @@ int get_management_data_from_controller(fko_srv_options_t *opts)
                 break;
         }
 
+        // watch the time
+        if( (time(NULL) > stop_time) )
+        {
+            // if we timed out, then we did not get the management data we needed
+            log_msg(LOG_ERR, "Failed to get service and/or access data from controller.");
+            return FWKNOPD_ERROR_CTRL_COM;
+        }
+
         // reset action
         action = INVALID_CTRL_ACTION;
 
         // do not begin sending requests until controller is ready
         if( !(sdp_ctrl_client_controller_status(opts->ctrl_client)) )
+        {
+            sleep(1);
             continue;
+        }
 
         // if new connection or just time, update credentials
         if((rv = sdp_ctrl_client_consider_cred_update(opts->ctrl_client)) != SDP_SUCCESS)
@@ -194,14 +205,6 @@ int get_management_data_from_controller(fko_srv_options_t *opts)
         // if built for remote gateway, handle access updates
         if((rv = sdp_ctrl_client_consider_access_refresh(opts->ctrl_client)) != SDP_SUCCESS)
             break;
-
-        // watch the time
-        if( (time(NULL) > stop_time) )
-        {
-            // if we timed out, then we did not get the management data we needed
-            log_msg(LOG_ERR, "Failed to get service and/or access data from controller.");
-            return FWKNOPD_ERROR_CTRL_COM;
-        }
 
         sleep(1);
     }
