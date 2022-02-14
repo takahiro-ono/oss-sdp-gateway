@@ -1363,8 +1363,7 @@ static void snat_rule(const fko_srv_options_t * const opts,
         {
             /* Using MASQUERADE */
             snat_chain = &(opts->fw_config->chain[IPT_MASQUERADE_ACCESS]);
-            snprintf(snat_target, SNAT_TARGET_BUFSIZE-1,
-                "--to-ports %i", fst_port);
+            snprintf(snat_target, SNAT_TARGET_BUFSIZE-1, " ");
         }
         else if((opts->config[CONF_SNAT_TRANSLATE_IP] != NULL)
             && is_valid_ipv4_addr(opts->config[CONF_SNAT_TRANSLATE_IP]))
@@ -1379,8 +1378,7 @@ static void snat_rule(const fko_srv_options_t * const opts,
         {
             /* Using MASQUERADE */
             snat_chain = &(opts->fw_config->chain[IPT_MASQUERADE_ACCESS]);
-            snprintf(snat_target, SNAT_TARGET_BUFSIZE-1,
-                "--to-ports %i", fst_port);
+            snprintf(snat_target, SNAT_TARGET_BUFSIZE-1, " ");
         }
 
         memset(rule_buf, 0, CMD_BUFSIZE);
